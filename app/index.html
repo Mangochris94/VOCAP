@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vocap — M1 prototype (gray boxes)</title>
+<style>
+  /* ============================================================
+     M1 = deliberately ugly. Gray boxes. If this is fun, art will
+     only make it better. Everything visual here is placeholder.
+     ============================================================ */
+  :root{
+    --bg:#2b2d31; --panel:#36393f; --box:#4a4d55; --box-lit:#6b7280;
+    --glow:#e3b341; --text:#e6e6e6; --dim:#9aa0a6; --good:#7ec97e;
+  }
+  body{background:var(--bg);color:var(--text);font-family:system-ui,'Noto Sans Thai',sans-serif;
+       margin:0;display:flex;flex-direction:column;align-items:center;padding:24px;gap:16px}
+  h1{font-size:15px;letter-spacing:3px;color:var(--dim);margin:0;font-weight:600}
+
+  /* --- the tray: one gray box per letter slot --- */
+  #tray{display:flex;gap:8px;min-height:64px;align-items:center}
+  .slot{width:52px;height:60px;border-radius:8px;background:var(--panel);
+        display:flex;align-items:center;justify-content:center;font-size:26px;
+        font-weight:700;border:2px solid transparent;text-transform:uppercase}
+  .slot.filled{background:var(--box)}
+  .slot.typed{background:var(--box-lit);border-color:var(--glow)}   /* highlighted while typing */
+  .slot.empty{opacity:.35}
+
+  /* --- the clue line: the learning mechanic, front and centre --- */
+  #clue{min-height:24px;color:var(--glow);font-size:15px;text-align:center;max-width:640px}
+  #clue.spellable{text-shadow:0 0 12px var(--glow)}                 /* the "glow" from §3.6 */
+
+  /* --- typing area --- */
+  #typed{font-size:24px;letter-spacing:6px;min-height:34px;font-weight:700;text-transform:uppercase}
+  #msg{min-height:22px;color:var(--dim);font-size:14px}
+  #msg.good{color:var(--good)} #msg.bad{color:#e07a7a}
+
+  /* --- status bar --- */
+  #bar{display:flex;gap:22px;color:var(--dim);font-size:13px;align-items:center;flex-wrap:wrap;justify-content:center}
+  #bar b{color:var(--text)}
+  button{background:var(--panel);color:var(--text);border:1px solid #555;border-radius:6px;
+         padding:5px 12px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--glow)}
+
+  /* --- discovery card (plain, art slot reserved) --- */
+  #card{display:none;background:var(--panel);border-radius:12px;padding:18px 22px;max-width:560px;
+        border:1px solid #555}
+  #card.show{display:block}
+  #card h2{margin:0 0 4px;font-size:26px}
+  #card .th{color:var(--glow);font-size:18px}
+  #card p{margin:6px 0;font-size:14px;line-height:1.5}
+  #card .meta{color:var(--dim);font-size:12px}
+
+  /* --- found-this-cycle log --- */
+  #log{font-size:13px;color:var(--dim);max-width:640px;text-align:center;line-height:1.8}
+  #log span{background:var(--panel);border-radius:5px;padding:2px 8px;margin:2px}
+</style>
+</head>
+<body>
+<h1>VOCAP · M1</h1>
+
+<div id="bar">
+  <span>✨ <b id="sparks">0</b></span>
+  <span>tray <b id="traysize">8</b></span>
+  <span>found <b id="foundcount">0</b>/<b id="total">?</b></span>
+  <span>next letter <b id="timer">–</b></span>
+  <button id="speed">⚡ fast mode: OFF</button>
+  <button id="lang">clue: TH</button>
+  <button id="reset">reset save</button>
+</div>
+
+<div id="clue"></div>
+<div id="tray"></div>
+<div id="typed"></div>
+<div id="msg">type a word · Enter to submit · Space is free · Esc clears</div>
+
+<div id="card">
+  <h2 id="c-word"></h2>
+  <div class="th" id="c-thword"></div>
+  <p id="c-def"></p>
+  <p id="c-thdef"></p>
+  <p id="c-hist"></p>
+  <p id="c-thhist"></p>
+  <p id="c-sent" style="font-style:italic"></p>
+  <p class="meta" id="c-meta"></p>
+</div>
+
+<div id="log"></div>
+
+<script>
+/* =====================================================================
+   VOCAP M1 — direct port of drop_engine.py (the tuned reference).
+   Letters are NOT consumed. The tray is mined, not spent.
+   Growing tray: 8 slots + 1 per 2 completed sub-lists, max 15.
+   ===================================================================== */
+
+const POOL_START=8, POOL_CAP=15, MIN_NOISE=1, HF='High-Frequency / Core', HF_COOLDOWN=3;
+const INTERVAL_MS = 5*60*1000;      // the single 5-minute interval (design §7)
+const FAST_MS     = 2*1000;         // debug fast mode: a workday in minutes
+// English letter frequencies for noise letters (same table as the Python)
+const FREQ={e:12.5,t:9.3,a:8.0,o:7.6,i:7.7,n:7.2,s:6.5,r:6.3,h:5.1,l:4.1,d:3.8,
+c:3.3,u:2.8,m:2.5,f:2.4,p:2.1,g:1.9,w:1.7,y:1.6,b:1.5,v:1.0,k:0.6,x:0.2,j:0.1,q:0.1,z:0.1};
+const VOWELS=new Set('aeiou');
+// Everyday flavour (default). Explorer/Scholar arrive with the settings screen.
+const PLAN=[[3,5],[3,6],[4,7]];
+
+let BANK=[], seen=new Set(), sparks=0, cycleNo=0, carryClues=[];
+let pool=[], order=[], dropped=0, seeds=[], repeatPaid=new Set(), timerId=null, nextDrop=0;
+let fast=false, lang='th', typed='';
+
+const $=id=>document.getElementById(id);
+const save=()=>localStorage.setItem('vocap',JSON.stringify({seen:[...seen],sparks}));
+const load=()=>{try{const d=JSON.parse(localStorage.getItem('vocap'));
+  if(d){seen=new Set(d.seen);sparks=d.sparks;}}catch(e){}};
+
+function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
+function count(s){const c={};for(const ch of s)if(ch!==' ')c[ch]=(c[ch]||0)+1;return c}
+function canSpell(need,poolC){for(const k in need)if((poolC[k]||0)<need[k])return false;return true}
+function union(a,b){const o={...a};for(const k in b)o[k]=Math.max(o[k]||0,b[k]);return o}
+function poolCount(){const c={};for(const ch of pool)c[ch]=(c[ch]||0)+1;return c}
+
+/* growing tray: +1 slot per 2 completed sub-lists (design §3.5) */
+function traySize(){
+  const subs={};
+  for(const w of BANK){const k=w.topic+'|'+w.sublist;(subs[k]=subs[k]||[]).push(w)}
+  let done=0;
+  for(const k in subs) if(subs[k].every(w=>seen.has(w.id))) done++;
+  return Math.min(POOL_CAP, POOL_START + Math.floor(done/2));
+}
+
+/* ---- seed picking: adaptive bands + HF cooldown (drop_engine.py port) ---- */
+function pickSeeds(size){
+  const budget=size-MIN_NOISE, allowHF=(cycleNo%HF_COOLDOWN===0);
+  const chosen=[]; let acc={};
+  // unsolved clues from last cycle come back first (§3.6 clue lifecycle)
+  for(const w of carryClues){
+    const trial=union(acc,count(w.spell));
+    if(Object.values(trial).reduce((a,b)=>a+b,0)<=budget){chosen.push(w);acc=trial}
+  }
+  const bands=[...PLAN].sort((a,b)=>b[1]-a[1]);
+  for(const [lo0,hi0] of bands){
+    if(chosen.length>=3)break;
+    let cands=[];
+    for(let g=0;g<13 && !cands.length;g++){          // adaptive widening
+      const lo=Math.max(3,lo0-g), hi=Math.min(15,hi0+g);
+      cands=BANK.filter(w=>!seen.has(w.id)&&!chosen.includes(w)
+        &&w.letters>=lo&&w.letters<=hi&&(allowHF||w.topic!==HF));
+    }
+    cands.sort(()=>Math.random()-.5);
+    for(const w of cands.slice(0,80)){
+      const trial=union(acc,count(w.spell));
+      if(Object.values(trial).reduce((a,b)=>a+b,0)<=budget){chosen.push(w);acc=trial;break}
+    }
+  }
+  return [chosen,acc];
+}
+
+function noiseLetters(acc,n){
+  const out=[], ls=Object.keys(FREQ);
+  for(let i=0;i<n;i++){
+    const cur={...acc}; for(const ch of out)cur[ch]=(cur[ch]||0)+1;
+    const tot=Object.values(cur).reduce((a,b)=>a+b,0)||1;
+    const vr=Object.entries(cur).filter(([k])=>VOWELS.has(k)).reduce((a,[,v])=>a+v,0)/tot;
+    const ws=ls.map(l=>FREQ[l]*(vr<0.32&&VOWELS.has(l)?4:1));
+    let r=Math.random()*ws.reduce((a,b)=>a+b,0);
+    for(let j=0;j<ls.length;j++){r-=ws[j];if(r<=0){out.push(ls[j]);break}}
+  }
+  return out;
+}
+
+/* shortest seed's letters first so something is formable early */
+function buildOrder(size){
+  const sorted=[...seeds].sort((a,b)=>a.letters-b.letters);
+  let ord=[], built={};
+  for(const w of sorted){
+    const need=count(w.spell), chunk=[];
+    for(const k in need)for(let i=(built[k]||0);i<need[k];i++)chunk.push(k);
+    chunk.sort(()=>Math.random()-.5); ord=ord.concat(chunk); built=union(built,need);
+  }
+  ord=ord.concat(noiseLetters(built,Math.max(MIN_NOISE,size-ord.length)));
+  const head=sorted.length?Math.min(sorted[0].letters,ord.length):0;
+  const tail=ord.slice(head).sort(()=>Math.random()-.5);
+  return ord.slice(0,head).concat(tail).slice(0,size);
+}
+
+/* ---------------- cycle control ---------------- */
+function startCycle(){
+  cycleNo++; const size=traySize();
+  [seeds,]=pickSeeds(size); order=buildOrder(size);
+  pool=[]; dropped=0; repeatPaid=new Set(); carryClues=[];
+  $('traysize').textContent=size;
+  renderTray(); renderClue(); scheduleDrop();
+}
+function scheduleDrop(){
+  clearTimeout(timerId);
+  const ms=fast?FAST_MS:INTERVAL_MS; nextDrop=Date.now()+ms;
+  timerId=setTimeout(dropLetter,ms); tickTimer();
+}
+function tickTimer(){
+  const s=Math.max(0,Math.ceil((nextDrop-Date.now())/1000));
+  $('timer').textContent=dropped>=order.length?'LAST CALL':`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  if(dropped<=order.length)setTimeout(tickTimer,500);
+}
+function dropLetter(){
+  if(dropped<order.length){
+    pool.push(order[dropped]); dropped++;
+    renderTray(); renderClue(); scheduleDrop();
+  }else{ // Last Call ends: harvest leftovers, carry unsolved clues, new cycle
+    sparks+=pool.length;
+    carryClues=seeds.filter(w=>!seen.has(w.id)).slice(0,2);
+    save(); startCycle();
+  }
+}
+
+/* ---------------- rendering ---------------- */
+function renderTray(){
+  const size=order.length||traySize(); const t=$('tray'); t.innerHTML='';
+  const used=highlightMap();
+  for(let i=0;i<size;i++){
+    const d=document.createElement('div');
+    d.className='slot '+(i<pool.length?'filled':'empty');
+    if(i<pool.length){d.textContent=pool[i]; if(used.has(i))d.classList.add('typed');}
+    t.appendChild(d);
+  }
+  $('sparks').textContent=sparks;
+  $('foundcount').textContent=seen.size;
+}
+/* which tray boxes light up for the currently typed word */
+function highlightMap(){
+  const m=new Set(); const need=typed.replace(/ /g,'').split('');
+  const taken=new Set();
+  for(const ch of need){
+    for(let i=0;i<pool.length;i++)
+      if(pool[i]===ch&&!taken.has(i)){taken.add(i);m.add(i);break}
+  }
+  return m;
+}
+function renderClue(){
+  const active=seeds.filter(w=>!seen.has(w.id));
+  const el=$('clue');
+  if(!active.length){el.textContent='';return}
+  const pc=poolCount();
+  el.innerHTML=active.map(w=>{
+    const desc = lang==='th' && w.translations?.th?.definition
+        ? w.translations.th.definition : w.definition;
+    const ok=canSpell(count(w.spell),pc);
+    return `<span class="${ok?'spellable':''}">🔎 ${desc} — ${w.letters} letters</span>`;
+  }).join('<br>');
+  el.className=active.some(w=>canSpell(count(w.spell),poolCount()))?'spellable':'';
+}
+
+/* ---------------- word submission ---------------- */
+function submit(){
+  const word=typed.trim().toLowerCase(); typed=''; $('typed').textContent='';
+  if(word.replace(/ /g,'').length<3){flash('too short','bad');renderTray();return}
+  const w=BANK.find(x=>x.spell===word.replace(/ /g,'')||x.word===word);
+  const pc=poolCount();
+  if(!w){flash('not in the collection (dictionary list comes at M0 close)','bad');renderTray();return}
+  if(!canSpell(count(w.spell),pc)){flash('letters not in the tray','bad');renderTray();return}
+  if(seen.has(w.id)){
+    if(!repeatPaid.has(w.id)){sparks++;repeatPaid.add(w.id);flash('already found · +1','good')}
+    else flash('already found this cycle','');
+    renderTray();return;
+  }
+  // NEW DISCOVERY — freshness bonus pays more when the tray is emptier (§4.4)
+  const fresh=1+(order.length-dropped)/8;
+  const gain=Math.round(sparksFor(w.letters)*fresh);
+  sparks+=gain; seen.add(w.id); save();
+  showCard(w,gain); logWord(w);
+  flash(`+${gain} ✨`,'good');
+  renderTray(); renderClue();
+  const size=traySize();               // sub-list may have completed → tray grows next cycle
+  $('traysize').textContent=size;
+}
+function showCard(w,gain){
+  $('c-word').textContent=w.word;
+  $('c-thword').textContent=lang==='th'?(w.thai||''):'';
+  $('c-def').textContent=w.definition;                       // English ALWAYS shows (§6)
+  $('c-thdef').textContent=lang==='th'?(w.translations?.th?.definition||''):'';
+  $('c-hist').textContent=w.history;
+  $('c-thhist').textContent=lang==='th'?(w.translations?.th?.history||''):'';
+  $('c-sent').textContent=w.sentence?'"'+w.sentence+'"':'';
+  $('c-meta').textContent=`${w.letters} letters · fills ${w.topic}${w.topic2?' + '+w.topic2:''} · +${gain} sparks`;
+  $('card').className='show';
+}
+function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
+function flash(t,c){$('msg').textContent=t;$('msg').className=c||''}
+
+/* ---------------- input ---------------- */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){submit();return}
+  if(e.key==='Escape'){typed='';$('typed').textContent='';renderTray();return}
+  if(e.key==='Backspace'){typed=typed.slice(0,-1)}
+  else if(e.key===' '){typed+=' ';e.preventDefault()}          // the free space
+  else if(/^[a-zA-Z']$/.test(e.key)){typed+=e.key.toLowerCase()}
+  else return;
+  $('typed').textContent=typed;
+  $('card').className='';                                       // typing dismisses the card
+  renderTray();
+});
+$('speed').onclick=()=>{fast=!fast;$('speed').textContent='⚡ fast mode: '+(fast?'ON':'OFF');scheduleDrop()};
+$('lang').onclick=()=>{lang=lang==='th'?'en':'th';$('lang').textContent='clue: '+lang.toUpperCase();renderClue()};
+$('reset').onclick=()=>{if(confirm('Wipe save?')){localStorage.removeItem('vocap');location.reload()}};
+
+/* ---------------- boot ---------------- */
+fetch('../content/words.json')
+  .then(r=>r.json())
+  .then(d=>{
+    // formable = non-starter words (rude words ARE formable, never seeded)
+    BANK=d.words.filter(w=>!w.starter);
+    $('total').textContent=BANK.length;
+    load(); startCycle();
+  })
+  .catch(()=>{$('msg').textContent='Could not load ../content/words.json — run the server from the repo root (see instructions)';$('msg').className='bad'});
+</script>
+</body>
+</html>
