@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vocap — M1 prototype (gray boxes)</title>
 <style>
   /* ============================================================
@@ -12,12 +13,15 @@
     --bg:#2b2d31; --panel:#36393f; --box:#4a4d55; --box-lit:#6b7280;
     --glow:#e3b341; --text:#e6e6e6; --dim:#9aa0a6; --good:#7ec97e;
   }
+  *{box-sizing:border-box}
   body{background:var(--bg);color:var(--text);font-family:system-ui,'Noto Sans Thai',sans-serif;
-       margin:0;display:flex;flex-direction:column;align-items:center;padding:24px;gap:16px}
+       margin:0;display:flex;flex-direction:column;align-items:center;padding:20px 12px;gap:14px;
+       max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
   h1{font-size:15px;letter-spacing:3px;color:var(--dim);margin:0;font-weight:600}
 
   /* --- the tray: one gray box per letter slot --- */
-  #tray{display:flex;gap:8px;min-height:64px;align-items:center}
+  #tray{display:flex;gap:8px;min-height:64px;align-items:center;flex-wrap:wrap;
+        justify-content:center;max-width:100%}
   .slot{width:52px;height:60px;border-radius:8px;background:var(--panel);
         display:flex;align-items:center;justify-content:center;font-size:26px;
         font-weight:700;border:2px solid transparent;text-transform:uppercase}
@@ -26,11 +30,48 @@
   .slot.empty{opacity:.35}
 
   /* --- the clue line: the learning mechanic, front and centre --- */
-  #clue{min-height:24px;color:var(--glow);font-size:15px;text-align:center;max-width:640px}
+  #clue{min-height:24px;color:var(--glow);font-size:15px;text-align:center;
+        max-width:min(640px,100%);line-height:1.6}
   #clue.spellable{text-shadow:0 0 12px var(--glow)}                 /* the "glow" from §3.6 */
 
-  /* --- typing area --- */
-  #typed{font-size:24px;letter-spacing:6px;min-height:34px;font-weight:700;text-transform:uppercase}
+  .slot.used{background:var(--box-lit);border-color:var(--glow);opacity:.55}  /* in use below */
+  .slot.filled{cursor:pointer}
+  .slot.filled:hover{border-color:var(--glow)}
+
+  /* --- the word tray: where letters go to become a word --- */
+  #wordtray{display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
+            background:rgba(0,0,0,.22);border-radius:10px;padding:10px 14px;
+            width:min(560px,100%);flex-wrap:wrap;border:2px dashed #4a4d55}
+  #wordtray.ready{border-color:var(--good);border-style:solid}
+  #wordtray .wslot{width:44px;height:50px;border-radius:6px;background:var(--box-lit);
+        display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;
+        text-transform:uppercase;cursor:pointer;border:2px solid var(--glow)}
+  #wordtray .wslot.space{background:transparent;border:2px dashed #666;width:22px}
+  #wordtray .hint{color:var(--dim);font-size:13px}
+
+  /* --- submit / clear buttons (essential on touch: no keyboard, no Enter key) --- */
+  #actions{display:flex;gap:10px}
+  #actions button{padding:11px 26px;font-size:15px;font-weight:600;border-radius:8px}
+  #submit{background:var(--good);color:#123;border-color:var(--good)}
+  #submit:disabled{background:var(--panel);color:var(--dim);border-color:#555;font-weight:400}
+  /* bigger touch targets on small screens */
+  @media (max-width:700px){
+    /* tiles scale with the screen so a full 15-slot tray always fits */
+    .slot{width:min(46px,10.5vw);height:min(54px,13vw);font-size:min(22px,5.4vw);border-radius:6px}
+    #tray{gap:5px;min-height:auto}
+    #wordtray .wslot{width:min(40px,9.5vw);height:min(48px,12vw);font-size:min(20px,5vw)}
+    #wordtray{gap:4px;padding:8px 10px}
+    #actions button{padding:14px 32px;font-size:16px}
+    #bar{gap:12px;font-size:12px}
+    #bar button{padding:8px 12px}
+    h1{font-size:13px}
+    #clue{font-size:14px}
+    #card{padding:14px 16px}
+    #card h2{font-size:22px}
+  }
+
+  /* --- typing area (kept for the letter count) --- */
+  #typed{font-size:13px;letter-spacing:2px;min-height:18px;color:var(--dim)}
   #msg{min-height:22px;color:var(--dim);font-size:14px}
   #msg.good{color:var(--good)} #msg.bad{color:#e07a7a}
 
@@ -45,10 +86,18 @@
   #card{display:none;background:var(--panel);border-radius:12px;padding:18px 22px;max-width:560px;
         border:1px solid #555}
   #card.show{display:block}
-  #card h2{margin:0 0 4px;font-size:26px}
+  #card.dict{border-style:dashed;opacity:.9}
+  #card.dict h2{font-size:22px;color:var(--dim)}
+  #card h2{margin:0 0 4px;font-size:26px;cursor:pointer;user-select:none}
+  #card h2:after{content:' 🔊';font-size:16px;opacity:.5}
   #card .th{color:var(--glow);font-size:18px}
   #card p{margin:6px 0;font-size:14px;line-height:1.5}
   #card .meta{color:var(--dim);font-size:12px}
+  #lookup{display:none;margin-top:10px}
+  #card.dict #lookup{display:block}
+  #lookup a{color:var(--glow);font-size:13px;text-decoration:none;border:1px solid #555;
+            border-radius:6px;padding:6px 12px;display:inline-block}
+  #lookup a:hover{border-color:var(--glow)}
 
   /* --- found-this-cycle log --- */
   #log{font-size:13px;color:var(--dim);max-width:640px;text-align:center;line-height:1.8}
@@ -62,16 +111,26 @@
   <span>✨ <b id="sparks">0</b></span>
   <span>tray <b id="traysize">8</b></span>
   <span>found <b id="foundcount">0</b>/<b id="total">?</b></span>
+  <span>📖 <b id="inkcount">0</b></span>
   <span>next letter <b id="timer">–</b></span>
   <button id="speed">⚡ fast mode: OFF</button>
   <button id="lang">clue: TH</button>
+  <button id="say">🔊 words: ON</button>
+  <button id="sayl">🔤 letters: OFF</button>
+  <button id="promote">📈 top words</button>
   <button id="reset">reset save</button>
 </div>
 
 <div id="clue"></div>
 <div id="tray"></div>
+
+<div id="wordtray"></div>
+<div id="actions">
+  <button id="submit" disabled>Submit</button>
+  <button id="clear">Clear</button>
+</div>
 <div id="typed"></div>
-<div id="msg">type a word · Enter to submit · Space is free · Esc clears</div>
+<div id="msg">tap or type letters · Space is free</div>
 
 <div id="card">
   <h2 id="c-word"></h2>
@@ -82,6 +141,7 @@
   <p id="c-thhist"></p>
   <p id="c-sent" style="font-style:italic"></p>
   <p class="meta" id="c-meta"></p>
+  <div id="lookup"><a id="c-lookup" target="_blank" rel="noopener">ดูคำแปลไทย · look up in Thai ↗</a></div>
 </div>
 
 <div id="log"></div>
@@ -104,13 +164,53 @@ const VOWELS=new Set('aeiou');
 const PLAN=[[3,5],[3,6],[4,7]];
 
 let BANK=[], seen=new Set(), sparks=0, cycleNo=0, carryClues=[];
+let DICT=new Set();              // bundled common-English list (validity + Dictionary reveals)
+let DEFS={};                     // WordNet glosses for dictionary words
+let inked=new Set();             // dictionary words the player has revealed
+let inkTally={};                 // word -> times formed; drives promotion (design 5.4)
+let starterDay=0, lastGift=null; // Starter Pack: one 2-letter gift word per day
 let pool=[], order=[], dropped=0, seeds=[], repeatPaid=new Set(), timerId=null, nextDrop=0;
-let fast=false, lang='th', typed='';
+let fast=false, lang='th';
+/* `building` is the word tray: each entry is a letter taken from a pool slot,
+   or a free space. The pool letter is never removed — it just highlights. */
+let building=[];                       // [{ch:'m', from:3} | {ch:' ', from:null}]
+const typedWord = () => building.map(b=>b.ch).join('');
 
 const $=id=>document.getElementById(id);
-const save=()=>localStorage.setItem('vocap',JSON.stringify({seen:[...seen],sparks}));
+const save=()=>localStorage.setItem('vocap',JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift}));
 const load=()=>{try{const d=JSON.parse(localStorage.getItem('vocap'));
-  if(d){seen=new Set(d.seen);sparks=d.sparks;}}catch(e){}};
+  if(d){seen=new Set(d.seen);sparks=d.sparks;
+        inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;}
+  }catch(e){}};
+
+/* ---- speech: browser-native, no audio files needed ----
+   Pronunciation is the one thing a text game can't teach, so discovered
+   words are spoken by default. Letter-by-letter is opt-in: useful when
+   learning, grating in fast mode. */
+let sayWords=true, sayLetters=false, voiceEN=null;
+function pickVoice(){
+  const vs=speechSynthesis.getVoices();
+  voiceEN = vs.find(v=>/^en-(GB|US)/.test(v.lang)&&/natural|google|samantha|daniel/i.test(v.name))
+         || vs.find(v=>v.lang.startsWith('en')) || null;
+}
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function speak(text,{rate=0.95,pitch=1}={}){
+  if(!('speechSynthesis' in window)) return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-GB'; u.rate=rate; u.pitch=pitch; u.volume=1;
+  if(voiceEN) u.voice=voiceEN;
+  speechSynthesis.speak(u);
+}
+function speakLetter(ch){
+  if(!sayLetters||ch===' ') return;
+  speechSynthesis.cancel();               // keep up with fast tapping
+  speak(ch.toUpperCase(),{rate:0.85});
+}
+function speakWord(w){
+  if(!sayWords) return;
+  speechSynthesis.cancel();
+  speak(w,{rate:0.85});                   // clear and unhurried: this is the teaching moment
+}
 
 function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
 function count(s){const c={};for(const ch of s)if(ch!==' ')c[ch]=(c[ch]||0)+1;return c}
@@ -186,9 +286,9 @@ function buildOrder(size){
 function startCycle(){
   cycleNo++; const size=traySize();
   [seeds,]=pickSeeds(size); order=buildOrder(size);
-  pool=[]; dropped=0; repeatPaid=new Set(); carryClues=[];
+  pool=[]; dropped=0; repeatPaid=new Set(); carryClues=[]; building=[];
   $('traysize').textContent=size;
-  renderTray(); renderClue(); scheduleDrop();
+  renderTray(); renderWordTray(); renderClue(); scheduleDrop();
 }
 function scheduleDrop(){
   clearTimeout(timerId);
@@ -203,7 +303,7 @@ function tickTimer(){
 function dropLetter(){
   if(dropped<order.length){
     pool.push(order[dropped]); dropped++;
-    renderTray(); renderClue(); scheduleDrop();
+    renderTray(); renderWordTray(); renderClue(); scheduleDrop();
   }else{ // Last Call ends: harvest leftovers, carry unsolved clues, new cycle
     sparks+=pool.length;
     carryClues=seeds.filter(w=>!seen.has(w.id)).slice(0,2);
@@ -218,21 +318,49 @@ function renderTray(){
   for(let i=0;i<size;i++){
     const d=document.createElement('div');
     d.className='slot '+(i<pool.length?'filled':'empty');
-    if(i<pool.length){d.textContent=pool[i]; if(used.has(i))d.classList.add('typed');}
+    if(i<pool.length){
+      d.textContent=pool[i];
+      if(used.has(i))d.classList.add('used');
+      d.onclick=()=>{ if(!used.has(i)){speakLetter(pool[i]);building.push({ch:pool[i],from:i});renderTray();renderWordTray()} };
+    }
     t.appendChild(d);
   }
   $('sparks').textContent=sparks;
   $('foundcount').textContent=seen.size;
+  $('inkcount').textContent=inked.size;
 }
-/* which tray boxes light up for the currently typed word */
+/* which pool boxes are currently in use down in the word tray */
 function highlightMap(){
-  const m=new Set(); const need=typed.replace(/ /g,'').split('');
-  const taken=new Set();
-  for(const ch of need){
-    for(let i=0;i<pool.length;i++)
-      if(pool[i]===ch&&!taken.has(i)){taken.add(i);m.add(i);break}
+  return new Set(building.filter(b=>b.from!==null).map(b=>b.from));
+}
+
+/* claim the first unused pool slot holding this letter; null if none free */
+function claimSlot(ch){
+  const used=highlightMap();
+  for(let i=0;i<pool.length;i++) if(pool[i]===ch && !used.has(i)) return i;
+  return null;
+}
+
+/* draw the word tray */
+function renderWordTray(){
+  const wt=$('wordtray'); wt.innerHTML='';
+  if(!building.length){
+    wt.innerHTML='<span class="hint">tap letters above to build a word</span>';
+    wt.className=''; $('typed').textContent=''; $('submit').disabled=true; return;
   }
-  return m;
+  building.forEach((b,i)=>{
+    const d=document.createElement('div');
+    d.className='wslot'+(b.ch===' '?' space':'');
+    d.textContent=b.ch===' '?'':b.ch;
+    d.title='remove';
+    d.onclick=()=>{building.splice(i,1);renderTray();renderWordTray()};
+    wt.appendChild(d);
+  });
+  const w=typedWord().replace(/ /g,'');
+  const match=BANK.find(x=>x.spell===typedWord()||x.spell===w);
+  wt.className = (w.length>=3 && match && !seen.has(match.id)) ? 'ready' : '';
+  $('submit').disabled = w.length<3;
+  $('typed').textContent=w.length+' letters';
 }
 function renderClue(){
   const active=seeds.filter(w=>!seen.has(w.id));
@@ -250,14 +378,35 @@ function renderClue(){
 
 /* ---------------- word submission ---------------- */
 function submit(){
-  const word=typed.trim().toLowerCase(); typed=''; $('typed').textContent='';
+  const word=typedWord().trim().toLowerCase();
+  building=[]; renderWordTray();
   if(word.replace(/ /g,'').length<3){flash('too short','bad');renderTray();return}
   const w=BANK.find(x=>x.spell===word.replace(/ /g,'')||x.word===word);
   const pc=poolCount();
-  if(!w){flash('not in the collection (dictionary list comes at M0 close)','bad');renderTray();return}
+  if(!w){
+    // Not curated — but it may still be a real English word worth 2 sparks
+    // and a page in the Dictionary (design 5.4).
+    const plain=word.replace(/ /g,'');
+    if(DICT.has(plain)){
+      if(!canSpell(count(plain),pc)){flash('letters not in the tray','bad');renderTray();return}
+      inkTally[plain]=(inkTally[plain]||0)+1;
+      if(inked.has(plain)){
+        if(!repeatPaid.has(plain)){sparks++;repeatPaid.add(plain);save();flash('already inked · +1','good')}
+        else flash('already inked this cycle','');
+      }else{
+        inked.add(plain); sparks+=2; save(); speakWord(plain);
+        showDictCard(plain);
+        const before=Math.floor((inked.size-1)/100), after=Math.floor(inked.size/100);
+        if(after>before){sparks+=100;flash(`📖 ${inked.size} words inked · +100 ✨ milestone!`,'good')}
+        else flash(`📖 inked in the Dictionary · +2 ✨`,'good');
+      }
+      renderTray();return;
+    }
+    flash('not an English word','bad');renderTray();return;
+  }
   if(!canSpell(count(w.spell),pc)){flash('letters not in the tray','bad');renderTray();return}
   if(seen.has(w.id)){
-    if(!repeatPaid.has(w.id)){sparks++;repeatPaid.add(w.id);flash('already found · +1','good')}
+    if(!repeatPaid.has(w.id)){sparks++;repeatPaid.add(w.id);speakWord(w.word);flash('already found · +1','good')}
     else flash('already found this cycle','');
     renderTray();return;
   }
@@ -265,6 +414,7 @@ function submit(){
   const fresh=1+(order.length-dropped)/8;
   const gain=Math.round(sparksFor(w.letters)*fresh);
   sparks+=gain; seen.add(w.id); save();
+  speakWord(w.word);
   showCard(w,gain); logWord(w);
   flash(`+${gain} ✨`,'good');
   renderTray(); renderClue();
@@ -282,35 +432,98 @@ function showCard(w,gain){
   $('c-meta').textContent=`${w.letters} letters · fills ${w.topic}${w.topic2?' + '+w.topic2:''} · +${gain} sparks`;
   $('card').className='show';
 }
+/* Dictionary card — deliberately plainer than a discovery card. The curated
+   966 get history, Thai and (later) art; dictionary words get a definition
+   and a page. The gap between them is what makes the collection feel special. */
+function showDictCard(word){
+  $('c-word').textContent=word;
+  $('c-thword').textContent='';
+  $('c-def').textContent=DEFS[word]||'(no definition available)';
+  $('c-thdef').textContent=''; $('c-hist').textContent='';
+  $('c-thhist').textContent=''; $('c-sent').textContent='';
+  $('c-meta').textContent=`${word.length} letters · Dictionary word #${inked.size} · +2 sparks`;
+  // External look-up: the curated 966 have hand-written Thai; dictionary words
+  // point at a real dictionary instead of shipping machine translation.
+  $('c-lookup').href='https://dict.longdo.com/search/'+encodeURIComponent(word);
+  $('card').className='show dict';
+}
+
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
 function flash(t,c){$('msg').textContent=t;$('msg').className=c||''}
 
 /* ---------------- input ---------------- */
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'){submit();return}
-  if(e.key==='Escape'){typed='';$('typed').textContent='';renderTray();return}
-  if(e.key==='Backspace'){typed=typed.slice(0,-1)}
-  else if(e.key===' '){typed+=' ';e.preventDefault()}          // the free space
-  else if(/^[a-zA-Z']$/.test(e.key)){typed+=e.key.toLowerCase()}
+  if(e.key==='Escape'){building=[];renderTray();renderWordTray();return}
+  if(e.key==='Backspace'){building.pop()}
+  else if(e.key===' '){building.push({ch:' ',from:null});e.preventDefault()}   // free space
+  else if(/^[a-zA-Z']$/.test(e.key)){
+    const ch=e.key.toLowerCase();
+    const slot=claimSlot(ch);
+    if(slot===null){flash(`no free "${ch}" in the tray`,'bad');return}
+    speakLetter(ch);
+    building.push({ch,from:slot});
+  }
   else return;
-  $('typed').textContent=typed;
-  $('card').className='';                                       // typing dismisses the card
-  renderTray();
+  $('card').className='';
+  flash('');
+  renderTray(); renderWordTray();
 });
+$('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
+$('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
+$('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};
+$('submit').onclick=()=>submit();
+$('clear').onclick=()=>{building=[];renderTray();renderWordTray()};
 $('speed').onclick=()=>{fast=!fast;$('speed').textContent='⚡ fast mode: '+(fast?'ON':'OFF');scheduleDrop()};
 $('lang').onclick=()=>{lang=lang==='th'?'en':'th';$('lang').textContent='clue: '+lang.toUpperCase();renderClue()};
+/* The promotion list: dictionary words this player forms most often are the
+   best candidates to become curated entries (hand-written definition, fun
+   fact, Thai). This is how the 966 grows - driven by real play. */
+$('promote').onclick=()=>{
+  const rows=Object.entries(inkTally).sort((a,b)=>b[1]-a[1]).slice(0,25);
+  if(!rows.length){flash('no dictionary words formed yet','');return}
+  const list=rows.map(([w,n])=>`${w} (${n})`).join(', ');
+  $('c-word').textContent='Promotion candidates';
+  $('c-thword').textContent='';
+  $('c-def').textContent='Dictionary words you form most often. These are the best candidates to hand-write into the curated collection.';
+  $('c-thdef').textContent=''; $('c-hist').textContent=list;
+  $('c-thhist').textContent=''; $('c-sent').textContent='';
+  $('c-meta').textContent=`${Object.keys(inkTally).length} distinct dictionary words formed · copy this list into Notion`;
+  $('card').className='show';
+};
 $('reset').onclick=()=>{if(confirm('Wipe save?')){localStorage.removeItem('vocap');location.reload()}};
 
+/* ---- Starter Pack: the ten 2-letter words can't be spelled (3-letter
+   minimum), so they arrive as a daily gift. Doubles as the tutorial and
+   completes a sub-list on day 10, which triggers the first tray upgrade. ---- */
+function starterGift(){
+  const today=new Date().toISOString().slice(0,10);
+  if(lastGift===today) return;                       // one per day
+  const gifts=BANK_ALL.filter(w=>w.starter&&!seen.has(w.id));
+  if(!gifts.length) return;
+  const w=gifts[0];
+  seen.add(w.id); lastGift=today; starterDay++; sparks+=10; save();
+  setTimeout(()=>{ speakWord(w.word); showCard(w,10);
+    flash(`🎁 Starter Pack gift ${starterDay}/10 — "${w.word}"`,'good'); }, 600);
+}
+
 /* ---------------- boot ---------------- */
-fetch('../content/words.json')
-  .then(r=>r.json())
-  .then(d=>{
-    // formable = non-starter words (rude words ARE formable, never seeded)
-    BANK=d.words.filter(w=>!w.starter);
-    $('total').textContent=BANK.length;
-    load(); startCycle();
-  })
-  .catch(()=>{$('msg').textContent='Could not load ../content/words.json — run the server from the repo root (see instructions)';$('msg').className='bad'});
+let BANK_ALL=[];
+Promise.all([
+  fetch('../content/words.json').then(r=>r.json()),
+  fetch('../content/dictionary.json').then(r=>r.json()).catch(()=>null)   // optional
+]).then(([d,dict])=>{
+  BANK_ALL=d.words;
+  // formable = non-starter words (rude words ARE formable, never seeded)
+  BANK=d.words.filter(w=>!w.starter);
+  $('total').textContent=BANK.length;
+  if(dict){ for(const k in dict.shelves) for(const w of dict.shelves[k]) DICT.add(w);
+            DEFS=dict.defs||{}; }
+  load(); startCycle(); starterGift();
+}).catch(()=>{
+  $('msg').textContent='Could not load ../content/words.json — run the server from the repo root';
+  $('msg').className='bad';
+});
 </script>
 </body>
 </html>
