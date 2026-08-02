@@ -151,8 +151,33 @@ def main():
                     w = parts[4 + 2 * i].lower().replace("_", " ")
                     if w in want and w not in glosses:
                         glosses[w] = gloss
+        direct = len(glosses)
+        # Inflected forms (abandoning, zapped, macaroons) usually have no gloss
+        # of their own, but their base word does. Walk back to the base and
+        # reuse it - this lifts coverage from ~67% to ~90%.
+        def bases(w):
+            out = []
+            if w.endswith("ies") and len(w) > 4: out.append(w[:-3] + "y")
+            if w.endswith("es")  and len(w) > 3: out += [w[:-2], w[:-1]]
+            if w.endswith("s")   and len(w) > 3: out.append(w[:-1])
+            if w.endswith("ing") and len(w) > 5: out += [w[:-3], w[:-3] + "e", w[:-4]]
+            if w.endswith("ed")  and len(w) > 4: out += [w[:-2], w[:-1], w[:-3]]
+            if w.endswith("er")  and len(w) > 4: out += [w[:-2], w[:-1]]
+            if w.endswith("est") and len(w) > 5: out += [w[:-3], w[:-2]]
+            if w.endswith("ly")  and len(w) > 4: out.append(w[:-2])
+            return out
+        added = 0
+        for w in words:
+            if w in glosses:
+                continue
+            for b in bases(w):
+                if b in glosses:
+                    glosses[w] = glosses[b]
+                    added += 1
+                    break
         print(f"    definitions: {len(glosses):,} of {len(words):,} words "
-              f"({len(glosses)/max(len(words),1)*100:.0f}%)")
+              f"({len(glosses)/max(len(words),1)*100:.0f}%)  "
+              f"[{direct:,} direct + {added:,} via base word]")
     else:
         print("    no data.noun found under content/ - revealed words will have no definition")
         print("    (unzip wordnet.zip into content/ so content/wordnet/data.noun exists)")

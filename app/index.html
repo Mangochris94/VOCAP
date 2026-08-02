@@ -113,7 +113,9 @@
   <span>found <b id="foundcount">0</b>/<b id="total">?</b></span>
   <span>📖 <b id="inkcount">0</b></span>
   <span>next letter <b id="timer">–</b></span>
+  <button id="ivl">⏱ 5 min</button>
   <button id="speed">⚡ fast mode: OFF</button>
+  <button id="skip">⏭ next run</button>
   <button id="lang">clue: TH</button>
   <button id="say">🔊 words: ON</button>
   <button id="sayl">🔤 letters: OFF</button>
@@ -154,7 +156,13 @@
    ===================================================================== */
 
 const POOL_START=8, POOL_CAP=15, MIN_NOISE=1, HF='High-Frequency / Core', HF_COOLDOWN=3;
-const INTERVAL_MS = 5*60*1000;      // the single 5-minute interval (design §7)
+/* Tray growth by PROGRESS, not completion. Escalating thresholds: the first
+   upgrade lands inside a single session (so the mechanic teaches itself), the
+   last sits around 400 words (so max tray is a genuine mid-game milestone).
+   Counts CURATED discoveries only - dictionary words don't grow the tray. */
+const GROWTH=[10,30,60,110,180,280,400];   // cumulative words for slots 9..15
+
+let INTERVAL_MS = 5*60*1000;       // player-chosen: 5 / 10 / 20 minutes
 const FAST_MS     = 2*1000;         // debug fast mode: a workday in minutes
 // English letter frequencies for noise letters (same table as the Python)
 const FREQ={e:12.5,t:9.3,a:8.0,o:7.6,i:7.7,n:7.2,s:6.5,r:6.3,h:5.1,l:4.1,d:3.8,
@@ -169,6 +177,7 @@ let DEFS={};                     // WordNet glosses for dictionary words
 let inked=new Set();             // dictionary words the player has revealed
 let inkTally={};                 // word -> times formed; drives promotion (design 5.4)
 let starterDay=0, lastGift=null; // Starter Pack: one 2-letter gift word per day
+let lastTray=POOL_START;         // for announcing upgrades
 let pool=[], order=[], dropped=0, seeds=[], repeatPaid=new Set(), timerId=null, nextDrop=0;
 let fast=false, lang='th';
 /* `building` is the word tray: each entry is a letter taken from a pool slot,
@@ -218,13 +227,28 @@ function canSpell(need,poolC){for(const k in need)if((poolC[k]||0)<need[k])retur
 function union(a,b){const o={...a};for(const k in b)o[k]=Math.max(o[k]||0,b[k]);return o}
 function poolCount(){const c={};for(const ch of pool)c[ch]=(c[ch]||0)+1;return c}
 
-/* growing tray: +1 slot per 2 completed sub-lists (design §3.5) */
+/* Only CURATED discoveries grow the tray. Dictionary words pay sparks and
+   ink a page, but they're the easy path - letting them buy tray upgrades
+   would make the collection feel cheap. */
+function progressCount(){ return seen.size }
 function traySize(){
-  const subs={};
-  for(const w of BANK){const k=w.topic+'|'+w.sublist;(subs[k]=subs[k]||[]).push(w)}
-  let done=0;
-  for(const k in subs) if(subs[k].every(w=>seen.has(w.id))) done++;
-  return Math.min(POOL_CAP, POOL_START + Math.floor(done/2));
+  let n=POOL_START;
+  for(const t of GROWTH) if(progressCount()>=t) n++;
+  return Math.min(POOL_CAP,n);
+}
+function nextGrowthAt(){
+  for(const t of GROWTH) if(progressCount()<t) return t;
+  return null;
+}
+/* announce an upgrade the moment it is earned */
+function checkGrowth(){
+  const size=traySize();
+  if(size>lastTray){
+    lastTray=size;
+    flash(`🌱 tray grew to ${size} slots!`,'good');
+  }
+  const nxt=nextGrowthAt();
+  $('traysize').textContent = nxt ? `${size} (next at ${nxt})` : `${size} MAX`;
 }
 
 /* ---- seed picking: adaptive bands + HF cooldown (drop_engine.py port) ---- */
@@ -287,7 +311,7 @@ function startCycle(){
   cycleNo++; const size=traySize();
   [seeds,]=pickSeeds(size); order=buildOrder(size);
   pool=[]; dropped=0; repeatPaid=new Set(); carryClues=[]; building=[];
-  $('traysize').textContent=size;
+  checkGrowth();
   renderTray(); renderWordTray(); renderClue(); scheduleDrop();
 }
 function scheduleDrop(){
@@ -378,49 +402,64 @@ function renderClue(){
 
 /* ---------------- word submission ---------------- */
 function submit(){
-  const word=typedWord().trim().toLowerCase();
+  const raw=typedWord().trim().toLowerCase();
   building=[]; renderWordTray();
-  if(word.replace(/ /g,'').length<3){flash('too short','bad');renderTray();return}
-  const w=BANK.find(x=>x.spell===word.replace(/ /g,'')||x.word===word);
+  const plain=raw.replace(/ /g,'');
   const pc=poolCount();
-  if(!w){
-    // Not curated — but it may still be a real English word worth 2 sparks
-    // and a page in the Dictionary (design 5.4).
-    const plain=word.replace(/ /g,'');
-    if(DICT.has(plain)){
-      if(!canSpell(count(plain),pc)){flash('letters not in the tray','bad');renderTray();return}
-      inkTally[plain]=(inkTally[plain]||0)+1;
-      if(inked.has(plain)){
-        if(!repeatPaid.has(plain)){sparks++;repeatPaid.add(plain);save();flash('already inked · +1','good')}
-        else flash('already inked this cycle','');
-      }else{
-        inked.add(plain); sparks+=2; save(); speakWord(plain);
-        showDictCard(plain);
-        const before=Math.floor((inked.size-1)/100), after=Math.floor(inked.size/100);
-        if(after>before){sparks+=100;flash(`📖 ${inked.size} words inked · +100 ✨ milestone!`,'good')}
-        else flash(`📖 inked in the Dictionary · +2 ✨`,'good');
-      }
-      renderTray();return;
+
+  if(plain.length<3){flash('too short','bad');renderTray();return}
+
+  /* ---- ONE guard for everything: a word pays at most once per run ----
+     Previously each reward branch tracked its own state, so resubmitting a
+     word could fall through to a different branch and pay again. Now every
+     credited word - curated or dictionary - lands in repeatPaid, and this
+     check runs before any reward is considered. */
+  if(repeatPaid.has(plain)){
+    flash('already used this run','');
+    renderTray(); return;
+  }
+
+  const w=BANK.find(x=>x.spell===plain||x.word===raw);
+
+  /* ---------- curated word ---------- */
+  if(w){
+    if(!canSpell(count(w.spell),pc)){flash('letters not in the tray','bad');renderTray();return}
+    repeatPaid.add(plain);
+    if(seen.has(w.id)){                       // found on an earlier run
+      sparks++; save(); speakWord(w.word);
+      flash('already in your collection · +1 ✨','good');
+      renderTray(); return;
     }
-    flash('not an English word','bad');renderTray();return;
+    const fresh=1+(order.length-dropped)/8;   // freshness bonus (design 4.4)
+    const gain=Math.round(sparksFor(w.letters)*fresh);
+    sparks+=gain; seen.add(w.id); save();
+    speakWord(w.word); showCard(w,gain); logWord(w);
+    flash(`+${gain} ✨`,'good');
+    renderTray(); renderClue(); checkGrowth();
+    return;
   }
-  if(!canSpell(count(w.spell),pc)){flash('letters not in the tray','bad');renderTray();return}
-  if(seen.has(w.id)){
-    if(!repeatPaid.has(w.id)){sparks++;repeatPaid.add(w.id);speakWord(w.word);flash('already found · +1','good')}
-    else flash('already found this cycle','');
-    renderTray();return;
+
+  /* ---------- dictionary word ---------- */
+  if(DICT.has(plain)){
+    if(!canSpell(count(plain),pc)){flash('letters not in the tray','bad');renderTray();return}
+    repeatPaid.add(plain);
+    inkTally[plain]=(inkTally[plain]||0)+1;
+    if(inked.has(plain)){                     // inked on an earlier run
+      sparks++; save(); flash('already inked · +1 ✨','good');
+      renderTray(); return;
+    }
+    inked.add(plain); sparks+=2; save();
+    speakWord(plain); showDictCard(plain);
+    const before=Math.floor((inked.size-1)/100), after=Math.floor(inked.size/100);
+    if(after>before){sparks+=100;flash(`📖 ${inked.size} words inked · +100 ✨ milestone!`,'good')}
+    else flash('📖 inked in the Dictionary · +2 ✨','good');
+    renderTray(); return;
   }
-  // NEW DISCOVERY — freshness bonus pays more when the tray is emptier (§4.4)
-  const fresh=1+(order.length-dropped)/8;
-  const gain=Math.round(sparksFor(w.letters)*fresh);
-  sparks+=gain; seen.add(w.id); save();
-  speakWord(w.word);
-  showCard(w,gain); logWord(w);
-  flash(`+${gain} ✨`,'good');
-  renderTray(); renderClue();
-  const size=traySize();               // sub-list may have completed → tray grows next cycle
-  $('traysize').textContent=size;
+
+  flash('not an English word','bad');
+  renderTray();
 }
+
 function showCard(w,gain){
   $('c-word').textContent=w.word;
   $('c-thword').textContent=lang==='th'?(w.thai||''):'';
@@ -474,7 +513,26 @@ $('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sa
 $('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};
 $('submit').onclick=()=>submit();
 $('clear').onclick=()=>{building=[];renderTray();renderWordTray()};
+/* 5 / 10 / 20 minutes: some players want a slow ambient trickle, others a
+   livelier tray. Idle-pause still protects anyone who steps away. */
+const IVLS=[5,10,20]; let ivlIdx=0;
+$('ivl').onclick=()=>{
+  ivlIdx=(ivlIdx+1)%IVLS.length;
+  INTERVAL_MS=IVLS[ivlIdx]*60*1000;
+  $('ivl').textContent='⏱ '+IVLS[ivlIdx]+' min';
+  scheduleDrop();
+};
 $('speed').onclick=()=>{fast=!fast;$('speed').textContent='⚡ fast mode: '+(fast?'ON':'OFF');scheduleDrop()};
+
+/* Skip to the next run: for when the tray is full, the clue won't crack, and
+   waiting out Last Call is just dead time. Leftover letters still pay out. */
+$('skip').onclick=()=>{
+  if(!confirm('Start a fresh run? Leftover letters become sparks and new clues are drawn.')) return;
+  sparks+=pool.length; save();
+  carryClues=seeds.filter(w=>!seen.has(w.id)).slice(0,2);   // unsolved clues return
+  startCycle();
+  flash('new run started','');
+};
 $('lang').onclick=()=>{lang=lang==='th'?'en':'th';$('lang').textContent='clue: '+lang.toUpperCase();renderClue()};
 /* The promotion list: dictionary words this player forms most often are the
    best candidates to become curated entries (hand-written definition, fun
