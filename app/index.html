@@ -99,6 +99,49 @@
             border-radius:6px;padding:6px 12px;display:inline-block}
   #lookup a:hover{border-color:var(--glow)}
 
+  /* --- overlay panels: Collection + Dictionary --- */
+  #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;
+           padding:24px 12px;overflow-y:auto}
+  #overlay.show{display:block}
+  #panel{background:var(--bg);border:1px solid #555;border-radius:14px;max-width:820px;
+         margin:0 auto;padding:20px 22px 28px}
+  #panel h2{margin:0;font-size:20px}
+  .phead{display:flex;justify-content:space-between;align-items:center;gap:12px;
+         border-bottom:1px solid #444;padding-bottom:12px;margin-bottom:16px}
+  .phead .sub{color:var(--dim);font-size:13px;margin-top:3px}
+  #panel .back{background:none;border:none;color:var(--glow);cursor:pointer;font-size:14px;
+               padding:0;margin-bottom:12px}
+
+  /* topic rows */
+  .trow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;
+        cursor:pointer;border:1px solid transparent}
+  .trow:hover{background:var(--panel);border-color:#555}
+  .trow .nm{flex:1;font-size:15px}
+  .trow .ct{color:var(--dim);font-size:13px;white-space:nowrap}
+  .bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;width:120px}
+  .bar i{display:block;height:100%;background:var(--glow);border-radius:3px}
+  .trow.done .nm:after{content:' ✓';color:var(--good)}
+
+  /* word grid: found words and silhouettes */
+  .sub-h{color:var(--dim);font-size:12px;letter-spacing:2px;margin:18px 0 8px;
+         text-transform:uppercase}
+  .wgrid{display:flex;flex-wrap:wrap;gap:7px}
+  .wchip{background:var(--panel);border:1px solid #4a4d55;border-radius:7px;padding:7px 11px;
+         font-size:14px;cursor:pointer}
+  .wchip:hover{border-color:var(--glow)}
+  .wchip.hidden{background:transparent;border-style:dashed;color:#5a5d63;cursor:default;
+                letter-spacing:3px;font-family:monospace}
+  .wchip.hidden:hover{border-color:#4a4d55}
+
+  /* dictionary shelves */
+  .shelf{display:flex;flex-wrap:wrap;gap:6px}
+  .letter{width:52px;height:52px;border-radius:8px;background:var(--panel);border:1px solid #4a4d55;
+          display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+  .letter b{font-size:18px;text-transform:uppercase}
+  .letter span{font-size:10px;color:var(--dim)}
+  .letter.empty{opacity:.3;cursor:default}
+  .letter:hover:not(.empty){border-color:var(--glow)}
+
   /* --- found-this-cycle log --- */
   #log{font-size:13px;color:var(--dim);max-width:640px;text-align:center;line-height:1.8}
   #log span{background:var(--panel);border-radius:5px;padding:2px 8px;margin:2px}
@@ -119,6 +162,8 @@
   <button id="lang">clue: TH</button>
   <button id="say">🔊 words: ON</button>
   <button id="sayl">🔤 letters: OFF</button>
+  <button id="book">📚 collection</button>
+  <button id="dictbtn">📖 dictionary</button>
   <button id="promote">📈 top words</button>
   <button id="reset">reset save</button>
 </div>
@@ -148,6 +193,8 @@
 
 <div id="log"></div>
 
+<div id="overlay"><div id="panel"></div></div>
+
 <script>
 /* =====================================================================
    VOCAP M1 — direct port of drop_engine.py (the tuned reference).
@@ -171,7 +218,12 @@ const VOWELS=new Set('aeiou');
 // Everyday flavour (default). Explorer/Scholar arrive with the settings screen.
 const PLAN=[[3,5],[3,6],[4,7]];
 
-let BANK=[], seen=new Set(), sparks=0, cycleNo=0, carryClues=[];
+let BANK=[], seen=new Set(), sparks=0, cycleNo=0;
+/* Unsolved clues go on COOLDOWN rather than returning next run. Seeing the
+   same unsolved word immediately again is demoralising - it reads as the game
+   nagging. After a few runs away it reads as a familiar face instead. */
+let snoozed={};                  // word id -> earliest cycle it may return
+const SNOOZE_MIN=3, SNOOZE_MAX=6;
 let DICT=new Set();              // bundled common-English list (validity + Dictionary reveals)
 let DEFS={};                     // WordNet glosses for dictionary words
 let inked=new Set();             // dictionary words the player has revealed
@@ -186,10 +238,11 @@ let building=[];                       // [{ch:'m', from:3} | {ch:' ', from:null
 const typedWord = () => building.map(b=>b.ch).join('');
 
 const $=id=>document.getElementById(id);
-const save=()=>localStorage.setItem('vocap',JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift}));
+const save=()=>localStorage.setItem('vocap',JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
 const load=()=>{try{const d=JSON.parse(localStorage.getItem('vocap'));
   if(d){seen=new Set(d.seen);sparks=d.sparks;
-        inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;}
+        inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;
+        snoozed=d.snoozed||{};cycleNo=d.cycleNo||0;}
   }catch(e){}};
 
 /* ---- speech: browser-native, no audio files needed ----
@@ -255,19 +308,20 @@ function checkGrowth(){
 function pickSeeds(size){
   const budget=size-MIN_NOISE, allowHF=(cycleNo%HF_COOLDOWN===0);
   const chosen=[]; let acc={};
-  // unsolved clues from last cycle come back first (§3.6 clue lifecycle)
-  for(const w of carryClues){
-    const trial=union(acc,count(w.spell));
-    if(Object.values(trial).reduce((a,b)=>a+b,0)<=budget){chosen.push(w);acc=trial}
-  }
+  const ready = w => !(snoozed[w.id] && cycleNo < snoozed[w.id]);
   const bands=[...PLAN].sort((a,b)=>b[1]-a[1]);
   for(const [lo0,hi0] of bands){
     if(chosen.length>=3)break;
     let cands=[];
     for(let g=0;g<13 && !cands.length;g++){          // adaptive widening
       const lo=Math.max(3,lo0-g), hi=Math.min(15,hi0+g);
-      cands=BANK.filter(w=>!seen.has(w.id)&&!chosen.includes(w)
+      cands=BANK.filter(w=>!seen.has(w.id)&&!chosen.includes(w)&&ready(w)
         &&w.letters>=lo&&w.letters<=hi&&(allowHF||w.topic!==HF));
+    }
+    // Late game safety: if everything undiscovered is still snoozed, ignore
+    // the cooldown rather than leave the run without seeds.
+    if(!cands.length){
+      cands=BANK.filter(w=>!seen.has(w.id)&&!chosen.includes(w));
     }
     cands.sort(()=>Math.random()-.5);
     for(const w of cands.slice(0,80)){
@@ -306,11 +360,20 @@ function buildOrder(size){
   return ord.slice(0,head).concat(tail).slice(0,size);
 }
 
+/* Park every unsolved seed for 3-6 runs before it may be chosen again. */
+function snoozeUnsolved(){
+  for(const w of seeds){
+    if(seen.has(w.id)){ delete snoozed[w.id]; continue }
+    const wait=SNOOZE_MIN+Math.floor(Math.random()*(SNOOZE_MAX-SNOOZE_MIN+1));
+    snoozed[w.id]=cycleNo+wait;
+  }
+}
+
 /* ---------------- cycle control ---------------- */
 function startCycle(){
   cycleNo++; const size=traySize();
   [seeds,]=pickSeeds(size); order=buildOrder(size);
-  pool=[]; dropped=0; repeatPaid=new Set(); carryClues=[]; building=[];
+  pool=[]; dropped=0; repeatPaid=new Set(); building=[];
   checkGrowth();
   renderTray(); renderWordTray(); renderClue(); scheduleDrop();
 }
@@ -330,7 +393,7 @@ function dropLetter(){
     renderTray(); renderWordTray(); renderClue(); scheduleDrop();
   }else{ // Last Call ends: harvest leftovers, carry unsolved clues, new cycle
     sparks+=pool.length;
-    carryClues=seeds.filter(w=>!seen.has(w.id)).slice(0,2);
+    snoozeUnsolved();
     save(); startCycle();
   }
 }
@@ -490,10 +553,113 @@ function showDictCard(word){
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
 function flash(t,c){$('msg').textContent=t;$('msg').className=c||''}
 
+/* ═══════════════ Collection & Dictionary browsers ═══════════════
+   The tray is where you play; these are where the collection lives. Topic
+   screens show undiscovered words as silhouettes with their letter count -
+   the design's "tease, don't hide" rule: a blank slot invites a hunt, a
+   hidden list invites nothing. */
+
+function openPanel(html){ $('panel').innerHTML=html; $('overlay').className='show'; }
+function closePanel(){ $('overlay').className=''; }
+$('overlay') && ($('overlay').onclick=e=>{ if(e.target.id==='overlay') closePanel() });
+
+function topicStats(){
+  const m={};
+  for(const w of BANK_ALL){
+    for(const t of [w.topic, w.topic2]){
+      if(!t) continue;
+      (m[t]=m[t]||{total:0,found:0,words:[]});
+      m[t].total++; m[t].words.push(w);
+      if(seen.has(w.id)) m[t].found++;
+    }
+  }
+  return m;
+}
+
+function showCollection(){
+  const m=topicStats();
+  const names=Object.keys(m).sort((a,b)=>m[b].found-m[a].found||a.localeCompare(b));
+  const rows=names.map(t=>{
+    const s=m[t], pct=Math.round(s.found/s.total*100);
+    const started=s.found>0;
+    return `<div class="trow ${s.found===s.total?'done':''}" onclick="showTopic('${t.replace(/'/g,"\\'")}')">
+      <span class="nm">${started?t:'? ? ?'}</span>
+      <span class="bar"><i style="width:${pct}%"></i></span>
+      <span class="ct">${s.found}/${s.total}</span></div>`;
+  }).join('');
+  const tot=seen.size, all=BANK_ALL.length;
+  openPanel(`<div class="phead"><div><h2>Collection</h2>
+      <div class="sub">${tot} of ${all} words found · ${Math.round(tot/all*100)}%</div></div>
+      <button onclick="closePanel()">close</button></div>${rows}`);
+}
+
+function showTopic(t){
+  const m=topicStats()[t];
+  if(!m) return;
+  const bySub={};
+  for(const w of m.words) (bySub[w.sublist]=bySub[w.sublist]||[]).push(w);
+  let html='';
+  for(const sub of Object.keys(bySub).sort()){
+    const ws=bySub[sub].sort((a,b)=>a.letters-b.letters||a.word.localeCompare(b.word));
+    const f=ws.filter(w=>seen.has(w.id)).length;
+    html+=`<div class="sub-h">${sub} — ${f}/${ws.length}</div><div class="wgrid">`;
+    html+=ws.map(w=>seen.has(w.id)
+      ? `<span class="wchip" onclick="replay('${w.id}')">${w.word}</span>`
+      : `<span class="wchip hidden">${'_'.repeat(w.letters)}</span>`).join('');
+    html+='</div>';
+  }
+  openPanel(`<button class="back" onclick="showCollection()">← all topics</button>
+    <div class="phead"><div><h2>${t}</h2>
+    <div class="sub">${m.found} of ${m.total} found</div></div>
+    <button onclick="closePanel()">close</button></div>${html}`);
+}
+
+function replay(id){
+  const w=BANK_ALL.find(x=>x.id===id); if(!w) return;
+  closePanel(); showCard(w,0); speakWord(w.word);
+}
+
+function showDictionary(){
+  const letters='abcdefghijklmnopqrstuvwxyz'.split('');
+  const byL={};
+  for(const w of inked) (byL[w[0]]=byL[w[0]]||[]).push(w);
+  const shelf=letters.map(L=>{
+    const n=(byL[L]||[]).length;
+    return `<div class="letter ${n?'':'empty'}" ${n?`onclick="showShelf('${L}')"`:''}>
+      <b>${L}</b><span>${n||''}</span></div>`;
+  }).join('');
+  const next=100-(inked.size%100);
+  openPanel(`<div class="phead"><div><h2>Dictionary</h2>
+    <div class="sub">${inked.size} words inked · ${next} more to the next milestone</div></div>
+    <button onclick="closePanel()">close</button></div>
+    <div class="shelf">${shelf}</div>
+    <div class="sub-h">how it works</div>
+    <div style="color:var(--dim);font-size:13px;line-height:1.6">
+      Any real English word you spell from the tray is inked here permanently, even if it
+      isn't one of the ${BANK_ALL.length} collection words. There is no completion target —
+      the Dictionary is a log of everything you've found, not a checklist.</div>`);
+}
+
+function showShelf(L){
+  const ws=[...inked].filter(w=>w[0]===L).sort();
+  const chips=ws.map(w=>`<span class="wchip" onclick="showDictCard('${w}');closePanel()">${w}</span>`).join('');
+  openPanel(`<button class="back" onclick="showDictionary()">← shelves</button>
+    <div class="phead"><div><h2>${L.toUpperCase()}</h2>
+    <div class="sub">${ws.length} words inked</div></div>
+    <button onclick="closePanel()">close</button></div>
+    <div class="wgrid">${chips}</div>`);
+}
+
+$('book').onclick=showCollection;
+$('dictbtn').onclick=showDictionary;
+
 /* ---------------- input ---------------- */
 document.addEventListener('keydown',e=>{
+  if($('overlay').className==='show' && e.key!=='Escape') return;
   if(e.key==='Enter'){submit();return}
-  if(e.key==='Escape'){building=[];renderTray();renderWordTray();return}
+  if(e.key==='Escape'){
+    if($('overlay').className==='show'){closePanel();return}
+    building=[];renderTray();renderWordTray();return}
   if(e.key==='Backspace'){building.pop()}
   else if(e.key===' '){building.push({ch:' ',from:null});e.preventDefault()}   // free space
   else if(/^[a-zA-Z']$/.test(e.key)){
@@ -528,8 +694,8 @@ $('speed').onclick=()=>{fast=!fast;$('speed').textContent='⚡ fast mode: '+(fas
    waiting out Last Call is just dead time. Leftover letters still pay out. */
 $('skip').onclick=()=>{
   if(!confirm('Start a fresh run? Leftover letters become sparks and new clues are drawn.')) return;
-  sparks+=pool.length; save();
-  carryClues=seeds.filter(w=>!seen.has(w.id)).slice(0,2);   // unsolved clues return
+  sparks+=pool.length;
+  snoozeUnsolved(); save();
   startCycle();
   flash('new run started','');
 };
