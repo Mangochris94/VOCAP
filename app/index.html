@@ -207,7 +207,12 @@ const POOL_START=8, POOL_CAP=15, MIN_NOISE=1, HF='High-Frequency / Core', HF_COO
    upgrade lands inside a single session (so the mechanic teaches itself), the
    last sits around 400 words (so max tray is a genuine mid-game milestone).
    Counts CURATED discoveries only - dictionary words don't grow the tray. */
-const GROWTH=[10,30,60,110,180,280,400];   // cumulative words for slots 9..15
+const GROWTH=[15,50,110,200,330,520,780];  // cumulative curated words for slots 9..15
+/* Rescaled when the collection grew from 966 to ~1,930 words. The old curve
+   (10..400) was tuned for the smaller set and maxed the tray at 21% of the
+   collection - far too fast. This puts max tray back around 40%, while the
+   first upgrade still lands inside the first session so the mechanic keeps
+   teaching itself. */
 
 let INTERVAL_MS = 5*60*1000;       // player-chosen: 5 / 10 / 20 minutes
 const FAST_MS     = 2*1000;         // debug fast mode: a workday in minutes
