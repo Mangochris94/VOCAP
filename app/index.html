@@ -88,6 +88,7 @@
   #card.show{display:block}
   #card.dict{border-style:dashed;opacity:.9}
   #card.dict h2{font-size:22px;color:var(--dim)}
+  #card.dict #c-thdef{color:var(--text);font-size:14px}
   #card h2{margin:0 0 4px;font-size:26px;cursor:pointer;user-select:none}
   #card h2:after{content:' 🔊';font-size:16px;opacity:.5}
   #card .th{color:var(--glow);font-size:18px}
@@ -545,8 +546,12 @@ function showCard(w,gain){
 function showDictCard(word){
   $('c-word').textContent=word;
   $('c-thword').textContent='';
-  $('c-def').textContent=DEFS[word]||'(no definition available)';
-  $('c-thdef').textContent=''; $('c-hist').textContent='';
+  // Dictionary words carry up to two senses, ordered by how common they are.
+  const g=DEFS[word];
+  const senses = Array.isArray(g) ? g : (g ? [g] : []);
+  $('c-def').textContent = senses.length ? '1. '+senses[0] : '(no definition available)';
+  $('c-thdef').textContent = senses.length>1 ? '2. '+senses[1] : '';
+  $('c-hist').textContent='';
   $('c-thhist').textContent=''; $('c-sent').textContent='';
   $('c-meta').textContent=`${word.length} letters · Dictionary word #${inked.size} · +2 sparks`;
   // External look-up: the curated 966 have hand-written Thai; dictionary words

@@ -99,13 +99,18 @@ def main():
 
     # frequency gate: keep only words people actually use
     if os.path.exists(FREQ):
+        # Take the top N most frequent words. The list is already ordered by
+        # usage, so this is a clean "how obscure will we allow" dial.
+        FREQ_LIMIT = 95000
         common = set()
-        for line in open(FREQ, encoding="utf-8", errors="ignore"):
+        for i, line in enumerate(open(FREQ, encoding="utf-8", errors="ignore")):
+            if i >= FREQ_LIMIT:
+                break
             parts = line.split()
             if parts:
                 common.add(parts[0].strip().lower())
         words = sorted(valid & common)
-        gate = f"frequency-gated against {len(common):,} common words"
+        gate = f"frequency-gated against top {len(common):,} words by usage"
     else:
         words = sorted(valid)
         gate = "NO frequency list found - keeping all valid words (noisy!)"
@@ -118,43 +123,72 @@ def main():
         curated = {w["spell"] for w in data["words"]}
     words = [w for w in words if w not in curated]
 
-    # ---- WordNet definitions (optional) ----
+    # ---- WordNet definitions, most-common senses first ----
+    # WordNet's index.* files list each word's synsets in order of how often
+    # that sense actually occurs in tagged text. Parsing the index rather than
+    # the data file means sense 1 is the everyday meaning, not an archaic one.
     glosses = {}
-    # find data.noun anywhere under content/ - unzipping often nests a folder
     wnroot = None
     for base, dirs, files in os.walk(os.path.join(ROOT, "content")):
-        if "data.noun" in files:
+        if "data.noun" in files and "index.noun" in files:
             wnroot = base
             break
     if wnroot:
         print(f"    wordnet found at: {os.path.relpath(wnroot, ROOT)}")
         want = set(words)
-        for pos in ("noun", "verb", "adj", "adv"):
+
+        def load_data(pos):
+            """offset -> cleaned gloss"""
+            out = {}
             fp = os.path.join(wnroot, f"data.{pos}")
             if not os.path.exists(fp):
-                continue
+                return out
             for line in open(fp, encoding="utf-8", errors="ignore"):
                 if line.startswith("  ") or "|" not in line:
                     continue
                 head, gloss = line.split("|", 1)
                 gloss = re.split(r'; "', gloss.strip())[0].strip().rstrip(";").strip()
-                if len(gloss) > 110:
-                    gloss = gloss[:110].rsplit(" ", 1)[0] + "\u2026"
+                if len(gloss) > 105:
+                    gloss = gloss[:105].rsplit(" ", 1)[0] + "\u2026"
                 if gloss:
                     gloss = gloss[0].upper() + gloss[1:]
-                parts = head.split()
-                try:
-                    n = int(parts[3], 16)
-                except ValueError:
+                out[head.split()[0]] = gloss
+            return out
+
+        senses = {}          # word -> ordered list of glosses
+        for pos in ("noun", "verb", "adj", "adv"):
+            data = load_data(pos)
+            fp = os.path.join(wnroot, f"index.{pos}")
+            if not os.path.exists(fp):
+                continue
+            for line in open(fp, encoding="utf-8", errors="ignore"):
+                if line.startswith("  "):
                     continue
-                for i in range(n):
-                    w = parts[4 + 2 * i].lower().replace("_", " ")
-                    if w in want and w not in glosses:
-                        glosses[w] = gloss
+                parts = line.split()
+                if len(parts) < 6:
+                    continue
+                word = parts[0].lower().replace("_", " ")
+                if word not in want:
+                    continue
+                # offsets sit at the end, already ordered by sense frequency
+                try:
+                    n_syn = int(parts[2])
+                    offsets = parts[-n_syn:]
+                except (ValueError, IndexError):
+                    continue
+                for off in offsets:
+                    g = data.get(off)
+                    if g:
+                        senses.setdefault(word, [])
+                        if g not in senses[word]:
+                            senses[word].append(g)
+
+        # keep the two most common senses per word
+        for w, gl in senses.items():
+            glosses[w] = gl[:2]
+
         direct = len(glosses)
-        # Inflected forms (abandoning, zapped, macaroons) usually have no gloss
-        # of their own, but their base word does. Walk back to the base and
-        # reuse it - this lifts coverage from ~67% to ~90%.
+        # Inflected forms (zapped, macaroons) borrow their base word's senses.
         def bases(w):
             out = []
             if w.endswith("ies") and len(w) > 4: out.append(w[:-3] + "y")
@@ -175,12 +209,13 @@ def main():
                     glosses[w] = glosses[b]
                     added += 1
                     break
+        two = sum(1 for v in glosses.values() if len(v) > 1)
         print(f"    definitions: {len(glosses):,} of {len(words):,} words "
               f"({len(glosses)/max(len(words),1)*100:.0f}%)  "
               f"[{direct:,} direct + {added:,} via base word]")
+        print(f"    with two senses: {two:,}")
     else:
-        print("    no data.noun found under content/ - revealed words will have no definition")
-        print("    (unzip wordnet.zip into content/ so content/wordnet/data.noun exists)")
+        print("    no wordnet index files found under content/ - no definitions")
 
     # Group by first letter — this is how the Dictionary page displays shelves,
     # and it keeps lookups small.
@@ -188,7 +223,7 @@ def main():
     for w in words:
         shelves.setdefault(w[0], []).append(w)
 
-    out = {"schema": 2, "source": "ENABLE x frequency, WordNet glosses",
+    out = {"schema": 3, "source": "ENABLE x frequency, WordNet glosses",
            "count": len(words), "shelves": shelves, "defs": glosses}
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"))
