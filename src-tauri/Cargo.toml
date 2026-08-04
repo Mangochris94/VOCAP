@@ -1,0 +1,17 @@
+[package]
+name = "vocap"
+version = "0.2.0"
+description = "A calm word-discovery companion"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-window-state = "2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
