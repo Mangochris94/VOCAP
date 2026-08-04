@@ -32,7 +32,14 @@
   /* --- the clue line: the learning mechanic, front and centre --- */
   #clue{min-height:24px;color:var(--glow);font-size:15px;text-align:center;
         max-width:min(640px,100%);line-height:1.6}
-  #clue.spellable{text-shadow:0 0 12px var(--glow)}                 /* the "glow" from §3.6 */
+  #clue.spellable{text-shadow:0 0 12px var(--glow)}
+  .clueline{margin:3px 0}
+  .hintbar{display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle}
+  .hintbar button{font-size:11px;padding:3px 8px;border-radius:5px;opacity:.75}
+  .hintbar button:hover:not(:disabled){opacity:1}
+  .hintbar button:disabled{opacity:.3;cursor:default}
+  .hintbar button.solve{border-color:var(--glow);color:var(--glow)}
+  .reveal{font-family:monospace;letter-spacing:3px;color:var(--text)}                 /* the "glow" from §3.6 */
 
   .slot.used{background:var(--box-lit);border-color:var(--glow);opacity:.55}  /* in use below */
   .slot.filled{cursor:pointer}
@@ -82,23 +89,67 @@
          padding:5px 12px;cursor:pointer;font-size:13px}
   button:hover{border-color:var(--glow)}
 
-  /* --- discovery card (plain, art slot reserved) --- */
-  #card{display:none;background:var(--panel);border-radius:12px;padding:18px 22px;max-width:560px;
-        border:1px solid #555}
-  #card.show{display:block}
-  #card.dict{border-style:dashed;opacity:.9}
+  /* --- discovery card ---------------------------------------------
+     Sits alongside the tray rather than taking over, but announces itself
+     in proportion to the word. Short words get a quiet entrance; long ones
+     get a longer glow and a slower reveal. */
+  #card{display:none;position:relative;background:var(--panel);border-radius:14px;
+        padding:18px 46px 16px 18px;width:min(620px,100%);border:1px solid #4a4d55;
+        gap:16px;align-items:flex-start}
+  #card.show{display:flex;animation:cardIn .45s cubic-bezier(.2,.9,.3,1)}
+  @keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.985)}
+                    to{opacity:1;transform:none}}
+
+  /* celebration scales with word length */
+  #card.tier1{box-shadow:0 0 0 1px rgba(227,179,65,.18)}
+  #card.tier2{box-shadow:0 0 18px -4px rgba(227,179,65,.35);border-color:#6a5d33}
+  #card.tier3{box-shadow:0 0 30px -4px rgba(227,179,65,.55);border-color:var(--glow)}
+  #card.tier4{box-shadow:0 0 46px -2px rgba(227,179,65,.75);border-color:var(--glow);
+              animation:cardIn .45s cubic-bezier(.2,.9,.3,1), bigPulse 1.6s ease-out}
+  @keyframes bigPulse{0%{box-shadow:0 0 0 0 rgba(227,179,65,.5)}
+                      100%{box-shadow:0 0 46px -2px rgba(227,179,65,.75)}}
+
+  /* reserved art slot — a real illustration drops in here later */
+  #c-art{flex:0 0 84px;height:84px;border-radius:10px;background:rgba(0,0,0,.22);
+         display:flex;align-items:center;justify-content:center;font-size:30px;
+         border:1px dashed #4a4d55;color:#5a5d63}
+  #c-body{flex:1;min-width:0}
+
+  #c-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px}
+  #card h2{margin:0;font-size:27px;line-height:1.1;cursor:pointer;user-select:none}
+  #card h2:after{content:' 🔊';font-size:15px;opacity:.45}
+  #c-pos{font-size:12px;color:var(--dim);font-style:italic}
+  #c-spark{margin-left:auto;font-size:13px;color:var(--glow);white-space:nowrap}
+  #card .th{color:var(--glow);font-size:17px;margin-bottom:6px}
+  #card p{margin:5px 0;font-size:14px;line-height:1.55}
+  #c-thdef{color:#c8ccd2}
+  #c-factbox{border-left:2px solid #4a4d55;padding-left:11px;margin:10px 0}
+  #c-factbox p{margin:3px 0;font-size:13px;color:#c2c6cc}
+  #c-sent{font-style:italic;color:var(--dim);font-size:13px}
+  #c-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  #c-tags span{font-size:11px;background:rgba(0,0,0,.25);border:1px solid #4a4d55;
+               border-radius:20px;padding:3px 10px;color:var(--dim)}
+  #c-close{position:absolute;top:8px;right:10px;background:none;border:none;
+           color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
+  #c-close:hover{color:var(--text)}
+
+  /* dictionary words share the card but stay visibly plainer */
+  #card.dict{border-style:dashed;box-shadow:none}
   #card.dict h2{font-size:22px;color:var(--dim)}
+  #card.dict #c-art{opacity:.5}
   #card.dict #c-thdef{color:var(--text);font-size:14px}
-  #card h2{margin:0 0 4px;font-size:26px;cursor:pointer;user-select:none}
-  #card h2:after{content:' 🔊';font-size:16px;opacity:.5}
-  #card .th{color:var(--glow);font-size:18px}
-  #card p{margin:6px 0;font-size:14px;line-height:1.5}
-  #card .meta{color:var(--dim);font-size:12px}
+
   #lookup{display:none;margin-top:10px}
   #card.dict #lookup{display:block}
-  #lookup a{color:var(--glow);font-size:13px;text-decoration:none;border:1px solid #555;
-            border-radius:6px;padding:6px 12px;display:inline-block}
+  #lookup a{color:var(--glow);font-size:12px;text-decoration:none;border:1px solid #555;
+            border-radius:6px;padding:5px 11px;display:inline-block}
   #lookup a:hover{border-color:var(--glow)}
+
+  @media (max-width:700px){
+    #card{flex-direction:column;padding:16px 40px 14px 16px}
+    #c-art{flex:0 0 auto;width:64px;height:64px;font-size:26px}
+    #card h2{font-size:23px}
+  }
 
   /* --- overlay panels: Collection + Dictionary --- */
   #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;
@@ -181,15 +232,22 @@
 <div id="msg">tap or type letters · Space is free</div>
 
 <div id="card">
-  <h2 id="c-word"></h2>
-  <div class="th" id="c-thword"></div>
-  <p id="c-def"></p>
-  <p id="c-thdef"></p>
-  <p id="c-hist"></p>
-  <p id="c-thhist"></p>
-  <p id="c-sent" style="font-style:italic"></p>
-  <p class="meta" id="c-meta"></p>
-  <div id="lookup"><a id="c-lookup" target="_blank" rel="noopener">ดูคำแปลไทย · look up in Thai ↗</a></div>
+  <div id="c-art"></div>
+  <div id="c-body">
+    <div id="c-head">
+      <h2 id="c-word"></h2>
+      <span id="c-pos"></span>
+      <span id="c-spark"></span>
+    </div>
+    <div class="th" id="c-thword"></div>
+    <p id="c-def"></p>
+    <p id="c-thdef"></p>
+    <div id="c-factbox"><p id="c-hist"></p><p id="c-thhist"></p></div>
+    <p id="c-sent"></p>
+    <div id="c-tags"></div>
+    <div id="lookup"><a id="c-lookup" target="_blank" rel="noopener">ดูคำแปลไทย · look up in Thai ↗</a></div>
+  </div>
+  <button id="c-close" title="close">×</button>
 </div>
 
 <div id="log"></div>
@@ -234,10 +292,30 @@ let DICT=new Set();              // bundled common-English list (validity + Dict
 let DEFS={};                     // WordNet glosses for dictionary words
 let inked=new Set();             // dictionary words the player has revealed
 let inkTally={};                 // word -> times formed; drives promotion (design 5.4)
+/* Hints cost a share of what the word pays, so one is worth buying and three
+   is a clear loss. Prices are 0.5x, 1.0x and 1.5x the word's base value. */
+/* Levels 1-3 chip away at the word. Level 4 hands it over completely and is
+   priced at 3x the payout, so solving this way always loses sparks overall. */
+const HINT_MULT=[0.5,1.0,1.5,3.0];
+let hintsBought={};              // word id -> how many hints taken this cycle
 let starterDay=0, lastGift=null; // Starter Pack: one 2-letter gift word per day
 let lastTray=POOL_START;         // for announcing upgrades
 let pool=[], order=[], dropped=0, seeds=[], repeatPaid=new Set(), timerId=null, nextDrop=0;
 let fast=false, lang='th';
+/* ---- Pause system ----
+   Vocap is meant to run while you work, so an unfocused window must NOT
+   pause. What should pause is the machine being away: asleep, shut, or the
+   tab frozen. We detect that by watching for a jump in the wall clock.
+
+   The threshold scales with the interval rather than being a fixed number of
+   minutes: missing three drops means the same thing whether they are five
+   minutes apart or twenty. */
+const IDLE_INTERVALS = 3;
+let lastTick = Date.now();
+let awaySince = null;
+let burstLeft = 0;               // welcome-back: next drops come quickly
+let lastActivity = Date.now();   // last time the player actually did something
+let holding = false;             // tray is full and waiting for the player
 /* `building` is the word tray: each entry is a letter taken from a pool slot,
    or a free space. The pool letter is never removed — it just highlights. */
 let building=[];                       // [{ch:'m', from:3} | {ch:' ', from:null}]
@@ -379,25 +457,61 @@ function snoozeUnsolved(){
 function startCycle(){
   cycleNo++; const size=traySize();
   [seeds,]=pickSeeds(size); order=buildOrder(size);
-  pool=[]; dropped=0; repeatPaid=new Set(); building=[];
+  pool=[]; dropped=0; repeatPaid=new Set(); building=[]; hintsBought={}; holding=false;
   checkGrowth();
   renderTray(); renderWordTray(); renderClue(); scheduleDrop();
 }
+function dropDelay(){
+  if(fast) return FAST_MS;
+  if(burstLeft>0) return 60*1000;          // one minute, to make returning feel alive
+  return INTERVAL_MS;
+}
+
 function scheduleDrop(){
   clearTimeout(timerId);
-  const ms=fast?FAST_MS:INTERVAL_MS; nextDrop=Date.now()+ms;
+  const ms=dropDelay(); nextDrop=Date.now()+ms;
   timerId=setTimeout(dropLetter,ms); tickTimer();
 }
+/* Runs every second. A gap far larger than one second means the machine was
+   not running, so we push the timer forward by exactly the missing time
+   instead of letting it expire while nobody was watching. */
+function watchClock(){
+  const now=Date.now(), gap=now-lastTick;
+  const threshold=Math.max(30000, dropDelay()*IDLE_INTERVALS);
+  if(gap>threshold){
+    nextDrop += gap;                       // credit the whole absence back
+    awaySince = gap;
+    if(gap > 2*60*60*1000) burstLeft = 2;  // away over two hours
+    const mins=Math.round(gap/60000);
+    flash(mins>=60 ? `welcome back — paused for ${Math.round(mins/60)}h`
+                   : `welcome back — paused for ${mins} min`, '');
+  }
+  lastTick=now;
+  setTimeout(watchClock,1000);
+}
+watchClock();
+
 function tickTimer(){
   const s=Math.max(0,Math.ceil((nextDrop-Date.now())/1000));
+  if(holding){ $('timer').textContent='WAITING FOR YOU'; setTimeout(tickTimer,500); return; }
   $('timer').textContent=dropped>=order.length?'LAST CALL':`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
   if(dropped<=order.length)setTimeout(tickTimer,500);
 }
 function dropLetter(){
   if(dropped<order.length){
     pool.push(order[dropped]); dropped++;
+    if(burstLeft>0) burstLeft--;
     renderTray(); renderWordTray(); renderClue(); scheduleDrop();
-  }else{ // Last Call ends: harvest leftovers, carry unsolved clues, new cycle
+  }else{
+    /* Last Call. The design promise is that the tray never resets while nobody
+       is watching, so if the player has not touched anything since it filled,
+       hold here indefinitely. They get the full tray when they come back. */
+    if(Date.now()-lastActivity > dropDelay()){
+      holding=true;
+      $('timer').textContent='WAITING FOR YOU';
+      flash('tray is full and waiting — it will not reset until you play','');
+      return;
+    }
     sparks+=pool.length;
     snoozeUnsolved();
     save(); startCycle();
@@ -414,11 +528,12 @@ function renderTray(){
     if(i<pool.length){
       d.textContent=pool[i];
       if(used.has(i))d.classList.add('used');
-      d.onclick=()=>{ if(!used.has(i)){speakLetter(pool[i]);building.push({ch:pool[i],from:i});renderTray();renderWordTray()} };
+      d.onclick=()=>{ dropFocus(); noteActivity(); if(!used.has(i)){speakLetter(pool[i]);building.push({ch:pool[i],from:i});renderTray();renderWordTray()} };
     }
     t.appendChild(d);
   }
   $('sparks').textContent=sparks;
+
   $('foundcount').textContent=seen.size;
   $('inkcount').textContent=inked.size;
 }
@@ -455,6 +570,34 @@ function renderWordTray(){
   $('submit').disabled = w.length<3;
   $('typed').textContent=w.length+' letters';
 }
+function hintCost(w,level){ return Math.max(1, Math.round(sparksFor(w.letters)*HINT_MULT[level])); }
+
+/* Level 0: first letter. Level 1: every vowel placed. Level 2: one more consonant. */
+function hintMask(w,level){
+  const s=w.spell, out=[];
+  const vowels=new Set('aeiou');
+  // pick one consonant (other than the first) to reveal at level 3
+  let extra=-1;
+  for(let i=s.length-1;i>0;i--) if(!vowels.has(s[i])){ extra=i; break; }
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    let show = level>=4 || (level>=1 && i===0) || (level>=2 && vowels.has(c)) || (level>=3 && i===extra);
+    out.push(show?c:'_');
+  }
+  return out.join(' ');
+}
+
+function buyHint(id){
+  const w=BANK.find(x=>x.id===id); if(!w) return;
+  const have=hintsBought[id]||0;
+  if(have>=4){flash('the whole word is already showing','');return}
+  const cost=hintCost(w,have);
+  if(sparks<cost){flash(`need ${cost} sparks for that hint`,'bad');return}
+  sparks-=cost; hintsBought[id]=have+1; save();
+  flash(have===3 ? `word revealed · -${cost} ✨` : `hint bought · -${cost} ✨`,'');
+  renderTray(); renderClue();
+}
+
 function renderClue(){
   const active=seeds.filter(w=>!seen.has(w.id));
   const el=$('clue');
@@ -464,8 +607,17 @@ function renderClue(){
     const desc = lang==='th' && w.translations?.th?.definition
         ? w.translations.th.definition : w.definition;
     const ok=canSpell(count(w.spell),pc);
-    return `<span class="${ok?'spellable':''}">🔎 ${desc} — ${w.letters} letters</span>`;
-  }).join('<br>');
+    const lv=hintsBought[w.id]||0;
+    const shown = lv>0 ? `<div class="reveal">${hintMask(w,lv)}</div>` : '';
+    let next;
+    if(lv>=4)      next=`<button disabled>revealed</button>`;
+    else if(lv===3) next=`<button class="solve" onclick="buyHint('${w.id}')" `
+                        + `${sparks<hintCost(w,lv)?'disabled':''}>🔓 reveal · ${hintCost(w,lv)}✨</button>`;
+    else            next=`<button onclick="buyHint('${w.id}')" `
+                        + `${sparks<hintCost(w,lv)?'disabled':''}>💡 ${hintCost(w,lv)}✨</button>`;
+    return `<div class="clueline"><span class="${ok?'spellable':''}">🔎 ${desc} — ${w.letters} letters</span>`
+         + `<span class="hintbar">${next}</span>${shown}</div>`;
+  }).join('');
   el.className=active.some(w=>canSpell(count(w.spell),poolCount()))?'spellable':'';
 }
 
@@ -497,7 +649,7 @@ function submit(){
     if(seen.has(w.id)){                       // found on an earlier run
       sparks++; save(); speakWord(w.word);
       flash('already in your collection · +1 ✨','good');
-      renderTray(); return;
+      renderTray(); renderClue(); return;
     }
     const fresh=1+(order.length-dropped)/8;   // freshness bonus (design 4.4)
     const gain=Math.round(sparksFor(w.letters)*fresh);
@@ -515,47 +667,71 @@ function submit(){
     inkTally[plain]=(inkTally[plain]||0)+1;
     if(inked.has(plain)){                     // inked on an earlier run
       sparks++; save(); flash('already inked · +1 ✨','good');
-      renderTray(); return;
+      renderTray(); renderClue(); return;
     }
     inked.add(plain); sparks+=2; save();
     speakWord(plain); showDictCard(plain);
     const before=Math.floor((inked.size-1)/100), after=Math.floor(inked.size/100);
     if(after>before){sparks+=100;flash(`📖 ${inked.size} words inked · +100 ✨ milestone!`,'good')}
     else flash('📖 inked in the Dictionary · +2 ✨','good');
-    renderTray(); return;
+    renderTray(); renderClue(); return;
   }
 
   flash('not an English word','bad');
   renderTray();
 }
 
+/* One card, several moods. The tier controls how much the card announces
+   itself: a three-letter word should feel like a tick, a fourteen-letter one
+   like an event. Everything else stays identical so the layout is learnable. */
+const TOPIC_ICON={
+ 'Animals':'🐾','Fruits':'🍎','Vegetables':'🥕','Food & Drink':'🍜','Thai Food & Cooking':'🌶️',
+ 'Body Parts':'🖐️','Health & Body':'🩺','Family & People':'👪','Emotions & Feelings':'💭',
+ 'Colors & Shapes':'🎨','Clothes & Fashion':'👕','House & Home':'🏠','Kitchen & Utensils':'🍳',
+ 'Buildings & Structures':'🏛️','Tools & DIY':'🔧','Containers & Materials':'📦',
+ 'Nature & Weather':'🌦️','Flowers & Plants':'🌸','Ocean & Beach':'🌊','Sky & Space':'🪐',
+ 'Science Basics':'🔬','Technology':'💻','Transportation':'🚌','Travel & Places':'🧭',
+ 'Directions & Position':'🧭','Time & Calendar':'🕰️','Numbers & Measurement':'📏',
+ 'Education':'📚','Jobs & Work':'💼','Money & Shopping':'🏷️','Restaurant & Ordering':'🍽️',
+ 'Sports & Games':'⚽','Music & Instruments':'🎵','Art & Crafts':'🎨',
+ 'Media & Entertainment':'🎬','Celebrations & Festivals':'🎉','Slang & GenZ':'💬',
+ 'High-Frequency / Core':'⭐','Describing Words':'✨','Actions & Movement':'🏃'};
+
+function tierFor(n){ return n<=5?1 : n<=8?2 : n<=12?3 : 4; }
+
 function showCard(w,gain){
-  $('c-word').textContent=w.word;
-  $('c-thword').textContent=lang==='th'?(w.thai||''):'';
-  $('c-def').textContent=w.definition;                       // English ALWAYS shows (§6)
-  $('c-thdef').textContent=lang==='th'?(w.translations?.th?.definition||''):'';
-  $('c-hist').textContent=w.history;
-  $('c-thhist').textContent=lang==='th'?(w.translations?.th?.history||''):'';
-  $('c-sent').textContent=w.sentence?'"'+w.sentence+'"':'';
-  $('c-meta').textContent=`${w.letters} letters · fills ${w.topic}${w.topic2?' + '+w.topic2:''} · +${gain} sparks`;
-  $('card').className='show';
+  const th = lang==='th' ? (w.translations?.th||{}) : {};
+  $('c-art').textContent = TOPIC_ICON[w.topic] || '✦';
+  $('c-word').textContent = w.word;
+  $('c-pos').textContent = `${w.letters} letters`;
+  $('c-spark').textContent = gain ? `+${gain} ✨` : 'already found';
+  $('c-thword').textContent = th.word || '';
+  $('c-def').textContent = w.definition;                 // English always shows
+  $('c-thdef').textContent = th.definition || '';
+  $('c-hist').textContent = w.history || '';
+  $('c-thhist').textContent = th.history || '';
+  $('c-sent').textContent = w.sentence ? '\u201c'+w.sentence+'\u201d' : '';
+  const tags=[w.topic, w.topic2].filter(Boolean)
+      .map(t=>`<span>${TOPIC_ICON[t]||'✦'} ${t}</span>`).join('');
+  $('c-tags').innerHTML = tags;
+  $('card').className = 'show tier'+tierFor(w.letters);
 }
+
 /* Dictionary card — deliberately plainer than a discovery card. The curated
    966 get history, Thai and (later) art; dictionary words get a definition
    and a page. The gap between them is what makes the collection feel special. */
 function showDictCard(word){
-  $('c-word').textContent=word;
-  $('c-thword').textContent='';
-  // Dictionary words carry up to two senses, ordered by how common they are.
   const g=DEFS[word];
   const senses = Array.isArray(g) ? g : (g ? [g] : []);
-  $('c-def').textContent = senses.length ? '1. '+senses[0] : '(no definition available)';
+  $('c-art').textContent='📖';
+  $('c-word').textContent=word;
+  $('c-pos').textContent=`${word.length} letters`;
+  $('c-spark').textContent='+2 ✨';
+  $('c-thword').textContent='';
+  $('c-def').textContent   = senses.length ? '1. '+senses[0] : '(no definition available)';
   $('c-thdef').textContent = senses.length>1 ? '2. '+senses[1] : '';
-  $('c-hist').textContent='';
-  $('c-thhist').textContent=''; $('c-sent').textContent='';
-  $('c-meta').textContent=`${word.length} letters · Dictionary word #${inked.size} · +2 sparks`;
-  // External look-up: the curated 966 have hand-written Thai; dictionary words
-  // point at a real dictionary instead of shipping machine translation.
+  $('c-hist').textContent=''; $('c-thhist').textContent=''; $('c-sent').textContent='';
+  $('c-tags').innerHTML=`<span>📖 Dictionary word #${inked.size}</span>`;
   $('c-lookup').href='https://dict.longdo.com/search/'+encodeURIComponent(word);
   $('card').className='show dict';
 }
@@ -568,6 +744,11 @@ function flash(t,c){$('msg').textContent=t;$('msg').className=c||''}
    screens show undiscovered words as silhouettes with their letter count -
    the design's "tease, don't hide" rule: a blank slot invites a hunt, a
    hidden list invites nothing. */
+
+/* Stop a previously clicked button from stealing the Enter key. */
+function noteActivity(){ lastActivity=Date.now(); if(holding){ holding=false; scheduleDrop(); } }
+
+function dropFocus(){ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
 
 function openPanel(html){ $('panel').innerHTML=html; $('overlay').className='show'; }
 function closePanel(){ $('overlay').className=''; }
@@ -666,6 +847,10 @@ $('dictbtn').onclick=showDictionary;
 /* ---------------- input ---------------- */
 document.addEventListener('keydown',e=>{
   if($('overlay').className==='show' && e.key!=='Escape') return;
+  // A focused button would otherwise fire on Enter or Space as well.
+  if(document.activeElement && document.activeElement.tagName==='BUTTON'
+     && document.activeElement.id!=='submit') dropFocus();
+  noteActivity();
   if(e.key==='Enter'){submit();return}
   if(e.key==='Escape'){
     if($('overlay').className==='show'){closePanel();return}
@@ -684,6 +869,11 @@ document.addEventListener('keydown',e=>{
   flash('');
   renderTray(); renderWordTray();
 });
+for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit']){
+  const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
+$('c-close').onclick=()=>{$('card').className='';};
 $('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
 $('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
 $('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};

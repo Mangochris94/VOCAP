@@ -45,33 +45,16 @@ WORDS = os.path.join(ROOT, "content", "words.json")
 # Words that are valid in Scrabble but look like typos to a learner.
 # These are obscure two/three-letter entries with no everyday use.
 JUNK = {
- "aa","ab","ad","ae","ag","ai","al","ar","aw","ax","ay","ba","bi","bo","br",
- "de","ed","ef","eh","el","em","en","er","es","et","ex","fa","fe","gi","gu",
- "hm","ho","id","io","jo","ka","kaes","ki","la","li","lo","ma","mi","mm","mo",
- "mu","na","ne","nu","od","oe","of","oh","oi","om","op","os","ou","ow","ox",
- "oy","pa","pe","pi","po","qi","re","sh","si","ta","ti","uh","um","un","ur",
- "ut","we","wo","xi","xu","ya","ye","yo","za","zo",
- "aal","aas","aba","abo","abs","aby","ach","ads","adz","aff","aft","aga","ags",
- "aha","ahi","ahs","ais","ait","aka","als","alt","ama","ami","amp","amu","ana",
- "ane","ani","ans","ant","any","apo","app","apt","arb","arc","are","arf","ars",
- "aua","auk","ava","ave","avo","awa","awe","awl","awn","axe","aye","ays","azo",
- "baa","bal","bam","bap","bas","bat","bed","bel","ben","bes","bet","bey","bio",
- "bis","bit","biz","boa","bod","bos","bot","bow","box","bra","bro","brr","bub",
- "bud","bum","bun","bur","bus","but","buy","bye","bys","cad","cam","can","cap",
- "caw","cay","cee","cel","cep","chi","cig","cis","cob","cod","cog","col","con",
- "coo","cop","cor","cos","cot","cow","cox","coy","coz","cru","cud","cue","cum",
- "cup","cur","cut","cwm","dab","dag","dah","dak","dal","dam","dap","daw","deb",
- "dee","def","dei","del","den","dev","dew","dex","dey","dib","did","die","dif",
- "dig","dim","din","dip","dis","dit","div","doc","doe","dol","dom","don","dor",
- "dos","dot","dow","dry","dub","dud","due","dug","duh","dui","dun","duo","dup",
- "dye","ean","ear","eat","eau","ebb","ecu","edh","eds","eek","eel","eff","efs",
- "eft","egg","ego","eke","eld","elf","elk","ell","elm","els","eme","emo","ems",
- "emu","end","eng","ens","eon","era","ere","erg","ern","err","ers","ess","eta",
- "eth","eve","ewe","eye","fab","fad","fag","fan","far","fas","fat","fax","fay",
- "fed","fee","feh","fem","fen","fer","fes","fet","feu","few","fey","fez","fib",
- "fid","fie","fig","fil","fin","fir","fit","fix","fiz","flu","fly","fob","foe",
- "fog","foh","fon","fop","for","fou","fox","foy","fro","fry","fub","fud","fug",
- "fun","fur",
+ # Two-letter Scrabble entries that no learner would recognise as words.
+ # Three-letter words are NOT filtered here: the frequency gate below already
+ # removes anything nobody actually writes, and an over-eager list here was
+ # silently deleting ordinary words like "cue", "bus" and "cut".
+ "aa","ab","ad","ae","ag","ai","al","ar","aw","ay","ba","bi","bo","br",
+ "de","ed","ef","el","em","en","er","es","et","fa","fe","gi","gu",
+ "hm","io","jo","ka","ki","la","li","lo","ma","mi","mm","mo",
+ "mu","na","ne","nu","od","oe","oi","om","op","os","ou","ow",
+ "oy","pe","pi","po","qi","re","sh","si","ta","ti","ur",
+ "ut","wo","xi","xu","ya","za","zo",
 }
 
 def keep(w: str) -> bool:
@@ -135,10 +118,42 @@ def main():
             break
     if wnroot:
         print(f"    wordnet found at: {os.path.relpath(wnroot, ROOT)}")
-        want = set(words)
+        # Curated words are excluded from the shelves, but we still need their
+        # glosses so that inflected forms ("dating" from "date") can inherit.
+        want = set(words) | curated
+
+        # Lexnames tell us what kind of thing a sense is. Proper nouns
+        # (people, places, groups) rank high for short words and are useless
+        # as definitions - "sweet" should not be a Victorian phonetician.
+        SKIP_LEX = {"noun.person", "noun.location", "noun.group"}
+        lexnames = {}
+        lp = os.path.join(wnroot, "lexnames")
+        if os.path.exists(lp):
+            for line in open(lp, encoding="utf-8", errors="ignore"):
+                bits = line.split()
+                if len(bits) >= 2:
+                    lexnames[bits[0].lstrip("0") or "0"] = bits[1]
+
+        def clean_gloss(g):
+            """WordNet glosses often open with scaffolding rather than meaning.
+            Drop those clauses and keep the part that actually defines."""
+            parts = [c.strip() for c in g.split(";") if c.strip()]
+            JUNK_START = ("used of", "used to", "used for", "used in", "used as",
+                          "of or ", "relating to", "characteristic of", "(used")
+            keep = [c for c in parts if not c.lower().startswith(JUNK_START)]
+            # If every clause was scaffolding, fall back to the most substantial
+            # one rather than blindly taking the first.
+            if not keep:
+                keep = sorted(parts, key=len, reverse=True)
+            out = keep[0]
+            # a stray opening bracket usually means a domain label
+            out = re.sub(r"^\([^)]*\)\s*", "", out).strip()
+            return out
+
+        cap = {}          # offset -> is this synset a proper noun?
 
         def load_data(pos):
-            """offset -> cleaned gloss"""
+            """offset -> (gloss, lexname)"""
             out = {}
             fp = os.path.join(wnroot, f"data.{pos}")
             if not os.path.exists(fp):
@@ -147,15 +162,25 @@ def main():
                 if line.startswith("  ") or "|" not in line:
                     continue
                 head, gloss = line.split("|", 1)
-                gloss = re.split(r'; "', gloss.strip())[0].strip().rstrip(";").strip()
-                if len(gloss) > 105:
-                    gloss = gloss[:105].rsplit(" ", 1)[0] + "\u2026"
+                gloss = re.split(r'; "', gloss.strip())[0].strip()
+                gloss = clean_gloss(gloss)
+                if len(gloss) > 100:
+                    gloss = gloss[:100].rsplit(" ", 1)[0] + "\u2026"
                 if gloss:
                     gloss = gloss[0].upper() + gloss[1:]
-                out[head.split()[0]] = gloss
+                bits = head.split()
+                lex = lexnames.get(bits[1].lstrip("0") or "0", "")
+                # a capitalised headword means a name, not a common word
+                try:
+                    n = int(bits[3], 16)
+                    proper = any(bits[4 + 2 * i][0].isupper() for i in range(n))
+                except (ValueError, IndexError):
+                    proper = False
+                out[bits[0]] = (gloss, lex)
+                cap[bits[0]] = proper
             return out
 
-        senses = {}          # word -> ordered list of glosses
+        ranked = {}          # word -> [(rank, gloss)] across all parts of speech
         for pos in ("noun", "verb", "adj", "adv"):
             data = load_data(pos)
             fp = os.path.join(wnroot, f"index.{pos}")
@@ -176,16 +201,36 @@ def main():
                     offsets = parts[-n_syn:]
                 except (ValueError, IndexError):
                     continue
+                rank = 0
                 for off in offsets:
-                    g = data.get(off)
-                    if g:
-                        senses.setdefault(word, [])
-                        if g not in senses[word]:
-                            senses[word].append(g)
+                    got = data.get(off)
+                    if not got:
+                        continue
+                    g, lex = got
+                    if lex in SKIP_LEX:          # skip people, places, groups
+                        continue
+                    if cap.get(off):             # synset word is capitalised
+                        continue
+                    if len(g) < 8:               # too short to be a definition
+                        continue
+                    # Vague filler glosses are worse than nothing.
+                    if g.lower() in ("extended meanings", "of the highest quality"):
+                        continue
+                    ranked.setdefault(word, []).append((rank, g))
+                    rank += 1
 
-        # keep the two most common senses per word
-        for w, gl in senses.items():
-            glosses[w] = gl[:2]
+        # Merge across parts of speech by sense rank, so the first adjective
+        # sense competes with the first noun sense rather than queueing behind
+        # every noun. Without this, "cold" leads with the illness.
+        for w, pairs in ranked.items():
+            pairs.sort(key=lambda x: x[0])
+            out = []
+            for _, g in pairs:
+                if g not in out:
+                    out.append(g)
+                if len(out) == 3:
+                    break
+            glosses[w] = out
 
         direct = len(glosses)
         # Inflected forms (zapped, macaroons) borrow their base word's senses.
@@ -200,19 +245,35 @@ def main():
             if w.endswith("est") and len(w) > 5: out += [w[:-3], w[:-2]]
             if w.endswith("ly")  and len(w) > 4: out.append(w[:-2])
             return out
-        added = 0
+        # Inflected forms often have a thin or oddly specialised entry of their
+        # own - "dating" only carries the geology sense, while the everyday
+        # meanings sit under "date". So we top up from the base word whenever
+        # a form has fewer than three senses, not only when it has none.
+        added = topped = 0
         for w in words:
-            if w in glosses:
+            have = glosses.get(w, [])
+            if len(have) >= 3:
                 continue
             for b in bases(w):
-                if b in glosses:
-                    glosses[w] = glosses[b]
-                    added += 1
-                    break
+                if b not in glosses or b == w:
+                    continue
+                merged = list(have)
+                for g in glosses[b]:
+                    if g not in merged:
+                        merged.append(g)
+                    if len(merged) == 3:
+                        break
+                if merged != have:
+                    if not have:
+                        added += 1
+                    else:
+                        topped += 1
+                    glosses[w] = merged
+                break
         two = sum(1 for v in glosses.values() if len(v) > 1)
         print(f"    definitions: {len(glosses):,} of {len(words):,} words "
               f"({len(glosses)/max(len(words),1)*100:.0f}%)  "
-              f"[{direct:,} direct + {added:,} via base word]")
+              f"[{direct:,} direct + {added:,} from base word + {topped:,} topped up]")
         print(f"    with two senses: {two:,}")
     else:
         print("    no wordnet index files found under content/ - no definitions")
@@ -223,6 +284,8 @@ def main():
     for w in words:
         shelves.setdefault(w[0], []).append(w)
 
+    # drop helper-only entries before writing
+    glosses = {w: g for w, g in glosses.items() if w in set(words)}
     out = {"schema": 3, "source": "ENABLE x frequency, WordNet glosses",
            "count": len(words), "shelves": shelves, "defs": glosses}
     with open(OUT, "w", encoding="utf-8") as f:
