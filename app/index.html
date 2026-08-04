@@ -155,6 +155,20 @@
   #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;
            padding:24px 12px;overflow-y:auto}
   #overlay.show{display:block}
+  /* A word opened from a list shows here, over the list, so you keep your
+     place instead of being thrown back to the tray. */
+  #popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
+         z-index:60;padding:24px 12px;overflow-y:auto}
+  #popup.show{display:block}
+  #popcard{position:relative;background:var(--panel);border:1px solid var(--glow);
+           border-radius:14px;max-width:620px;margin:6vh auto 0;padding:18px 46px 16px 18px;
+           display:flex;gap:16px;align-items:flex-start;
+           animation:cardIn .3s cubic-bezier(.2,.9,.3,1)}
+  #popcard.dict{border-color:#4a4d55;border-style:dashed}
+  #popcard #c-close{position:absolute;top:8px;right:10px;background:none;border:none;
+           color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
+  #popcard #c-close:hover{color:var(--text)}
+  @media (max-width:700px){ #popcard{flex-direction:column;padding:16px 40px 14px 16px} }
   #panel{background:var(--bg);border:1px solid #555;border-radius:14px;max-width:820px;
          margin:0 auto;padding:20px 22px 28px}
   #panel h2{margin:0;font-size:20px}
@@ -252,7 +266,9 @@
 
 <div id="log"></div>
 
-<div id="overlay"><div id="panel"></div></div>
+<div id="overlay"><div id="panel"></div>
+  <div id="popup"><div id="popcard"></div></div>
+</div>
 
 <script>
 /* =====================================================================
@@ -302,6 +318,9 @@ let starterDay=0, lastGift=null; // Starter Pack: one 2-letter gift word per day
 let lastTray=POOL_START;         // for announcing upgrades
 let pool=[], order=[], dropped=0, seeds=[], repeatPaid=new Set(), timerId=null, nextDrop=0;
 let fast=false, lang='th';
+/* `lang` is the learning-language switch. On TH the card carries the Thai
+   layer as well as the English; on EN the player gets an English-only game,
+   which is what an advanced learner wants. */
 /* ---- Pause system ----
    Vocap is meant to run while you work, so an unfocused window must NOT
    pause. What should pause is the machine being away: asleep, shut, or the
@@ -314,6 +333,8 @@ const IDLE_INTERVALS = 3;
 let lastTick = Date.now();
 let awaySince = null;
 let burstLeft = 0;               // welcome-back: next drops come quickly
+let shownCard = null;            // {w,gain} or {word} - lets a language switch redraw
+let shownPop  = null;
 let lastActivity = Date.now();   // last time the player actually did something
 let holding = false;             // tray is full and waiting for the player
 /* `building` is the word tray: each entry is a letter taken from a pool slot,
@@ -699,41 +720,71 @@ const TOPIC_ICON={
 
 function tierFor(n){ return n<=5?1 : n<=8?2 : n<=12?3 : 4; }
 
-function showCard(w,gain){
+/* Both the main card and the in-menu popup are built from this, so a word
+   looks identical wherever you meet it. */
+function cardHTML(w,gain){
   const th = lang==='th' ? (w.translations?.th||{}) : {};
-  $('c-art').textContent = TOPIC_ICON[w.topic] || '✦';
-  $('c-word').textContent = w.word;
-  $('c-pos').textContent = `${w.letters} letters`;
-  $('c-spark').textContent = gain ? `+${gain} ✨` : 'already found';
-  $('c-thword').textContent = th.word || '';
-  $('c-def').textContent = w.definition;                 // English always shows
-  $('c-thdef').textContent = th.definition || '';
-  $('c-hist').textContent = w.history || '';
-  $('c-thhist').textContent = th.history || '';
-  $('c-sent').textContent = w.sentence ? '\u201c'+w.sentence+'\u201d' : '';
-  const tags=[w.topic, w.topic2].filter(Boolean)
+  const tags=[w.topic,w.topic2].filter(Boolean)
       .map(t=>`<span>${TOPIC_ICON[t]||'✦'} ${t}</span>`).join('');
-  $('c-tags').innerHTML = tags;
+  return `
+    <div id="c-art">${TOPIC_ICON[w.topic]||'✦'}</div>
+    <div id="c-body">
+      <div id="c-head">
+        <h2 id="c-word">${w.word}</h2>
+        <span id="c-pos">${w.letters} letters</span>
+        <span id="c-spark">${gain?`+${gain} ✨`:'in your collection'}</span>
+      </div>
+      <div class="th">${th.word||''}</div>
+      <p>${w.definition}</p>
+      <p id="c-thdef">${th.definition||''}</p>
+      <div id="c-factbox"><p>${w.history||''}</p><p>${th.history||''}</p></div>
+      <p id="c-sent">${w.sentence?'\u201c'+w.sentence+'\u201d':''}</p>
+      <div id="c-tags">${tags}</div>
+    </div>`;
+}
+
+function dictCardHTML(word){
+  const g=DEFS[word];
+  const senses=Array.isArray(g)?g:(g?[g]:[]);
+  const list=senses.length
+    ? senses.map((s,i)=>`<p>${i+1}. ${s}</p>`).join('')
+    : '<p>(no definition available)</p>';
+  return `
+    <div id="c-art">📖</div>
+    <div id="c-body">
+      <div id="c-head">
+        <h2 id="c-word">${word}</h2>
+        <span id="c-pos">${word.length} letters</span>
+      </div>
+      ${list}
+      <div id="c-tags"><span>📖 Dictionary word</span></div>
+      <div id="lookup"><a href="https://dict.longdo.com/search/${encodeURIComponent(word)}"
+         target="_blank" rel="noopener">ดูคำแปลไทย · look up in Thai ↗</a></div>
+    </div>`;
+}
+
+function showCard(w,gain){
+  shownCard={w,gain};
+  $('card').innerHTML = cardHTML(w,gain) + '<button id="c-close" title="close">×</button>';
   $('card').className = 'show tier'+tierFor(w.letters);
+  bindCard(w);
 }
 
 /* Dictionary card — deliberately plainer than a discovery card. The curated
    966 get history, Thai and (later) art; dictionary words get a definition
    and a page. The gap between them is what makes the collection feel special. */
 function showDictCard(word){
-  const g=DEFS[word];
-  const senses = Array.isArray(g) ? g : (g ? [g] : []);
-  $('c-art').textContent='📖';
-  $('c-word').textContent=word;
-  $('c-pos').textContent=`${word.length} letters`;
-  $('c-spark').textContent='+2 ✨';
-  $('c-thword').textContent='';
-  $('c-def').textContent   = senses.length ? '1. '+senses[0] : '(no definition available)';
-  $('c-thdef').textContent = senses.length>1 ? '2. '+senses[1] : '';
-  $('c-hist').textContent=''; $('c-thhist').textContent=''; $('c-sent').textContent='';
-  $('c-tags').innerHTML=`<span>📖 Dictionary word #${inked.size}</span>`;
-  $('c-lookup').href='https://dict.longdo.com/search/'+encodeURIComponent(word);
+  shownCard={word};
+  $('card').innerHTML = dictCardHTML(word) + '<button id="c-close" title="close">×</button>';
   $('card').className='show dict';
+  bindCard(null,word);
+}
+
+/* wire the close button and the tap-to-hear-it-again word */
+function bindCard(w,plainWord){
+  const c=$('c-close'); if(c) c.onclick=()=>{ $('card').className=''; shownCard=null; };
+  const h=$('c-word');
+  if(h) h.onclick=()=>{ speechSynthesis.cancel(); speak(w?w.word:plainWord,{rate:0.8}); };
 }
 
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
@@ -805,9 +856,27 @@ function showTopic(t){
     <button onclick="closePanel()">close</button></div>${html}`);
 }
 
+function openPop(html,extraClass){
+  $('popcard').className = extraClass||'';
+  $('popcard').innerHTML = html + '<button id="c-close" title="close">×</button>';
+  $('popup').className='show';
+  const c=$('c-close'); if(c) c.onclick=closePop;
+}
+function closePop(){ $('popup').className=''; shownPop=null; }
+$('popup') && ($('popup').onclick=e=>{ if(e.target.id==='popup') closePop(); });
+
+/* Opening a word from the collection keeps you inside the collection. */
 function replay(id){
   const w=BANK_ALL.find(x=>x.id===id); if(!w) return;
-  closePanel(); showCard(w,0); speakWord(w.word);
+  shownPop={w};
+  openPop(cardHTML(w,0));
+  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})};
+  speakWord(w.word);
+}
+function peekDict(word){
+  shownPop={word};
+  openPop(dictCardHTML(word),'dict');
+  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(word,{rate:0.8})};
 }
 
 function showDictionary(){
@@ -833,7 +902,7 @@ function showDictionary(){
 
 function showShelf(L){
   const ws=[...inked].filter(w=>w[0]===L).sort();
-  const chips=ws.map(w=>`<span class="wchip" onclick="showDictCard('${w}');closePanel()">${w}</span>`).join('');
+  const chips=ws.map(w=>`<span class="wchip" onclick="peekDict('${w}')">${w}</span>`).join('');
   openPanel(`<button class="back" onclick="showDictionary()">← shelves</button>
     <div class="phead"><div><h2>${L.toUpperCase()}</h2>
     <div class="sub">${ws.length} words inked</div></div>
@@ -846,13 +915,14 @@ $('dictbtn').onclick=showDictionary;
 
 /* ---------------- input ---------------- */
 document.addEventListener('keydown',e=>{
-  if($('overlay').className==='show' && e.key!=='Escape') return;
+  if(($('overlay').className==='show'||$('popup').className==='show') && e.key!=='Escape') return;
   // A focused button would otherwise fire on Enter or Space as well.
   if(document.activeElement && document.activeElement.tagName==='BUTTON'
      && document.activeElement.id!=='submit') dropFocus();
   noteActivity();
   if(e.key==='Enter'){submit();return}
   if(e.key==='Escape'){
+    if($('popup').className==='show'){closePop();return}
     if($('overlay').className==='show'){closePanel();return}
     building=[];renderTray();renderWordTray();return}
   if(e.key==='Backspace'){building.pop()}
@@ -899,7 +969,23 @@ $('skip').onclick=()=>{
   startCycle();
   flash('new run started','');
 };
-$('lang').onclick=()=>{lang=lang==='th'?'en':'th';$('lang').textContent='clue: '+lang.toUpperCase();renderClue()};
+function redrawOpenCards(){
+  if(shownCard){
+    if(shownCard.w) showCard(shownCard.w, shownCard.gain);
+    else showDictCard(shownCard.word);
+  }
+  if(shownPop){
+    if(shownPop.w){ const w=shownPop.w; openPop(cardHTML(w,0));
+      const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})}; }
+    else openPop(dictCardHTML(shownPop.word),'dict');
+  }
+}
+$('lang').onclick=()=>{
+  lang = lang==='th' ? 'en' : 'th';
+  $('lang').textContent='clue: '+lang.toUpperCase();
+  renderClue();
+  redrawOpenCards();          // whatever is on screen switches language with you
+};
 /* The promotion list: dictionary words this player forms most often are the
    best candidates to become curated entries (hand-written definition, fun
    fact, Thai). This is how the 966 grows - driven by real play. */
