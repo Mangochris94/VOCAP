@@ -9,15 +9,39 @@
      M1 = deliberately ugly. Gray boxes. If this is fun, art will
      only make it better. Everything visual here is placeholder.
      ============================================================ */
+  /* A lamplit study: dark walnut and leather, ivory letter tiles like real
+     wooden pieces, and a sage green that reads as something growing rather
+     than something alerting. */
+  /* Paper on a desk: a cream page, dark walnut letter tiles with the letter
+     printed in warm white, and terracotta for anything worth noticing. */
   :root{
-    --bg:#2b2d31; --panel:#36393f; --box:#4a4d55; --box-lit:#6b7280;
-    --glow:#e3b341; --text:#e6e6e6; --dim:#9aa0a6; --good:#7ec97e;
+    --bg:#332920;          /* dark walnut desk                          */
+    --panel:#3e3226;       /* a slightly lighter surface for panels     */
+    --box:#453729;         /* an empty slot in the tray                 */
+    --box-lit:#544332;
+    --tile:#f0e7d6;        /* cream letter tile                         */
+    --tile-ink:#3a2e24;    /* the letter printed on it                  */
+    --glow:#d9825a;        /* terracotta, lifted to read on dark        */
+    --glow-soft:#b5613c;
+    --text:#f0e7d6;        /* cream text                                */
+    --dim:#b09a80;         /* faded taupe                               */
+    --good:#8fae6f; --bad:#d9825a;
   }
   *{box-sizing:border-box}
-  body{background:var(--bg);color:var(--text);font-family:system-ui,'Noto Sans Thai',sans-serif;
-       margin:0;display:flex;flex-direction:column;align-items:center;padding:20px 12px;gap:14px;
+  /* Sit the whole thing in the middle of the window. `safe center` keeps the
+     top reachable when the content is taller than the window, which plain
+     centring would clip. */
+  body{background:radial-gradient(130% 100% at 50% 40%, #3d3026 0%, var(--bg) 70%);
+       background-attachment:fixed;
+       color:var(--text);font-family:system-ui,'Noto Sans Thai',sans-serif;
+       margin:0;min-height:100vh;box-sizing:border-box;
+       display:flex;flex-direction:column;align-items:center;
+       justify-content:safe center;
+       padding:16px 12px;gap:12px;
        max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
-  h1{font-size:15px;letter-spacing:3px;color:var(--dim);margin:0;font-weight:600}
+  h1{letter-spacing:9px;color:var(--text);font-weight:900;font-size:34px;
+     margin:0 0 4px;text-indent:9px;
+  font-size:15px;letter-spacing:3px;color:var(--dim);margin:0;font-weight:600}
 
   /* --- the tray: one gray box per letter slot --- */
   #tray{display:flex;gap:8px;min-height:64px;align-items:center;flex-wrap:wrap;
@@ -25,29 +49,37 @@
   .slot{width:52px;height:60px;border-radius:8px;background:var(--panel);
         display:flex;align-items:center;justify-content:center;font-size:26px;
         font-weight:700;border:2px solid transparent;text-transform:uppercase}
-  .slot.filled{background:var(--box)}
-  .slot.typed{background:var(--box-lit);border-color:var(--glow)}   /* highlighted while typing */
+  .slot.filled{background:var(--tile);color:var(--tile-ink);
+               border-color:#d8c9ae;font-weight:600;
+               box-shadow:0 2px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.55)}
+  .slot.typed{background:var(--tile);color:var(--tile-ink);
+              border-color:var(--glow);box-shadow:0 0 0 2px rgba(217,130,90,.5),
+              0 2px 3px rgba(0,0,0,.35)}   /* highlighted while typing */
   .slot.empty{opacity:.35}
 
   /* --- the clue line: the learning mechanic, front and centre --- */
-  #clue{min-height:24px;color:var(--glow);font-size:15px;text-align:center;
+  #clue{font-size:16px;line-height:1.6;
+  min-height:24px;color:var(--glow);font-size:15px;text-align:center;
         max-width:min(640px,100%);line-height:1.6}
   #clue.spellable{text-shadow:0 0 12px var(--glow)}
-  .clueline{margin:3px 0}
+  .clueline{margin:6px 0}
   .hintbar{display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle}
-  .hintbar button{font-size:11px;padding:3px 8px;border-radius:5px;opacity:.75}
+  .hintbar button{border-color:#5a4835;
+  font-size:11px;padding:3px 8px;border-radius:5px;opacity:.75}
   .hintbar button:hover:not(:disabled){opacity:1}
   .hintbar button:disabled{opacity:.3;cursor:default}
   .hintbar button.solve{border-color:var(--glow);color:var(--glow)}
-  .reveal{font-family:monospace;letter-spacing:3px;color:var(--text)}                 /* the "glow" from §3.6 */
+  .reveal{font-family:monospace;letter-spacing:4px;font-size:17px;color:var(--text)}                 /* the "glow" from §3.6 */
 
-  .slot.used{background:var(--box-lit);border-color:var(--glow);opacity:.55}  /* in use below */
+  .slot.used{background:var(--tile);color:var(--tile-ink);
+             border-color:var(--glow);opacity:.4;box-shadow:none}  /* in use below */
   .slot.filled{cursor:pointer}
   .slot.filled:hover{border-color:var(--glow)}
 
   /* --- the word tray: where letters go to become a word --- */
-  #wordtray{display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
-            background:rgba(0,0,0,.22);border-radius:10px;padding:10px 14px;
+  #wordtray{background:rgba(0,0,0,.18);border-radius:10px;
+  display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
+            background:rgba(0,0,0,.18);border-radius:10px;padding:10px 14px;
             width:min(560px,100%);flex-wrap:wrap;border:2px dashed #4a4d55}
   #wordtray.ready{border-color:var(--good);border-style:solid}
   #wordtray .wslot{width:44px;height:50px;border-radius:6px;background:var(--box-lit);
@@ -71,15 +103,30 @@
     #actions button{padding:14px 32px;font-size:16px}
     /* In a narrow always-on-top window every wrapped row steals space from the
      tray, so only mid-play controls stay out. The rest live behind the gear. */
-  #controls{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:8px 0 4px}
-  #controls button{font-size:12px;padding:5px 10px}
-  #settings{display:none;gap:5px;flex-wrap:wrap;justify-content:center;
-            margin:0 0 8px;padding:8px;background:rgba(0,0,0,.22);border-radius:10px}
+  /* A single segmented strip rather than separate buttons, so the controls
+     read as one object instead of six competing ones. */
+  #controls{display:inline-flex;gap:0;flex-wrap:wrap;justify-content:center;
+            margin:8px auto 0;border:1px solid #5a4835;border-radius:10px;
+            overflow:hidden;background:var(--tile)}
+  #controls button{font-size:12px;padding:7px 12px;border:none;border-radius:0;
+                   background:var(--tile);color:var(--tile-ink);
+                   border-right:1px solid rgba(58,46,36,.18)}
+  #controls button:last-child{border-right:none}
+  #controls button:hover{background:#fffaf0}
+  #controls button.on{background:var(--glow);color:#fff}
+  #settings{display:none;gap:0;flex-wrap:wrap;justify-content:center;
+            margin:-1px auto 8px;border:1px solid #5a4835;border-top:none;
+            border-radius:0 0 10px 10px;overflow:hidden;background:var(--tile)}
   #settings.show{display:flex}
-  #settings button{font-size:11px;padding:4px 9px}
-  #bar{gap:12px;font-size:12px}
+  #settings button{font-size:11px;padding:6px 11px;border:none;border-radius:0;
+                   background:var(--tile);color:var(--tile-ink);
+                   border-right:1px solid rgba(58,46,36,.18)}
+  #settings button:last-child{border-right:none}
+  #settings button:hover{background:#fffaf0}
+  #bar{letter-spacing:.2px;
+  gap:12px;font-size:12px}
     #bar button{padding:8px 12px}
-    h1{font-size:13px}
+    h1{font-size:26px;letter-spacing:6px;text-indent:6px}
     #clue{font-size:14px}
     #card{padding:14px 16px}
     #card h2{font-size:22px}
@@ -93,15 +140,29 @@
   /* --- status bar --- */
   /* In a narrow always-on-top window every wrapped row steals space from the
      tray, so only mid-play controls stay out. The rest live behind the gear. */
-  #controls{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:8px 0 4px}
-  #controls button{font-size:12px;padding:5px 10px}
-  #settings{display:none;gap:5px;flex-wrap:wrap;justify-content:center;
-            margin:0 0 8px;padding:8px;background:rgba(0,0,0,.22);border-radius:10px}
+  /* A single segmented strip rather than separate buttons, so the controls
+     read as one object instead of six competing ones. */
+  #controls{display:inline-flex;gap:0;flex-wrap:wrap;justify-content:center;
+            margin:8px auto 0;border:1px solid #5a4835;border-radius:10px;
+            overflow:hidden;background:var(--tile)}
+  #controls button{font-size:12px;padding:7px 12px;border:none;border-radius:0;
+                   background:var(--tile);color:var(--tile-ink);
+                   border-right:1px solid rgba(58,46,36,.18)}
+  #controls button:last-child{border-right:none}
+  #controls button:hover{background:#fffaf0}
+  #controls button.on{background:var(--glow);color:#fff}
+  #settings{display:none;gap:0;flex-wrap:wrap;justify-content:center;
+            margin:-1px auto 8px;border:1px solid #5a4835;border-top:none;
+            border-radius:0 0 10px 10px;overflow:hidden;background:var(--tile)}
   #settings.show{display:flex}
-  #settings button{font-size:11px;padding:4px 9px}
+  #settings button{font-size:11px;padding:6px 11px;border:none;border-radius:0;
+                   background:var(--tile);color:var(--tile-ink);
+                   border-right:1px solid rgba(58,46,36,.18)}
+  #settings button:last-child{border-right:none}
+  #settings button:hover{background:#fffaf0}
   #bar{display:flex;gap:22px;color:var(--dim);font-size:13px;align-items:center;flex-wrap:wrap;justify-content:center}
   #bar b{color:var(--text)}
-  button{background:var(--panel);color:var(--text);border:1px solid #555;border-radius:6px;
+  button{background:var(--panel);color:var(--text);border:1px solid #5a4835;border-radius:6px;
          padding:5px 12px;cursor:pointer;font-size:13px}
   button:hover{border-color:var(--glow)}
 
@@ -110,25 +171,25 @@
      in proportion to the word. Short words get a quiet entrance; long ones
      get a longer glow and a slower reveal. */
   #card{display:none;position:relative;background:var(--panel);border-radius:14px;
-        padding:18px 46px 16px 18px;width:min(620px,100%);border:1px solid #4a4d55;
+        padding:18px 46px 16px 18px;width:min(620px,100%);border:1px solid #55442f;
         gap:16px;align-items:flex-start}
   #card.show{display:flex;animation:cardIn .45s cubic-bezier(.2,.9,.3,1)}
   @keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.985)}
                     to{opacity:1;transform:none}}
 
   /* celebration scales with word length */
-  #card.tier1{box-shadow:0 0 0 1px rgba(227,179,65,.18)}
-  #card.tier2{box-shadow:0 0 18px -4px rgba(227,179,65,.35);border-color:#6a5d33}
-  #card.tier3{box-shadow:0 0 30px -4px rgba(227,179,65,.55);border-color:var(--glow)}
-  #card.tier4{box-shadow:0 0 46px -2px rgba(227,179,65,.75);border-color:var(--glow);
+  #card.tier1{box-shadow:0 0 0 1px rgba(181,97,60,.14)}
+  #card.tier2{box-shadow:0 0 18px -4px rgba(181,97,60,.24);border-color:#c98f70}
+  #card.tier3{box-shadow:0 0 30px -4px rgba(181,97,60,.38);border-color:var(--glow)}
+  #card.tier4{box-shadow:0 0 46px -2px rgba(181,97,60,.5);border-color:var(--glow);
               animation:cardIn .45s cubic-bezier(.2,.9,.3,1), bigPulse 1.6s ease-out}
-  @keyframes bigPulse{0%{box-shadow:0 0 0 0 rgba(227,179,65,.5)}
-                      100%{box-shadow:0 0 46px -2px rgba(227,179,65,.75)}}
+  @keyframes bigPulse{0%{box-shadow:0 0 0 0 rgba(181,97,60,.35)}
+                      100%{box-shadow:0 0 46px -2px rgba(181,97,60,.5)}}
 
   /* reserved art slot — a real illustration drops in here later */
-  #c-art{flex:0 0 84px;height:84px;border-radius:10px;background:rgba(0,0,0,.22);
+  #c-art{flex:0 0 84px;height:84px;border-radius:10px;background:rgba(0,0,0,.18);
          display:flex;align-items:center;justify-content:center;font-size:30px;
-         border:1px dashed #4a4d55;color:#5a5d63}
+         border:1px dashed #5a4835;color:#7d6a55}
   #c-body{flex:1;min-width:0}
 
   #c-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px}
@@ -138,12 +199,12 @@
   #c-spark{margin-left:auto;font-size:13px;color:var(--glow);white-space:nowrap}
   #card .th{color:var(--glow);font-size:17px;margin-bottom:6px}
   #card p{margin:5px 0;font-size:14px;line-height:1.55}
-  #c-thdef{color:#c8ccd2}
-  #c-factbox{border-left:2px solid #4a4d55;padding-left:11px;margin:10px 0}
-  #c-factbox p{margin:3px 0;font-size:13px;color:#c2c6cc}
+  #c-thdef{color:#dcd0bd}
+  #c-factbox{border-left:2px solid #55442f;padding-left:11px;margin:10px 0}
+  #c-factbox p{margin:3px 0;font-size:13px;color:#cfc0aa}
   #c-sent{font-style:italic;color:var(--dim);font-size:13px}
   #c-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-  #c-tags span{font-size:11px;background:rgba(0,0,0,.25);border:1px solid #4a4d55;
+  #c-tags span{font-size:11px;background:rgba(0,0,0,.20);border:1px solid #55442f;
                border-radius:20px;padding:3px 10px;color:var(--dim)}
   #c-close{position:absolute;top:8px;right:10px;background:none;border:none;
            color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
@@ -157,7 +218,7 @@
 
   #lookup{display:none;margin-top:10px}
   #card.dict #lookup{display:block}
-  #lookup a{color:var(--glow);font-size:12px;text-decoration:none;border:1px solid #555;
+  #lookup a{color:var(--glow);font-size:12px;text-decoration:none;border:1px solid #5a4835;
             border-radius:6px;padding:5px 11px;display:inline-block}
   #lookup a:hover{border-color:var(--glow)}
 
@@ -168,7 +229,7 @@
   }
 
   /* --- overlay panels: Collection + Dictionary --- */
-  #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;
+  #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;
            padding:24px 12px;overflow-y:auto}
   #overlay.show{display:block}
   /* A word opened from a list shows here, over the list, so you keep your
@@ -185,11 +246,11 @@
            color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
   #popcard #c-close:hover{color:var(--text)}
   @media (max-width:700px){ #popcard{flex-direction:column;padding:16px 40px 14px 16px} }
-  #panel{background:var(--bg);border:1px solid #555;border-radius:14px;max-width:820px;
+  #panel{background:var(--bg);border:1px solid #5a4835;border-radius:14px;max-width:820px;
          margin:0 auto;padding:20px 22px 28px}
   #panel h2{margin:0;font-size:20px}
   .phead{display:flex;justify-content:space-between;align-items:center;gap:12px;
-         border-bottom:1px solid #444;padding-bottom:12px;margin-bottom:16px}
+         border-bottom:1px solid #55442f;padding-bottom:12px;margin-bottom:16px}
   .phead .sub{color:var(--dim);font-size:13px;margin-top:3px}
   #panel .back{background:none;border:none;color:var(--glow);cursor:pointer;font-size:14px;
                padding:0;margin-bottom:12px}
@@ -208,16 +269,16 @@
   .sub-h{color:var(--dim);font-size:12px;letter-spacing:2px;margin:18px 0 8px;
          text-transform:uppercase}
   .wgrid{display:flex;flex-wrap:wrap;gap:7px}
-  .wchip{background:var(--panel);border:1px solid #4a4d55;border-radius:7px;padding:7px 11px;
+  .wchip{background:var(--panel);border:1px solid #55442f;border-radius:7px;padding:7px 11px;
          font-size:14px;cursor:pointer}
   .wchip:hover{border-color:var(--glow)}
-  .wchip.hidden{background:transparent;border-style:dashed;color:#5a5d63;cursor:default;
+  .wchip.hidden{background:transparent;border-style:dashed;color:#7d6a55;cursor:default;
                 letter-spacing:3px;font-family:monospace}
   .wchip.hidden:hover{border-color:#4a4d55}
 
   /* dictionary shelves */
   .shelf{display:flex;flex-wrap:wrap;gap:6px}
-  .letter{width:52px;height:52px;border-radius:8px;background:var(--panel);border:1px solid #4a4d55;
+  .letter{width:52px;height:52px;border-radius:8px;background:var(--panel);border:1px solid #55442f;
           display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
   .letter b{font-size:18px;text-transform:uppercase}
   .letter span{font-size:10px;color:var(--dim)}
@@ -230,7 +291,7 @@
 </style>
 </head>
 <body>
-<h1>VOCAP · M1</h1>
+<h1>VOCAP</h1>
 
 <div id="bar">
   <span>✨ <b id="sparks">0</b></span>
@@ -240,7 +301,7 @@
   <span>next <b id="timer">–</b></span>
 </div>
 
-<div id="controls">
+<div style="text-align:center"><div id="controls">
   <button id="ivl" title="how often a letter drops">⏱ 5 min</button>
   <button id="speed" title="drop a letter every 2 seconds">⚡ fast: OFF</button>
   <button id="skip" title="end this run early">⏭ next</button>
@@ -249,13 +310,13 @@
   <button id="gear" title="settings">⚙</button>
 </div>
 
-<div id="settings">
+</div><div style="text-align:center"><div id="settings">
   <button id="lang">clue: TH</button>
   <button id="say">🔊 words: ON</button>
   <button id="sayl">🔤 letters: OFF</button>
   <button id="promote">📈 top words</button>
   <button id="reset">reset save</button>
-</div>
+</div></div>
 
 <div id="clue"></div>
 <div id="tray"></div>
