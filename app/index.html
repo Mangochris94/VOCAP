@@ -250,8 +250,15 @@
                      border-right:1px solid #5a4835;font-size:12px;padding:8px 13px}
   #race .opts button:last-child{border-right:none}
   #race .opts button.on{background:var(--glow);color:#fff}
-  #race .go{margin-top:20px;font-size:16px;padding:11px 30px;
-            background:var(--glow);color:#fff;border-color:var(--glow)}
+  /* Hosting and joining are equally normal things to do, so they get equal
+     weight. The join button is outlined rather than filled only so you can
+     tell them apart at a glance, not because it matters less. */
+  #race .gorow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+  #race .go{font-size:15px;font-weight:700;letter-spacing:2px;padding:12px 26px;
+            border-radius:10px;background:var(--glow);color:#fff;border-color:var(--glow)}
+  #race .go:hover{background:#e59468;border-color:#e59468}
+  #race .go.alt{background:transparent;color:var(--glow);border:2px solid var(--glow)}
+  #race .go.alt:hover{background:rgba(217,130,90,.14)}
   #race .clock{font-size:44px;font-weight:900;letter-spacing:2px;margin:6px 0}
   #race .clock.low{color:var(--bad)}
   #race .tally{color:var(--dim);font-size:14px;margin-bottom:10px}
@@ -1217,7 +1224,10 @@ function seedRNG(str){
   };
 }
 
-const RACE_ROUND = 120;   // seconds before a fresh tray
+/* Fresh letters and fresh clues every minute, in every mode. A fixed cadence
+   means a 2-minute sprint and a race to 500 points feel like the same game,
+   and nobody can sit on one lucky tray. */
+const RACE_ROUND = 60;
 
 function raceLetters(code, n){
   const rnd = seedRNG(code);
@@ -1322,8 +1332,10 @@ function raceSetup(){
         </div>
       </div>
 
-      <button class="go" id="rgo" onclick="raceGo()">start</button>
-      <div style="margin-top:10px"><button onclick="raceJoinPrompt()">join a room instead</button></div>
+      <div class="gorow">
+        <button class="go" id="rgo" onclick="raceGo()">START</button>
+        <button class="go alt" id="rjoin" onclick="raceJoinPrompt()">JOIN A ROOM</button>
+      </div>
       <div class="sub" id="rerr" style="color:var(--bad);margin-top:10px"></div>
       <div style="margin-top:16px"><button onclick="closeRace()">back to the game</button></div>
     </div>`;
@@ -1412,10 +1424,12 @@ function netHeartbeat(){
 
 async function raceJoinPrompt(){
   const code=($('rcode').value||'').trim().toUpperCase();
-  if(!code) { $('rerr').textContent='type the code you were given'; return; }
+  if(!code) { $('rerr').textContent='type the code you were given first'; return; }
+  const jb=$('rjoin'); if(jb){ jb.textContent='CONNECTING…'; jb.disabled=true; }
   localStorage.setItem('vocap-name', ($('rname').value||'player').trim() || 'player');
   $('rerr').textContent='connecting…';
   const r=await netJoin(code);
+  if(jb){ jb.textContent='JOIN A ROOM'; jb.disabled=false; }
   if(r.error){ $('rerr').textContent=r.error; return; }
   $('race').innerHTML=`
     <div class="sheet">
