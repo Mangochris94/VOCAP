@@ -44,7 +44,7 @@
   font-size:15px;letter-spacing:3px;color:var(--dim);margin:0;font-weight:600}
 
   /* --- the tray: one gray box per letter slot --- */
-  #tray{display:flex;gap:8px;min-height:64px;align-items:center;flex-wrap:wrap;
+  #tray,.tray{display:flex;gap:8px;min-height:64px;align-items:center;flex-wrap:wrap;
         justify-content:center;max-width:100%}
   .slot{width:52px;height:60px;border-radius:8px;background:var(--panel);
         display:flex;align-items:center;justify-content:center;font-size:26px;
@@ -77,7 +77,7 @@
   .slot.filled:hover{border-color:var(--glow)}
 
   /* --- the word tray: where letters go to become a word --- */
-  #wordtray{background:rgba(0,0,0,.18);border-radius:10px;
+  #wordtray,.wordtray{background:rgba(0,0,0,.18);border-radius:10px;
   display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
             background:rgba(0,0,0,.18);border-radius:10px;padding:10px 14px;
             width:min(560px,100%);flex-wrap:wrap;border:2px dashed #4a4d55}
@@ -228,6 +228,75 @@
     #card h2{font-size:23px}
   }
 
+  /* --- race mode -------------------------------------------------
+     A separate mode you enter deliberately. Two people type the same code,
+     get the same fifteen letters, and race a clock. No server involved: the
+     code IS the shared state. */
+  #race{display:none;position:fixed;inset:0;z-index:70;overflow-y:auto;
+        background:radial-gradient(130% 100% at 50% 30%, #3d3026 0%, var(--bg) 70%);
+        padding:22px 14px}
+  #race.show{display:block}
+  #race .sheet{max-width:620px;margin:0 auto;text-align:center}
+  #race h2{font-size:26px;letter-spacing:5px;margin:6px 0 2px;font-weight:900}
+  #race .sub{color:var(--dim);font-size:13px;margin-bottom:18px}
+  #race .field{margin:14px 0}
+  #race label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px;
+              letter-spacing:1px;text-transform:uppercase}
+  #race input{background:var(--panel);border:1px solid #5a4835;color:var(--text);
+              border-radius:8px;padding:10px 14px;font-size:19px;text-align:center;
+              letter-spacing:4px;font-family:monospace;width:210px;text-transform:uppercase}
+  #race .opts{display:inline-flex;border:1px solid #5a4835;border-radius:9px;overflow:hidden}
+  #race .opts button{border:none;border-radius:0;background:var(--panel);
+                     border-right:1px solid #5a4835;font-size:12px;padding:8px 13px}
+  #race .opts button:last-child{border-right:none}
+  #race .opts button.on{background:var(--glow);color:#fff}
+  #race .go{margin-top:20px;font-size:16px;padding:11px 30px;
+            background:var(--glow);color:#fff;border-color:var(--glow)}
+  #race .clock{font-size:44px;font-weight:900;letter-spacing:2px;margin:6px 0}
+  #race .clock.low{color:var(--bad)}
+  #race .tally{color:var(--dim);font-size:14px;margin-bottom:10px}
+  #race .found{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:14px}
+  #race .roster{max-width:320px;margin:10px auto;text-align:left}
+  #race .rrow{display:flex;justify-content:space-between;gap:10px;
+              padding:6px 11px;border-radius:7px;font-size:13px;
+              background:var(--panel);border:1px solid #5a4835;margin-bottom:4px}
+  #race .rrow.me{border-color:var(--glow)}
+  /* Racing is a mode you choose, not a toggle you might miss, so it gets a
+     button of its own rather than an icon in a row of six. */
+  #racebtn{margin:4px auto 2px;font-size:13px;font-weight:700;letter-spacing:2px;
+           padding:10px 22px;border-radius:10px;
+           background:var(--glow);color:#fff;border-color:var(--glow)}
+  #racebtn:hover{background:#e59468;border-color:#e59468}
+  #race .board{max-width:400px;margin:12px auto;text-align:left}
+  #race .linkbox{max-width:420px;margin:14px auto;padding:11px;border-radius:9px;
+                 background:var(--panel);border:1px solid #5a4835}
+  #race .linkbox code{font-size:12px;color:var(--glow);word-break:break-all}
+  #race .brow{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:5px;
+              background:var(--panel);border:1px solid #5a4835;border-radius:9px}
+  #race .brow.me{border-color:var(--glow);background:rgba(217,130,90,.10)}
+  #race .brow .pos{width:26px;font-size:15px}
+  #race .brow .nm{flex:1;font-size:14px}
+  #race .brow .nm i{color:var(--dim);font-size:11px;font-style:normal}
+  #race .brow .pts{text-align:right;font-size:15px}
+  #race .brow .pts b{color:var(--glow)}
+  #race .brow .pts small{display:block;color:var(--dim);font-size:11px}
+  #race .waitdot{color:var(--dim);font-size:13px;margin-top:12px}
+  #race .waitdot:after{content:'';animation:dots 1.4s steps(4,end) infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+  #race .rrow b{color:var(--glow)}
+  #race #rclues{margin:10px auto 6px;font-size:14px;line-height:1.45;max-width:460px}
+  #race #rclues .clueline{background:var(--panel);border:1px solid #5a4835;
+       border-radius:9px;padding:8px 11px;margin:5px 0;text-align:left}
+  #race #rclues .clueline.done{opacity:.4;text-align:center}
+  #race #rclues .cl-th{color:var(--glow);font-size:13px;margin-top:3px}
+  #race #rclues .cl-n{color:var(--dim);font-size:11px;margin-top:3px}
+  #race #rclues .x2{color:var(--glow);font-weight:700;margin-left:6px;font-size:12px}
+  #race .found span{background:var(--panel);border:1px solid #5a4835;border-radius:7px;
+                    padding:4px 9px;font-size:13px}
+  #race .share{background:var(--panel);border:1px solid #5a4835;border-radius:8px;
+               padding:12px;font-family:monospace;font-size:13px;white-space:pre-wrap;
+               margin:14px 0;text-align:left}
+
   /* --- overlay panels: Collection + Dictionary --- */
   #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;
            padding:24px 12px;overflow-y:auto}
@@ -310,7 +379,9 @@
   <button id="gear" title="settings">⚙</button>
 </div>
 
-</div><div style="text-align:center"><div id="settings">
+</div>
+<button id="racebtn">🏁 &nbsp;PLAY TOGETHER</button>
+<div style="text-align:center"><div id="settings">
   <button id="lang">clue: TH</button>
   <button id="say">🔊 words: ON</button>
   <button id="sayl">🔤 letters: OFF</button>
@@ -349,6 +420,8 @@
 </div>
 
 <div id="log"></div>
+
+<div id="race"></div>
 
 <div id="overlay"><div id="panel"></div>
   <div id="popup"><div id="popcard"></div></div>
@@ -997,8 +1070,574 @@ function showShelf(L){
 $('book').onclick=showCollection;
 $('dictbtn').onclick=showDictionary;
 
+
+
+/* ═══════════════════ LIVE RACE ROOMS ═══════════════════
+   Optional networking for race mode only. Nothing here runs unless the player
+   opens a race and chooses to go online: the library is fetched on demand, and
+   every failure path falls back to playing solo rather than blocking the game.
+
+   Topology is a star. The host holds the room and relays scores; joiners talk
+   only to the host. Words are never sent - only names and totals. */
+
+const MAX_DUEL = 2, MAX_PARTY = 10;
+let NET = null;   // {peer, conns, isHost, roster, code, cap}
+
+function loadPeerJS(){
+  if(window.Peer) return Promise.resolve(true);
+  return new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    s.onload=()=>res(true);
+    s.onerror=()=>res(false);         // offline or blocked: caller falls back
+    document.head.appendChild(s);
+    setTimeout(()=>res(!!window.Peer), 8000);
+  });
+}
+
+function netName(){
+  return (localStorage.getItem('vocap-name') || 'player').slice(0,14);
+}
+
+function netBroadcast(msg){
+  if(!NET) return;
+  for(const c of NET.conns) { try{ c.send(msg); }catch(e){} }
+}
+
+function netSendScore(){
+  if(!NET || !R) return;
+  const row={t:'score', name:netName(), score:R.score, words:R.found.length,
+             done:!!R.over};
+  if(NET.isHost){ netRoster(netName(), row); netBroadcast({t:'roster', roster:NET.roster}); }
+  else netBroadcast(row);
+}
+
+function netRoster(name, row){
+  if(!NET) return;
+  const i=NET.roster.findIndex(r=>r.name===name);
+  const entry={name, score:row.score, words:row.words, done:row.done};
+  if(i>=0) NET.roster[i]=entry; else NET.roster.push(entry);
+  NET.roster.sort((a,b)=>b.score-a.score);
+  renderRoster();
+}
+
+function renderRoster(){
+  const el=$('rroster'); if(!el || !NET) return;
+  const racing = !!(R && !R.over);
+  el.innerHTML = NET.roster.map((r,i)=>
+    `<div class="rrow${r.name===netName()?' me':''}">
+       <span>${racing?(i+1)+'. ':'· '}${r.name}</span>
+       ${racing ? `<span><b>${r.score}</b> · ${r.words}w ${r.done?'✔':''}</span>`
+                : `<span class="sub" style="font-size:11px">ready</span>`}
+     </div>`).join('') || '<div class="sub">nobody here yet…</div>';
+  const c=$('rcount');
+  if(c) c.textContent = `${NET.roster.length} of ${NET.cap} in the room`;
+}
+
+async function netHost(code, cap){
+  const ok=await loadPeerJS();
+  if(!ok) return {error:'could not reach the matchmaking service'};
+  return new Promise(res=>{
+    let peer;
+    try{ peer = new Peer('vocap-'+code); }catch(e){ return res({error:'could not start a room'}); }
+    peer.on('open', ()=>{
+      NET={peer, conns:[], isHost:true, roster:[], code, cap};
+      netRoster(netName(), {score:0, words:0, done:false});
+      peer.on('connection', c=>{
+        if(NET.conns.length >= cap-1){ try{c.send({t:'full'});c.close();}catch(e){} return; }
+        NET.conns.push(c);
+        c.on('data', m=>{
+          if(m.t==='score'){ netRoster(m.name, m); netBroadcast({t:'roster', roster:NET.roster}); }
+          if(m.t==='bye'){ NET.roster=NET.roster.filter(r=>r.name!==m.name); renderRoster();
+                           netBroadcast({t:'roster', roster:NET.roster}); }
+          if(m.t==='hello'){ netRoster(m.name, {score:0,words:0,done:false});
+                             netBroadcast({t:'roster', roster:NET.roster}); }
+        });
+        c.on('close', ()=>{ NET.conns=NET.conns.filter(x=>x!==c); });
+      });
+      res({ok:true});
+    });
+    peer.on('error', e=>{
+      res({error: String(e).includes('taken') ? 'that code is already in use'
+                                              : 'could not start a room'});
+    });
+    setTimeout(()=>res({error:'timed out starting the room'}), 9000);
+  });
+}
+
+async function netJoin(code){
+  const ok=await loadPeerJS();
+  if(!ok) return {error:'could not reach the matchmaking service'};
+  return new Promise(res=>{
+    let peer;
+    try{ peer = new Peer(); }catch(e){ return res({error:'could not connect'}); }
+    peer.on('open', ()=>{
+      const c=peer.connect('vocap-'+code, {reliable:true});
+      c.on('open', ()=>{
+        NET={peer, conns:[c], isHost:false, roster:[], code, cap:MAX_PARTY};
+        c.send({t:'hello', name:netName()});
+        res({ok:true});
+      });
+      c.on('data', m=>{
+        if(m.t==='roster'){ NET.roster=m.roster; renderRoster(); }
+        if(m.t==='ping'){ netSendScore(); }
+        if(m.t==='start'){ raceStart(m.mode, true); }
+        if(m.t==='full'){ res({error:'that room is full'}); }
+      });
+      c.on('error', ()=>res({error:'could not reach that room'}));
+      setTimeout(()=>res({error:'no room with that code'}), 9000);
+    });
+    peer.on('error', ()=>res({error:'could not connect'}));
+  });
+}
+
+function netLeave(){
+  if(!NET) return;
+  try{ NET.peer.destroy(); }catch(e){}
+  NET=null;
+}
+
+/* ═══════════════════ RACE MODE ═══════════════════
+   Deliberately separate from the collection. Race finds do not fill topics
+   and race points are not sparks, because otherwise racing would become the
+   efficient way to finish the game and the slow loop would lose its purpose. */
+
+let R = null;   // active race state, or null
+
+/* A tiny deterministic generator. Two people typing the same code must get
+   exactly the same fifteen letters, so nothing here may use Math.random. */
+function seedRNG(str){
+  let h = 2166136261;
+  for(const ch of str.toUpperCase()){
+    h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619);
+  }
+  return function(){
+    h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+    return ((h >>> 0) % 100000) / 100000;
+  };
+}
+
+const RACE_ROUND = 120;   // seconds before a fresh tray
+
+function raceLetters(code, n){
+  const rnd = seedRNG(code);
+  const pool = Object.entries(FREQ);
+  const total = pool.reduce((a,[,w])=>a+w, 0);
+  /* Draw vowels and consonants separately against a fixed ratio. Sampling the
+     plain frequency table gives vowel soup - about eight vowels in fifteen -
+     which looks right on paper and plays terribly. Five is close to what a
+     Scrabble rack gives you, and leaves room to actually build words. */
+  const VOWELS = n<=8 ? 3 : Math.round(n/3);
+  const isV = c=>'aeiou'.includes(c);
+  const vPool = pool.filter(([c])=>isV(c)), cPool = pool.filter(([c])=>!isV(c));
+  const draw = (list, k)=>{
+    const tot = list.reduce((a,[,w])=>a+w,0), got=[];
+    while(got.length<k){
+      let r = rnd()*tot;
+      for(const [ch,w] of list){ r-=w; if(r<=0){ got.push(ch); break; } }
+    }
+    return got;
+  };
+  const out = draw(vPool, VOWELS).concat(draw(cPool, n-VOWELS));
+  // deterministic shuffle so the vowels are not all at the front
+  for(let i=out.length-1;i>0;i--){
+    const j = Math.floor(rnd()*(i+1));
+    [out[i],out[j]] = [out[j],out[i]];
+  }
+  return out;
+}
+
+/* Pick clue words that can actually be spelled from this tray. Both players
+   run the same filter over the same word list in the same order, so the
+   targets match without anything being sent between them. */
+function raceClues(code, round, letters, n){
+  const rnd = seedRNG(code+':clue:'+round);
+  const have = count(letters.join(''));
+  /* Widen the net if a tray cannot supply three targets in the ideal length
+     band. About one tray in twenty is awkward, and a player should never get
+     fewer clues - and so fewer chances at double points - than their opponent. */
+  const pick = (lo,hi) => BANK_ALL.filter(w =>
+      w.letters>=lo && w.letters<=hi && canSpell(count(w.spell), have));
+  let able = pick(5,12);
+  if(able.length < n) able = pick(4,14);
+  if(able.length < n) able = pick(3,15);
+  const out=[];
+  const pool=able.slice();
+  while(out.length<n && pool.length){
+    const i=Math.floor(rnd()*pool.length);
+    out.push(pool.splice(i,1)[0]);
+  }
+  return out;
+}
+
+function newCode(){
+  const A='BCDFGHJKLMNPQRSTVWXYZ23456789';
+  let s=''; for(let i=0;i<5;i++) s+=A[Math.floor(Math.random()*A.length)];
+  return s;
+}
+
+function openRace(code){ $('race').className='show'; raceSetup();
+  if(code && $('rcode')) $('rcode').value=code.toUpperCase(); }
+function closeRace(){ $('race').className=''; R=null; netLeave(); }
+
+function raceSetup(){
+  const code = (R && R.code) || newCode();
+  netLeave();
+  $('race').innerHTML = `
+    <div class="sheet">
+      <h2>RACE</h2>
+      <div class="sub">Same code, same letters, same clues.</div>
+
+      <div class="field">
+        <label>your name</label>
+        <input id="rname" value="${netName()}" maxlength="14" style="letter-spacing:1px">
+      </div>
+
+      <div class="field">
+        <label>race code</label>
+        <input id="rcode" value="${code}" maxlength="8">
+        <div style="margin-top:8px"><button onclick="$('rcode').value=newCode()">new code</button></div>
+      </div>
+
+      <div class="field">
+        <label>how it ends</label>
+        <div class="opts" id="rmode">
+          <button data-m="t120" class="on">2 min</button>
+          <button data-m="t180">3 min</button>
+          <button data-m="t300">5 min</button>
+          <button data-m="p300">to 300</button>
+          <button data-m="p500">to 500</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>who is playing</label>
+        <div class="opts" id="rkind">
+          <button data-k="solo" class="on">just me</button>
+          <button data-k="duel">duel · 2</button>
+          <button data-k="party">party · up to 10</button>
+        </div>
+        <div class="sub" id="rkindnote" style="margin-top:8px">
+          Play alone. Share the code and compare scores afterwards.
+        </div>
+      </div>
+
+      <button class="go" id="rgo" onclick="raceGo()">start</button>
+      <div style="margin-top:10px"><button onclick="raceJoinPrompt()">join a room instead</button></div>
+      <div class="sub" id="rerr" style="color:var(--bad);margin-top:10px"></div>
+      <div style="margin-top:16px"><button onclick="closeRace()">back to the game</button></div>
+    </div>`;
+
+  for(const id of ['rmode','rkind']){
+    const g=$(id);
+    g.onclick=e=>{
+      if(!e.target.dataset.m && !e.target.dataset.k) return;
+      [...g.children].forEach(b=>b.className=''); e.target.className='on';
+      if(id==='rkind'){
+        const k=e.target.dataset.k;
+        $('rkindnote').textContent =
+          k==='solo'  ? 'Play alone. Share the code and compare scores afterwards.' :
+          k==='duel'  ? 'Two players, live scores. You host; they join with your code.' :
+                        'Up to ten players, live scores. You host; they join with your code.';
+      }
+    };
+  }
+}
+
+function raceLink(code){
+  const base = location.protocol==='http:' || location.protocol==='https:'
+      ? location.origin + location.pathname
+      : 'https://YOUR-GITHUB-PAGES-URL/';
+  return `${base}?race=${code}`;
+}
+
+function raceKind(){ return [...$('rkind').children].find(b=>b.className==='on').dataset.k; }
+function raceMode(){ return [...$('rmode').children].find(b=>b.className==='on').dataset.m; }
+
+async function raceGo(){
+  localStorage.setItem('vocap-name', ($('rname').value||'player').trim() || 'player');
+  const kind=raceKind(), code=($('rcode').value||'').trim().toUpperCase() || newCode();
+  if(kind==='solo') return raceStart(raceMode());
+
+  const btn=$('rgo'); btn.textContent='opening room…'; btn.disabled=true;
+  const r=await netHost(code, kind==='duel'?MAX_DUEL:MAX_PARTY);
+  btn.disabled=false; btn.textContent='start';
+  if(r.error){
+    $('rerr').textContent = r.error + ' — starting a solo race instead';
+    return setTimeout(()=>raceStart(raceMode()), 1400);
+  }
+  raceLobby(code, raceMode());
+}
+
+function raceLobby(code, mode){
+  const label = {t120:'2 min',t180:'3 min',t300:'5 min',p300:'to 300',p500:'to 500'}[mode];
+  $('race').innerHTML=`
+    <div class="sheet">
+      <div class="sub">waiting room</div>
+      <h2>${code}</h2>
+      <div class="sub">Nobody starts until you do — ${label}.</div>
+      <div class="linkbox">
+        <div class="sub" style="margin:0 0 5px">share this link and they join in one click</div>
+        <code id="rlink">${raceLink(code)}</code>
+        <div style="margin-top:7px">
+          <button onclick="navigator.clipboard.writeText($('rlink').textContent);this.textContent='copied'">copy link</button>
+        </div>
+      </div>
+      <div id="rroster" class="roster"></div>
+      <div class="sub" id="rcount"></div>
+      <button class="go" onclick="raceHostStart('${mode}')">start the race</button>
+      <div style="margin-top:14px"><button onclick="netLeave();raceSetup()">cancel</button></div>
+    </div>`;
+  renderRoster();
+}
+
+function raceHostStart(mode){
+  if(!NET || !NET.isHost) return;      // only the host may begin
+  // reset everyone to zero so a rematch does not inherit the last race
+  NET.roster = NET.roster.map(r=>({name:r.name, score:0, words:0, done:false}));
+  netBroadcast({t:'start', mode});
+  netBroadcast({t:'roster', roster:NET.roster});
+  raceStart(mode, true);
+  netHeartbeat();
+}
+
+/* Without this the board only moves when somebody scores, so a quiet minute
+   looks like a broken connection. Two seconds is plenty for ten players. */
+function netHeartbeat(){
+  if(!NET || !NET.isHost) return;
+  netBroadcast({t:'roster', roster:NET.roster});
+  renderRoster();
+  if(R && !R.over) setTimeout(netHeartbeat, 2000);
+}
+
+async function raceJoinPrompt(){
+  const code=($('rcode').value||'').trim().toUpperCase();
+  if(!code) { $('rerr').textContent='type the code you were given'; return; }
+  localStorage.setItem('vocap-name', ($('rname').value||'player').trim() || 'player');
+  $('rerr').textContent='connecting…';
+  const r=await netJoin(code);
+  if(r.error){ $('rerr').textContent=r.error; return; }
+  $('race').innerHTML=`
+    <div class="sheet">
+      <div class="sub">waiting room</div>
+      <h2>${code}</h2>
+      <div class="sub">You are in. The race begins when the host starts it.</div>
+      <div id="rroster" class="roster"></div>
+      <div class="sub" id="rcount"></div>
+      <div class="waitdot">waiting for the host…</div>
+      <div style="margin-top:14px"><button onclick="netLeave();raceSetup()">leave</button></div>
+    </div>`;
+  renderRoster();
+}
+
+function raceStart(mode, online){
+  const code = (NET && NET.code) || ($('rcode') ? ($('rcode').value||'').trim().toUpperCase() : '') || newCode();
+  R={ code, mode, online:!!online,
+      limit: mode[0]==='t' ? +mode.slice(1) : 0,
+      target: mode[0]==='p' ? +mode.slice(1) : 0,
+      round:0, letters: raceLetters(code+':0',15), clues:[],
+      used:new Set(), found:[], score:0,
+      building:[], started:Date.now(), over:false };
+  R.clues = raceClues(R.code, 0, R.letters, 3);
+  raceRender();
+  raceTick();
+}
+
+function raceTick(){
+  if(!R || R.over) return;
+  const el=$('rclock'); if(!el) return;
+
+  /* Fresh letters on a fixed cadence. The round number is folded into the
+     seed rather than taken from the clock, so two players who started a few
+     seconds apart still see identical trays. */
+  const elapsed = Math.floor((Date.now()-R.started)/1000);
+  const round = Math.floor(elapsed / RACE_ROUND);
+  if(round !== R.round){
+    R.round = round;
+    R.letters = raceLetters(R.code+':'+round, 15);
+    R.clues   = raceClues(R.code, round, R.letters, 3);
+    R.building = [];
+    raceTray(); raceClueBar();
+    raceFlash('fresh letters');
+  }
+  const nextIn = RACE_ROUND - (elapsed % RACE_ROUND);
+  const nx=$('rnext');
+  if(nx) nx.textContent = `new letters in ${Math.floor(nextIn/60)}:${String(nextIn%60).padStart(2,'0')}`;
+
+  if(R.limit){
+    const left=Math.max(0, R.limit-Math.floor((Date.now()-R.started)/1000));
+    el.textContent=`${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}`;
+    el.className = 'clock' + (left<=15?' low':'');
+    if(left<=0) return raceEnd();
+  }else{
+    const up=Math.floor((Date.now()-R.started)/1000);
+    el.textContent=`${Math.floor(up/60)}:${String(up%60).padStart(2,'0')}`;
+    el.className='clock';
+  }
+  setTimeout(raceTick,250);
+}
+
+function raceRender(){
+  const goal = R.limit ? `first to run out of time` : `first to ${R.target} points`;
+  $('race').innerHTML=`
+    <div class="sheet">
+      <div class="sub">code <b>${R.code}</b> · ${goal}</div>
+      <div id="rclock" class="clock">–</div>
+      <div class="tally"><b id="rscore">${R.score}</b> points · <b>${R.found.length}</b> words</div>
+      <div class="tally" id="rnext" style="font-size:12px"></div>
+      <div id="rroster" class="roster"></div>
+      <div id="rclues"></div>
+      <div id="rtray" class="tray"></div>
+      <div id="rword" class="wordtray"></div>
+      <div style="margin-top:10px">
+        <button onclick="raceSubmit()">Submit</button>
+        <button onclick="R.building=[];raceTray()">Clear</button>
+        <button onclick="raceEnd()">give up</button>
+      </div>
+      <div id="rfound" class="found"></div>
+    </div>`;
+  raceTray(); raceClueBar(); renderRoster();
+}
+
+/* Solving a clue is worth double, so hunting the targets beats grinding
+   short words - which is what makes it a race rather than a typing test. */
+function raceClueBar(){
+  const el=$('rclues'); if(!el) return;
+  /* Both languages, always. A room may hold Thai and English speakers at once,
+     and everyone must be able to read the same clue. */
+  el.innerHTML = R.clues.map(w=>{
+    const got = R.used.has(w.spell);
+    const th  = w.translations?.th?.definition || '';
+    if(got) return `<div class="clueline done">✔ <b>${w.word}</b> — solved</div>`;
+    return `<div class="clueline">🔎 ${w.definition}`
+         + `<span class="x2">×2</span>`
+         + (th?`<div class="cl-th">${th}</div>`:'')
+         + `<div class="cl-n">${w.letters} letters</div></div>`;
+  }).join('');
+}
+
+function raceTray(){
+  const used={};
+  R.building.forEach(b=>used[b.from]=true);
+  $('rtray').innerHTML = R.letters.map((ch,i)=>
+    `<div class="slot filled ${used[i]?'used':''}" onclick="racePick(${i})">${ch}</div>`).join('');
+  $('rword').innerHTML = R.building.length
+    ? R.building.map(b=>`<div class="slot filled">${b.ch}</div>`).join('')
+    : `<div style="color:var(--dim);font-size:13px;padding:10px">tap or type letters</div>`;
+}
+
+function racePick(i){
+  if(R.building.some(b=>b.from===i)) return;
+  R.building.push({ch:R.letters[i],from:i}); raceTray();
+}
+
+function raceSubmit(){
+  if(!R || R.over) return;
+  const word=R.building.map(b=>b.ch).join('').toLowerCase();
+  R.building=[];
+  if(word.length<3) return raceTray();
+  if(R.used.has(word)) { raceFlash('already found'); return raceTray(); }
+  const known = BANK_ALL.some(w=>w.spell===word) || (DEFS && word in DEFS);
+  if(!known) { raceFlash('not a word'); return raceTray(); }
+  R.used.add(word);
+  const isClue = R.clues.some(c=>c.spell===word);
+  const pts = sparksFor(word.length) * (isClue?2:1);
+  R.score+=pts; R.found.push({word,pts});
+  $('rscore').textContent=R.score;
+  $('rfound').innerHTML=R.found.slice().reverse()
+      .map(f=>`<span>${f.word} <b style="color:var(--glow)">+${f.pts}</b></span>`).join('');
+  raceTray(); raceClueBar(); netSendScore();
+  if(isClue) raceFlash('clue solved · double points');
+  if(R.target && R.score>=R.target) raceEnd();
+}
+
+function raceFlash(msg){
+  const el=$('rfound'); if(!el) return;
+  const n=document.createElement('span');
+  n.textContent=msg; n.style.opacity='.6';
+  el.prepend(n); setTimeout(()=>n.remove(),1200);
+}
+
+function raceEnd(){
+  if(!R || R.over) return;
+  R.over=true;
+  netSendScore();
+  const secs=Math.floor((Date.now()-R.started)/1000);
+  const best=R.found.slice().sort((a,b)=>b.pts-a.pts)[0];
+  const share=`VOCAP RACE · ${R.code}\n${R.score} points · ${R.found.length} words`
+            + `\nbest: ${best?best.word.toUpperCase()+' +'+best.pts:'—'}`
+            + `\ntime: ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`
+            + `\ntrays: ${R.round+1}`;
+  $('race').innerHTML=`
+    <div class="sheet">
+      ${NET ? '<div class="sub">final standings</div><div id="rboard" class="board"></div>'
+            : `<h2>${R.score}</h2><div class="sub">${R.found.length} words · code ${R.code}</div>`}
+
+      <div class="sub" style="margin-top:14px">your words</div>
+      <div class="found">${R.found.slice().sort((a,b)=>b.pts-a.pts)
+          .map(f=>`<span>${f.word} <b style="color:var(--glow)">+${f.pts}</b></span>`).join('')
+          || '<span style="opacity:.5">none this time</span>'}</div>
+
+      <div class="share">${share}</div>
+      <button onclick="navigator.clipboard.writeText(${JSON.stringify(share)});this.textContent='copied'">copy result</button>
+
+      <div style="margin-top:18px">
+        <button onclick="raceSetup()">race again</button>
+        <button onclick="closeRace()">back to the game</button>
+      </div>
+    </div>`;
+  renderBoard();
+  // keep the standings updating while slower players finish
+  if(NET) { const t=setInterval(()=>{ if($('rboard')) renderBoard(); else clearInterval(t); }, 1000); }
+}
+
+/* The finishing table: everyone in order, with the gap to first so a close
+   race reads as close. */
+function renderBoard(){
+  const el=$('rboard'); if(!el || !NET) return;
+  const rows=NET.roster.slice().sort((a,b)=>b.score-a.score);
+  const top=rows.length?rows[0].score:0;
+  const medal=['🥇','🥈','🥉'];
+  el.innerHTML = rows.map((r,i)=>{
+    const gap = i===0 ? '' : `−${top-r.score}`;
+    return `<div class="brow${r.name===netName()?' me':''}">
+      <span class="pos">${medal[i]||(i+1)+'.'}</span>
+      <span class="nm">${r.name}${r.done?'':' <i>still going</i>'}</span>
+      <span class="pts"><b>${r.score}</b><small>${r.words}w ${gap}</small></span>
+    </div>`;
+  }).join('');
+}
+
+$('racebtn').onclick=()=>openRace();
+
+/* A link like  .../?race=KTQ7M  opens straight into the join screen with the
+   code already filled in. On stream you paste one link and nobody has to type
+   anything or install anything - the web build is the whole game. */
+(function deepLink(){
+  const code=new URLSearchParams(location.search).get('race');
+  if(!code) return;
+  setTimeout(()=>{
+    openRace();
+    const f=$('rcode'); if(f) f.value=code.toUpperCase();
+    raceJoinPrompt();
+  }, 400);
+})();
+
+/* typing works in a race too */
+document.addEventListener('keydown',e=>{
+  if(!R || R.over || $('race').className!=='show') return;
+  if(e.key==='Enter'){ raceSubmit(); return; }
+  if(e.key==='Escape'){ R.building=[]; raceTray(); return; }
+  if(e.key==='Backspace'){ R.building.pop(); raceTray(); return; }
+  const ch=e.key.toLowerCase();
+  if(!/^[a-z]$/.test(ch)) return;
+  const i=R.letters.findIndex((L,idx)=>L===ch && !R.building.some(b=>b.from===idx));
+  if(i>=0){ R.building.push({ch,from:i}); raceTray(); }
+}, true);
+
 /* ---------------- input ---------------- */
 document.addEventListener('keydown',e=>{
+  if($('race').className==='show') return;
   if(($('overlay').className==='show'||$('popup').className==='show') && e.key!=='Escape') return;
   // A focused button would otherwise fire on Enter or Space as well.
   if(document.activeElement && document.activeElement.tagName==='BUTTON'
