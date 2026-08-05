@@ -12,6 +12,9 @@ fn main() {
     tauri::Builder::default()
         // Remembers where you put the window and how big you made it.
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Lets the dictionary card open Longdo in the real browser. Without
+        // this a link inside the app simply does nothing.
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let win = app.get_webview_window("main").unwrap();
             // Always-on-top is set in the config, but re-asserting it here

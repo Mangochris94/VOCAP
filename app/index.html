@@ -63,6 +63,8 @@
         max-width:min(640px,100%);line-height:1.6}
   #clue.spellable{text-shadow:0 0 12px var(--glow)}
   .clueline{margin:6px 0}
+  .cl-th2{color:var(--glow);font-size:14px;margin-top:2px}
+  .cl-n2{color:var(--dim);font-size:11px;margin-top:2px}
   .hintbar{display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle}
   .hintbar button{border-color:#5a4835;
   font-size:11px;padding:3px 8px;border-radius:5px;opacity:.75}
@@ -77,6 +79,9 @@
   .slot.filled:hover{border-color:var(--glow)}
 
   /* --- the word tray: where letters go to become a word --- */
+  #marks{display:none;gap:6px;justify-content:center;margin:4px 0}
+  #marks .slot.mark{width:38px;height:42px;font-size:20px;opacity:.9}
+  #marks .slot.mark:hover{border-color:var(--glow)}
   #wordtray,.wordtray{background:rgba(0,0,0,.18);border-radius:10px;
   display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
             background:rgba(0,0,0,.18);border-radius:10px;padding:10px 14px;
@@ -206,6 +211,18 @@
     #card h2{font-size:23px}
   }
 
+  #startup{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
+           justify-content:center;padding:20px;
+           background:radial-gradient(130% 100% at 50% 35%, #3d3026 0%, var(--bg) 70%)}
+  #startup .ssheet{max-width:420px;width:100%;text-align:center}
+  #startup .ssub{color:var(--dim);font-size:13px;margin-bottom:26px}
+  #startup .pick{display:block;width:100%;text-align:left;margin-bottom:12px;
+                 padding:16px 18px;border-radius:12px;background:var(--tile);
+                 color:var(--tile-ink);border:1px solid #5a4835}
+  #startup .pick:hover{background:#fffaf0;border-color:var(--glow)}
+  #startup .pick b{display:block;font-size:19px;letter-spacing:1px}
+  #startup .pick small{display:block;margin-top:4px;font-size:12px;opacity:.75;line-height:1.45}
+
   /* --- race mode -------------------------------------------------
      A separate mode you enter deliberately. Two people type the same code,
      get the same fifteen letters, and race a clock. No server involved: the
@@ -246,12 +263,61 @@
               padding:6px 11px;border-radius:7px;font-size:13px;
               background:var(--panel);border:1px solid #5a4835;margin-bottom:4px}
   #race .rrow.me{border-color:var(--glow)}
+  #race .rrow em, #race .brow em{display:block;font-style:normal;font-size:10px;
+       color:var(--glow);letter-spacing:1px;text-transform:uppercase}
   /* Racing is a mode you choose, not a toggle you might miss, so it gets a
      button of its own rather than an icon in a row of six. */
   #racebtn{margin:4px auto 2px;font-size:13px;font-weight:700;letter-spacing:2px;
            padding:10px 22px;border-radius:10px;
            background:var(--glow);color:#fff;border-color:var(--glow)}
   #racebtn:hover{background:#e59468;border-color:#e59468}
+  /* The two buttons you press constantly sit together. Leaving is pushed well
+     away and styled as a warning, because people were quitting by accident. */
+  #race .statgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
+                  max-width:480px;margin:14px auto}
+  #race .statgrid div{background:var(--panel);border:1px solid #5a4835;
+                      border-radius:8px;padding:8px 4px}
+  #race .statgrid b{display:block;font-size:17px;color:var(--glow)}
+  #race .statgrid small{color:var(--dim);font-size:10px}
+  #race .titles{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:480px;margin:8px auto}
+  #race .tsel{font-size:11px;padding:5px 11px}
+  #race .tsel.on{background:var(--glow);color:#fff;border-color:var(--glow)}
+  #race .trophies{max-width:480px;margin:8px auto;text-align:left}
+  #race .trow{background:var(--panel);border:1px solid #5a4835;border-radius:9px;
+              padding:9px 12px;margin-bottom:6px}
+  #race .thead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  #race .thead small{color:var(--dim);font-size:11px}
+  #race .pips{display:flex;gap:4px}
+  #race .pips i{width:9px;height:9px;border-radius:50%;border:1px solid #6b5540;display:block}
+  #race .pips i.lit{background:#b08d57;border-color:#b08d57}
+  #race .pips i.lit.silver{background:#c9c9c9;border-color:#c9c9c9}
+  #race .pips i.lit.gold{background:#d9a441;border-color:#d9a441}
+  #race .pips i.lit.platinum{background:#dfe6ea;border-color:#dfe6ea}
+  #race .bar{height:5px;background:rgba(0,0,0,.28);border-radius:3px;margin:7px 0 4px;overflow:hidden}
+  #race .bar i{display:block;height:100%;background:var(--glow)}
+  #race .tfoot{color:var(--dim);font-size:11px}
+  #race .unlocks{max-width:420px;margin:14px auto 6px}
+  #race .unlock{display:flex;gap:11px;align-items:center;text-align:left;
+                background:var(--panel);border:1px solid var(--glow);
+                border-radius:10px;padding:10px 13px;margin-bottom:6px}
+  #race .unlock small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  #race .tro{font-size:20px}
+  #race .tro.bronze{filter:hue-rotate(-18deg) saturate(.7)}
+  #race .tro.silver{filter:grayscale(1) brightness(1.5)}
+  #race .tro.platinum{filter:brightness(1.35) saturate(.4)}
+  #race .laurelrow{color:var(--glow);font-size:13px;margin:10px 0}
+  #race .laurelrow span{color:var(--dim)}
+  #race .playrow{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  #race .playrow button{font-size:14px;padding:9px 22px}
+  #race .playrow .psubmit{background:var(--glow);color:#fff;border-color:var(--glow)}
+  #race .quitrow{margin-top:26px;padding-top:14px;border-top:1px solid rgba(90,72,53,.5)}
+  #race .quit{font-size:11px;padding:5px 12px;opacity:.55;
+              background:transparent;color:var(--dim)}
+  #race .quit:hover{opacity:1;color:var(--bad);border-color:var(--bad)}
+  /* Fifteen tiles is a lot of width. Shrinking them keeps the tray on two
+     rows and leaves the clues visible without scrolling. */
+  .racetray .slot{width:40px;height:46px;font-size:19px;border-radius:6px}
+  @media (max-width:520px){ .racetray .slot{width:min(34px,7.6vw);height:min(40px,9vw);font-size:16px} }
   #race .board{max-width:400px;margin:12px auto;text-align:left}
   #race .linkbox{max-width:420px;margin:14px auto;padding:11px;border-radius:9px;
                  background:var(--panel);border:1px solid #5a4835}
@@ -357,8 +423,10 @@
 
 <div style="text-align:center"><div id="controls">
   <button id="ivl" title="how often a letter drops">⏱ 5 min</button>
-  <button id="speed" title="drop a letter every 2 seconds">⚡ fast: OFF</button>
+  <button id="speed" title="fill the tray straight away">⚡ fill tray</button>
   <button id="skip" title="end this run early">⏭ next</button>
+  <button id="uilang" title="interface language">🌐 EN</button>
+  <button id="swapgame" title="switch game language">🔁</button>
   <button id="lang" title="clue language">clue: TH</button>
   <button id="say" title="speak each word found">🔊 words: ON</button>
   <button id="sayl" title="speak each letter tapped">🔤 letters: OFF</button>
@@ -374,6 +442,7 @@
 <div id="clue"></div>
 <div id="tray"></div>
 
+<div id="marks"></div>
 <div id="wordtray"></div>
 <div id="actions">
   <button id="submit" disabled>Submit</button>
@@ -431,6 +500,8 @@ const GROWTH=[15,50,110,200,330,520,780];  // cumulative curated words for slots
 let INTERVAL_MS = 5*60*1000;       // player-chosen: 5 / 10 / 20 minutes
 const FAST_MS     = 2*1000;         // debug fast mode: a workday in minutes
 // English letter frequencies for noise letters (same table as the Python)
+const FREQ_ACTIVE={};
+let GROWTH_BASE=8, MAXTRAY=15;
 const FREQ={e:12.5,t:9.3,a:8.0,o:7.6,i:7.7,n:7.2,s:6.5,r:6.3,h:5.1,l:4.1,d:3.8,
 c:3.3,u:2.8,m:2.5,f:2.4,p:2.1,g:1.9,w:1.7,y:1.6,b:1.5,v:1.0,k:0.6,x:0.2,j:0.1,q:0.1,z:0.1};
 const VOWELS=new Set('aeiou');
@@ -482,8 +553,9 @@ let building=[];                       // [{ch:'m', from:3} | {ch:' ', from:null
 const typedWord = () => building.map(b=>b.ch).join('');
 
 const $=id=>document.getElementById(id);
-const save=()=>localStorage.setItem('vocap',JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
-const load=()=>{try{const d=JSON.parse(localStorage.getItem('vocap'));
+const SAVEKEY=()=> GAME==='th' ? 'vocap-th' : 'vocap';
+const save=()=>localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
+const load=()=>{try{const d=JSON.parse(localStorage.getItem(SAVEKEY()));
   if(d){seen=new Set(d.seen);sparks=d.sparks;
         inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;
         snoozed=d.snoozed||{};cycleNo=d.cycleNo||0;}
@@ -519,7 +591,16 @@ function speakWord(w){
 }
 
 function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
-function count(s){const c={};for(const ch of s)if(ch!==' ')c[ch]=(c[ch]||0)+1;return c}
+function count(s){
+  /* Thai tone marks are free: they are written above a letter and are not
+     letters themselves, so they never have to be in the tray. */
+  const c={};
+  for(const ch of s){
+    if(ch===' ' || FREE_MARKS.has(ch)) continue;
+    c[ch]=(c[ch]||0)+1;
+  }
+  return c;
+}
 function canSpell(need,poolC){for(const k in need)if((poolC[k]||0)<need[k])return false;return true}
 function union(a,b){const o={...a};for(const k in b)o[k]=Math.max(o[k]||0,b[k]);return o}
 function poolCount(){const c={};for(const ch of pool)c[ch]=(c[ch]||0)+1;return c}
@@ -529,9 +610,12 @@ function poolCount(){const c={};for(const ch of pool)c[ch]=(c[ch]||0)+1;return c
    would make the collection feel cheap. */
 function progressCount(){ return seen.size }
 function traySize(){
-  let n=POOL_START;
+  /* Thai starts wider and ends wider. With 61 tile characters rather than 26,
+     a tray of eight leaves almost nothing spellable. */
+  let n = GAME==='th' ? GROWTH_BASE : POOL_START;
+  const cap = GAME==='th' ? MAXTRAY : POOL_CAP;
   for(const t of GROWTH) if(progressCount()>=t) n++;
-  return Math.min(POOL_CAP,n);
+  return Math.min(cap,n);
 }
 function nextGrowthAt(){
   for(const t of GROWTH) if(progressCount()<t) return t;
@@ -653,8 +737,8 @@ watchClock();
 
 function tickTimer(){
   const s=Math.max(0,Math.ceil((nextDrop-Date.now())/1000));
-  if(holding){ $('timer').textContent='WAITING FOR YOU'; setTimeout(tickTimer,500); return; }
-  $('timer').textContent=dropped>=order.length?'LAST CALL':`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  if(holding){ $('timer').textContent=t('waitingYou'); setTimeout(tickTimer,500); return; }
+  $('timer').textContent=dropped>=order.length?t('lastCall'):`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
   if(dropped<=order.length)setTimeout(tickTimer,500);
 }
 function dropLetter(){
@@ -668,7 +752,7 @@ function dropLetter(){
        hold here indefinitely. They get the full tray when they come back. */
     if(Date.now()-lastActivity > dropDelay()){
       holding=true;
-      $('timer').textContent='WAITING FOR YOU';
+      $('timer').textContent=t('waitingYou');
       flash('tray is full and waiting — it will not reset until you play','');
       return;
     }
@@ -710,6 +794,21 @@ function claimSlot(ch){
 }
 
 /* draw the word tray */
+/* The free marks sit in their own small row. They are always available, so
+   they are not part of the tray and never run out. */
+function renderMarks(){
+  const el=$('marks'); if(!el) return;
+  if(GAME!=='th'){ el.style.display='none'; return; }
+  el.style.display='flex';
+  el.innerHTML=[...FREE_MARKS].map(m=>
+    `<div class="slot filled mark" onclick="addMark('${m}')">${'\u25CC'+m}</div>`).join('');
+}
+function addMark(m){
+  if(!building.length) { flash('put a letter down first',''); return; }
+  building.push({ch:m, from:-1});
+  renderTray(); renderWordTray();
+}
+
 function renderWordTray(){
   const wt=$('wordtray'); wt.innerHTML='';
   if(!building.length){
@@ -764,8 +863,11 @@ function renderClue(){
   if(!active.length){el.textContent='';return}
   const pc=poolCount();
   el.innerHTML=active.map(w=>{
-    const desc = lang==='th' && w.translations?.th?.definition
-        ? w.translations.th.definition : w.definition;
+    /* On TH the player sees both, exactly as they do in a race: the English
+       is what they are hunting, the Thai is the way in. On EN it is English
+       only, which is the harder game an advanced learner wants. */
+    const th = lang==='th' ? (w.translations?.th?.definition || '') : '';
+    const desc = w.definition;
     const ok=canSpell(count(w.spell),pc);
     const lv=hintsBought[w.id]||0;
     const shown = lv>0 ? `<div class="reveal">${hintMask(w,lv)}</div>` : '';
@@ -775,8 +877,10 @@ function renderClue(){
                         + `${sparks<hintCost(w,lv)?'disabled':''}>🔓 reveal · ${hintCost(w,lv)}✨</button>`;
     else            next=`<button onclick="buyHint('${w.id}')" `
                         + `${sparks<hintCost(w,lv)?'disabled':''}>💡 ${hintCost(w,lv)}✨</button>`;
-    return `<div class="clueline"><span class="${ok?'spellable':''}">🔎 ${desc} — ${w.letters} letters</span>`
-         + `<span class="hintbar">${next}</span>${shown}</div>`;
+    return `<div class="clueline"><span class="${ok?'spellable':''}">🔎 ${desc}</span>`
+         + `<span class="hintbar">${next}</span>`
+         + (th?`<div class="cl-th2">${th}</div>`:'')
+         + `<div class="cl-n2">${w.letters} letters</div>${shown}</div>`;
   }).join('');
   el.className=active.some(w=>canSpell(count(w.spell),poolCount()))?'spellable':'';
 }
@@ -897,8 +1001,7 @@ function dictCardHTML(word){
       </div>
       ${list}
       <div id="c-tags"><span>📖 Dictionary word</span></div>
-      <div id="lookup"><a href="https://dict.longdo.com/search/${encodeURIComponent(word)}"
-         target="_blank" rel="noopener">ดูคำแปลไทย · look up in Thai ↗</a></div>
+      <div id="lookup"><a href="#" onclick="openExternal('https://dict.longdo.com/search/${encodeURIComponent(word)}');return false">ดูคำแปลไทย · look up in Thai ↗</a></div>
     </div>`;
 }
 
@@ -995,6 +1098,15 @@ function showTopic(t){
     <button onclick="closePanel()">close</button></div>${html}`);
 }
 
+/* A link in a Tauri window does not navigate anywhere by itself, so ask the
+   OS to open it. In a browser this is just window.open. */
+function openExternal(url){
+  const o = window.__TAURI__ && (window.__TAURI__.opener || window.__TAURI__.shell);
+  if(o && o.openUrl)      { o.openUrl(url); return; }
+  if(o && o.open)         { o.open(url);    return; }
+  window.open(url, '_blank', 'noopener');
+}
+
 function openPop(html,extraClass){
   $('popcard').className = extraClass||'';
   $('popcard').innerHTML = html + '<button id="c-close" title="close">×</button>';
@@ -1054,6 +1166,265 @@ $('dictbtn').onclick=showDictionary;
 
 
 
+
+
+
+/* ═══════════════════ GAME LANGUAGE ═══════════════════
+   Two games from one engine. In English mode you spell English words from
+   Latin tiles; in Thai mode you spell Thai words from Thai tiles. The loop,
+   the seeding and the cards are identical - only the alphabet and the word
+   bank change.
+
+   Thai text is linear in encoding even though vowels render around the
+   consonant, so tiles work exactly as they do in English: tap in typing
+   order and the font places them.
+
+   Tone marks are free. Thai does not count วรรณยุกต์ as letters, they sit
+   above a letter, and making them tiles made half the vocabulary unreachable. */
+
+const FREE_MARKS = new Set(['\u0E47','\u0E48','\u0E49','\u0E4A','\u0E4B','\u0E4C']);
+let GAME = localStorage.getItem('vocap-game') || '';   // '' until chosen
+
+const THAI_FREQ_CACHE = {};
+function thaiFreq(bank){
+  if(THAI_FREQ_CACHE.f) return THAI_FREQ_CACHE.f;
+  const f={};
+  for(const w of bank) for(const c of w.spell) if(!FREE_MARKS.has(c)) f[c]=(f[c]||0)+1;
+  THAI_FREQ_CACHE.f=f;
+  return f;
+}
+
+/* Build the Thai bank from the same words.json: the Thai word is the answer,
+   the Thai definition is the clue, and the English word becomes the
+   translation shown on the card. */
+function buildThaiBank(src){
+  const out=[];
+  for(const w of src){
+    const th=w.translations?.th;
+    if(!th || !th.word || !th.definition) continue;
+    const spell=th.word.replace(/\s+/g,'');
+    if(spell.length<2 || spell.length>15) continue;
+    out.push({
+      id:'th-'+w.id, word:th.word, spell,
+      letters:[...spell].filter(c=>!FREE_MARKS.has(c)).length,
+      topic:w.topic, topic2:w.topic2, sublist:w.sublist, phase:w.phase,
+      starter:false, rudeness:w.rudeness,
+      definition: th.definition,
+      history: th.history || '',
+      sentence: '',
+      translations:{ en:{ word:w.word, definition:w.definition, history:w.history } },
+      thai:w.word
+    });
+  }
+  return out;
+}
+
+/* Only tiles count towards what the tray must hold. */
+function countTiles(s){
+  const m={};
+  for(const c of s) if(!FREE_MARKS.has(c)) m[c]=(m[c]||0)+1;
+  return m;
+}
+
+function chooseGame(g){
+  GAME=g;
+  localStorage.setItem('vocap-game', g);
+  if(g==='th' && UI==='en'){ UI='th'; localStorage.setItem('vocap-ui','th'); }
+  location.reload();
+}
+
+function showStartup(){
+  const el=document.createElement('div');
+  el.id='startup';
+  el.innerHTML=`
+    <div class="ssheet">
+      <h1 style="margin-bottom:2px">VOCAP</h1>
+      <div class="ssub">choose your game · เลือกเกมของคุณ</div>
+      <button class="pick" onclick="chooseGame('en')">
+        <b>English</b>
+        <small>Spell English words. Turn on Thai for help while you learn.</small>
+      </button>
+      <button class="pick" onclick="chooseGame('th')">
+        <b>ภาษาไทย</b>
+        <small>สะกดคำไทย พร้อมคำแปลภาษาอังกฤษบนการ์ดคำศัพท์</small>
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+/* ═══════════════════ INTERFACE LANGUAGE ═══════════════════
+   Separate from the clue language on purpose. A Thai speaker learning English
+   wants Thai menus and English answers; the two settings should not be tied
+   together. */
+const STR = {
+  en:{
+    sparks:'sparks', tray:'tray', nextAt:'next at', found:'found', next:'next',
+    fillTray:'⚡ fill tray', nextRun:'⏭ next', collection:'📚 collection',
+    dictionary:'📖 dictionary', topWords:'📈 top words', reset:'reset',
+    words:'🔊 words', letters:'🔤 letters', on:'ON', off:'OFF',
+    clue:'clue', playTogether:'PLAY TOGETHER', submit:'Submit', clear:'Clear',
+    tapBuild:'tap or type letters · Space is free',
+    tapAbove:'tap letters above to build a word',
+    lettersN:'letters', waitingYou:'WAITING FOR YOU', lastCall:'LAST CALL',
+    uiLang:'EN'
+  },
+  th:{
+    sparks:'ประกาย', tray:'ถาด', nextAt:'ขยายที่', found:'พบแล้ว', next:'ถัดไป',
+    fillTray:'⚡ เติมถาด', nextRun:'⏭ รอบถัดไป', collection:'📚 คลังคำ',
+    dictionary:'📖 พจนานุกรม', topWords:'📈 คำยอดนิยม', reset:'ล้างข้อมูล',
+    words:'🔊 อ่านคำ', letters:'🔤 อ่านตัวอักษร', on:'เปิด', off:'ปิด',
+    clue:'คำใบ้', playTogether:'เล่นด้วยกัน', submit:'ส่งคำ', clear:'ล้าง',
+    tapBuild:'แตะหรือพิมพ์ตัวอักษร · เว้นวรรคฟรี',
+    tapAbove:'แตะตัวอักษรด้านบนเพื่อสร้างคำ',
+    lettersN:'ตัวอักษร', waitingYou:'รอคุณอยู่', lastCall:'เรียกครั้งสุดท้าย',
+    uiLang:'ไทย'
+  }
+};
+let UI = localStorage.getItem('vocap-ui') || 'en';
+function t(k){ return (STR[UI] && STR[UI][k]) || STR.en[k] || k; }
+
+function applyUI(){
+  const set=(id,v)=>{ const e=$(id); if(e) e.textContent=v; };
+  set('speed', t('fillTray'));
+  set('skip',  t('nextRun'));
+  set('book',  t('collection'));
+  set('dictbtn', t('dictionary'));
+  set('promote', t('topWords'));
+  set('reset', t('reset'));
+  set('uilang', '🌐 ' + t('uiLang'));
+  set('lang', t('clue')+': '+lang.toUpperCase());
+  const say=$('say'), sayl=$('sayl');
+  if(say)  say.textContent  = t('words')+': '+(speakWords?t('on'):t('off'));
+  if(sayl) sayl.textContent = t('letters')+': '+(speakLetters?t('on'):t('off'));
+  const rb=$('racebtn'); if(rb) rb.innerHTML='🏁 &nbsp;'+t('playTogether');
+  const sb=$('submit'); if(sb) sb.textContent=t('submit');
+  const cb=$('clear');  if(cb) cb.textContent=t('clear');
+  const h=document.querySelector('#hint'); if(h) h.textContent=t('tapBuild');
+  renderTray(); renderWordTray(); renderClue();
+}
+
+/* ═══════════════════ RACE PROFILE ═══════════════════
+   Everything here is local to the player's machine. Racing has its own
+   currency and its own progression on purpose: sharing sparks with the main
+   game would make racing the fast way to buy hints, and the slow collection
+   loop would lose its point. */
+
+const TROPHIES = [
+  {key:'wordsmith',  name:'Wordsmith',   stat:'long',     desc:'words of 8 letters or more',
+   tiers:[25,150,600,2000],       titles:['Speller','Wordsmith','Lexicographer','Wordwright']},
+  {key:'codebreaker',name:'Codebreaker', stat:'clues',    desc:'clues solved',
+   tiers:[25,150,600,2000],       titles:['Curious','Codebreaker','Clue Hunter','Oracle']},
+  {key:'contender',  name:'Contender',   stat:'races',    desc:'races finished',
+   tiers:[10,50,250,1000],        titles:['Newcomer','Regular','Contender','Veteran']},
+  {key:'victor',     name:'Victor',      stat:'wins',     desc:'races won',
+   tiers:[5,25,100,400],          titles:['First Blood','Winner','Champion','Undefeated']},
+  {key:'streak',     name:'Streak',      stat:'beststreak',desc:'wins in a row',
+   tiers:[3,6,12,20],             titles:['On a Roll','Hot Hand','Unstoppable','Dynasty']},
+  {key:'sweeper',    name:'Sweeper',     stat:'sweeps',   desc:'trays with every clue solved',
+   tiers:[3,25,100,400],          titles:['Tidy','Sweeper','Clean Slate','Immaculate']},
+  {key:'prolific',   name:'Prolific',    stat:'words',    desc:'words found in races',
+   tiers:[500,5000,25000,100000], titles:['Busy','Prolific','Machine','Encyclopedia']},
+  {key:'highscore',  name:'Highscore',   stat:'best',     desc:'best score in one race',
+   tiers:[300,750,1500,3000],     titles:['Sharp','Brilliant','Peerless','Legendary']},
+  {key:'sociable',   name:'Sociable',    stat:'opponents',desc:'different people raced',
+   tiers:[5,20,60,200],           titles:['Friendly','Sociable','Ringleader','Host of Hosts']},
+];
+const TIER_NAME  = ['bronze','silver','gold','platinum'];
+const TIER_LAUREL= [25, 75, 200, 500];    // paid out when a tier unlocks
+
+const BLANK_PROFILE = {
+  name:'player', laurels:0, title:'',
+  stats:{long:0, clues:0, races:0, wins:0, streak:0, beststreak:0,
+         sweeps:0, words:0, best:0, opponents:0},
+  met:[],            // names raced against, for the Sociable count
+  tiers:{},          // key -> highest tier index reached (0-based)
+  history:[]         // last 20 races, newest first
+};
+
+let PROF = null;
+
+function profLoad(){
+  try{
+    PROF = JSON.parse(localStorage.getItem('vocap-race-profile')) || null;
+  }catch(e){ PROF=null; }
+  if(!PROF) PROF = JSON.parse(JSON.stringify(BLANK_PROFILE));
+  // fill in anything a newer version added
+  for(const k in BLANK_PROFILE.stats) if(!(k in PROF.stats)) PROF.stats[k]=0;
+  PROF.name = localStorage.getItem('vocap-name') || PROF.name;
+  return PROF;
+}
+function profSave(){
+  try{ localStorage.setItem('vocap-race-profile', JSON.stringify(PROF)); }catch(e){}
+}
+
+function tierOf(t){
+  const v = PROF.stats[t.stat] || 0;
+  let i = -1;
+  t.tiers.forEach((n,k)=>{ if(v>=n) i=k; });
+  return i;                      // -1 = not started
+}
+
+/* Called once at the end of a race. Returns the tiers newly unlocked so the
+   result screen can announce them. */
+function profRecord(result){
+  profLoad();
+  const s = PROF.stats;
+  s.races++;
+  s.words   += result.words;
+  s.long    += result.long;
+  s.clues   += result.clues;
+  s.sweeps  += result.sweeps;
+  s.best     = Math.max(s.best, result.score);
+  if(result.won){ s.wins++; s.streak++; s.beststreak=Math.max(s.beststreak,s.streak); }
+  else if(result.ranked) s.streak = 0;
+  for(const n of result.opponents||[]){
+    if(n && n!==PROF.name && !PROF.met.includes(n)) PROF.met.push(n);
+  }
+  s.opponents = PROF.met.length;
+
+  const unlocked=[];
+  for(const t of TROPHIES){
+    const now = tierOf(t), was = (t.key in PROF.tiers) ? PROF.tiers[t.key] : -1;
+    if(now > was){
+      for(let k=was+1;k<=now;k++){
+        PROF.laurels += TIER_LAUREL[k];
+        unlocked.push({t, k});
+      }
+      PROF.tiers[t.key]=now;
+    }
+  }
+  PROF.laurels += result.won ? 30 : 10;      // showing up pays, winning pays more
+
+  PROF.history.unshift({score:result.score, words:result.words,
+                        won:!!result.won, when:Date.now()});
+  PROF.history = PROF.history.slice(0,20);
+  profSave();
+  return unlocked;
+}
+
+function profTitles(){
+  profLoad();
+  const out=[];
+  for(const t of TROPHIES){
+    const i = (t.key in PROF.tiers) ? PROF.tiers[t.key] : -1;
+    for(let k=0;k<=i;k++) out.push({key:t.key+':'+k, label:t.titles[k], tier:k, cat:t.name});
+  }
+  return out;
+}
+
+/* A profile lives in one browser on one machine, so this is the only way to
+   carry it to a phone or a new laptop. */
+function profExport(){
+  return btoa(unescape(encodeURIComponent(JSON.stringify(PROF))));
+}
+function profImport(code){
+  try{
+    const o=JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+    if(!o || !o.stats) return false;
+    PROF=o; profSave(); return true;
+  }catch(e){ return false; }
+}
+
 /* ═══════════════════ LIVE RACE ROOMS ═══════════════════
    Optional networking for race mode only. Nothing here runs unless the player
    opens a race and chooses to go online: the library is fetched on demand, and
@@ -1070,10 +1441,11 @@ function loadPeerJS(){
   return new Promise(res=>{
     const s=document.createElement('script');
     s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    s.crossOrigin='anonymous';
     s.onload=()=>res(true);
     s.onerror=()=>res(false);         // offline or blocked: caller falls back
     document.head.appendChild(s);
-    setTimeout(()=>res(!!window.Peer), 8000);
+    setTimeout(()=>res(!!window.Peer), 15000);
   });
 }
 
@@ -1092,7 +1464,8 @@ function netBroadcast(msg){
 function netUpsert(id, name, row){
   if(!NET) return;
   const i = NET.roster.findIndex(r => r.id === id);
-  const entry = {id, name, score:row.score|0, words:row.words|0, done:!!row.done};
+  const entry = {id, name, title:row.title||'', score:row.score|0,
+                 words:row.words|0, done:!!row.done};
   if(i >= 0) NET.roster[i] = entry; else NET.roster.push(entry);
   NET.roster.sort((a,b)=>b.score-a.score);
   renderRoster();
@@ -1105,12 +1478,29 @@ function netRemove(id){
   if(NET.isHost) netBroadcast({t:'roster', roster:NET.roster});
 }
 
+/* A race to a point target ends when three people have got there - or when
+   everyone has, in a smaller room. Without this the leaders sit watching while
+   the rest grind out a target that no longer decides anything. */
+function netCheckPodium(id, name, score){
+  if(!NET || !NET.isHost || !R || !R.target || R.over) return;
+  if(score < R.target) return;
+  if(NET.podium.some(p=>p.id===id)) return;
+  NET.podium.push({id, name, place:NET.podium.length+1});
+  netBroadcast({t:'podium', podium:NET.podium});
+  const need = Math.min(3, Math.max(1, NET.roster.length));
+  if(NET.podium.length >= need){
+    netBroadcast({t:'raceover', podium:NET.podium});
+    raceEnd();
+  }
+}
+
 function netSendScore(){
   if(!NET || !R) return;
-  const row = {t:'score', id:NET.myId, name:netName(),
+  const row = {t:'score', id:NET.myId, name:netName(), title:(PROF&&PROF.title)||'',
                score:R.score, words:R.found.length, done:!!R.over};
   if(NET.isHost){
     netUpsert(NET.myId, netName(), row);
+    netCheckPodium(NET.myId, netName(), R.score);
     netBroadcast({t:'roster', roster:NET.roster});
   } else {
     netBroadcast(row);
@@ -1133,7 +1523,7 @@ function renderRoster(){
   const rows = displayNames(NET.roster);
   el.innerHTML = rows.map((r,i)=>
     `<div class="rrow${r.id===NET.myId?' me':''}">
-       <span>${racing?(i+1)+'. ':'· '}${r.label}</span>
+       <span>${racing?(i+1)+'. ':'· '}${r.label}${r.title?`<em>${r.title}</em>`:''}</span>
        ${racing ? `<span><b>${r.score}</b> · ${r.words}w ${r.done?'✔':''}</span>`
                 : `<span class="sub" style="font-size:11px">ready</span>`}
      </div>`).join('') || '<div class="sub">nobody here yet…</div>';
@@ -1148,15 +1538,21 @@ async function netHost(code, cap){
     let peer;
     try{ peer = new Peer('vocap-'+code); }catch(e){ return res({error:'could not start a room'}); }
     peer.on('open', id=>{
-      NET={peer, conns:[], isHost:true, roster:[], code, cap, myId:id};
-      netUpsert(id, netName(), {score:0, words:0, done:false});
+      NET={peer, conns:[], isHost:true, roster:[], code, cap, myId:id,
+           locked:false, podium:[]};
+      netUpsert(id, netName(), {score:0, words:0, done:false, title:(profLoad().title||'')});
       peer.on('connection', c=>{
+        /* Once the clock is running the field is closed. Letting somebody in
+           forty seconds late gives them a shorter race and a worse tray, and
+           makes the standings meaningless. */
+        if(NET.locked){ try{c.send({t:'started'});setTimeout(()=>c.close(),200);}catch(e){} return; }
         if(NET.roster.length >= cap){ try{c.send({t:'full'});setTimeout(()=>c.close(),200);}catch(e){} return; }
         NET.conns.push(c);
         c.on('data', m=>{
-          if(m.t==='hello'){ c.__pid=m.id; netUpsert(m.id, m.name, {score:0,words:0,done:false});
+          if(m.t==='hello'){ c.__pid=m.id; netUpsert(m.id, m.name, {score:0,words:0,done:false,title:m.title});
                              netBroadcast({t:'roster', roster:NET.roster}); }
           if(m.t==='score'){ c.__pid=m.id; netUpsert(m.id, m.name, m);
+                             netCheckPodium(m.id, m.name, m.score);
                              netBroadcast({t:'roster', roster:NET.roster}); }
           if(m.t==='bye'){ netRemove(m.id); }
         });
@@ -1171,7 +1567,7 @@ async function netHost(code, cap){
       res({error: String(e).includes('taken') ? 'that code is already in use'
                                               : 'could not start a room'});
     });
-    setTimeout(()=>res({error:'timed out starting the room'}), 9000);
+    setTimeout(()=>res({error:'timed out starting the room'}), 20000);
   });
 }
 
@@ -1186,18 +1582,23 @@ async function netJoin(code){
       const c=peer.connect('vocap-'+code, {reliable:true});
       c.on('open', ()=>{
         NET={peer, conns:[c], isHost:false, roster:[], code, cap:MAX_PARTY, myId};
-        c.send({t:'hello', id:myId, name:netName()});
+        c.send({t:'hello', id:myId, name:netName(), title:(profLoad().title||'')});
         done({ok:true});
       });
       c.on('data', m=>{
         if(m.t==='roster'){ NET.roster=m.roster; renderRoster(); }
         if(m.t==='start'){ raceStart(m.mode, true); }
+        if(m.t==='podium'){ if(NET) NET.podium=m.podium; racePodiumNote(); }
+        if(m.t==='raceover'){ if(NET) NET.podium=m.podium; raceEnd(); }
         if(m.t==='full'){ done({error:'that room is full'}); }
+        if(m.t==='started'){ done({error:'that race has already started'}); }
         if(m.t==='hostleft'){ raceHostGone(); }
       });
       c.on('close', ()=>{ if(NET && !NET.isHost) raceHostGone(); });
       c.on('error', ()=>done({error:'could not reach that room'}));
-      setTimeout(()=>done({error:'no room with that code'}), 9000);
+      /* Phones on mobile data routinely take longer than nine seconds to
+         negotiate a peer connection, which was reported as "cannot join". */
+      setTimeout(()=>done({error:'no room with that code — check it and try again'}), 25000);
     });
     peer.on('error', ()=>done({error:'could not connect'}));
   });
@@ -1354,7 +1755,10 @@ function raceSetup(){
         <button class="go alt" id="rjoin" onclick="raceJoinScreen()">JOIN A ROOM</button>
       </div>
       <div class="sub" id="rerr" style="color:var(--bad);margin-top:10px"></div>
-      <div style="margin-top:16px"><button onclick="closeRace()">back to the game</button></div>
+      <div style="margin-top:16px">
+        <button onclick="raceProfile()">🏆 trophies &amp; titles</button>
+        <button onclick="closeRace()">back to the game</button>
+      </div>
     </div>`;
 
   for(const id of ['rmode','rkind']){
@@ -1378,6 +1782,78 @@ function raceLink(code){
       ? location.origin + location.pathname
       : 'https://YOUR-GITHUB-PAGES-URL/';
   return `${base}?race=${code}`;
+}
+
+
+function raceProfile(){
+  profLoad();
+  const s=PROF.stats;
+  const titles=profTitles();
+  $('race').innerHTML=`
+    <div class="sheet">
+      <h2>${PROF.name}</h2>
+      <div class="sub">${PROF.title || 'no title equipped'} · <b style="color:var(--glow)">${PROF.laurels}</b> laurels</div>
+
+      <div class="statgrid">
+        ${[['races','races'],['wins','won'],['streak','streak now'],['beststreak','best streak'],
+           ['best','best score'],['words','words'],['long','long words'],['clues','clues solved'],
+           ['sweeps','sweeps'],['opponents','opponents']]
+          .map(([k,l])=>`<div><b>${s[k]||0}</b><small>${l}</small></div>`).join('')}
+      </div>
+
+      <div class="sub" style="margin-top:18px">titles — tap one to wear it</div>
+      <div class="titles">
+        <button class="tsel${PROF.title===''?' on':''}" onclick="profSetTitle('')">none</button>
+        ${titles.map(t=>`<button class="tsel${PROF.title===t.label?' on':''}"
+             onclick="profSetTitle('${t.label}')">${t.label}</button>`).join('')
+          || '<span class="sub">win a trophy tier to earn one</span>'}
+      </div>
+
+      <div class="sub" style="margin-top:18px">trophies</div>
+      <div class="trophies">
+        ${TROPHIES.map(t=>{
+          const have=tierOf(t), v=s[t.stat]||0;
+          const next=t.tiers[have+1];
+          const pct = next ? Math.min(100, Math.round(v/next*100)) : 100;
+          return `<div class="trow">
+            <div class="thead">
+              <span><b>${t.name}</b> <small>${t.desc}</small></span>
+              <span class="pips">${t.tiers.map((n,i)=>
+                `<i class="${i<=have?'lit '+TIER_NAME[i]:''}" title="${t.titles[i]} · ${n}"></i>`).join('')}</span>
+            </div>
+            <div class="bar"><i style="width:${pct}%"></i></div>
+            <div class="tfoot">${next ? `${v} / ${next}` : `${v} · complete`}</div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="sub" style="margin-top:20px">move this profile to another device</div>
+      <div class="gorow">
+        <button onclick="profShowCode()">export</button>
+        <button onclick="profAskCode()">import</button>
+      </div>
+      <div id="pcode"></div>
+
+      <div style="margin-top:20px"><button onclick="raceSetup()">back</button></div>
+    </div>`;
+}
+
+function profSetTitle(t){ profLoad(); PROF.title=t; profSave(); raceProfile(); }
+
+function profShowCode(){
+  $('pcode').innerHTML=`<div class="share" id="pex">${profExport()}</div>
+    <button onclick="navigator.clipboard.writeText($('pex').textContent);this.textContent='copied'">copy code</button>
+    <div class="sub">Paste this into the other device's import box.</div>`;
+}
+function profAskCode(){
+  $('pcode').innerHTML=`<div class="field"><label>paste a profile code</label>
+    <input id="pin" style="width:88%;letter-spacing:0;font-size:12px"></div>
+    <button onclick="profDoImport()">load it</button>
+    <div class="sub" style="color:var(--bad)" id="pinerr"></div>`;
+}
+function profDoImport(){
+  if(profImport($('pin').value)){ raceProfile(); }
+  else $('pinerr').textContent='that code did not look right';
 }
 
 function raceKind(){ return [...$('rkind').children].find(b=>b.className==='on').dataset.k; }
@@ -1423,7 +1899,9 @@ function raceLobby(code, mode){
 function raceHostStart(mode){
   if(!NET || !NET.isHost) return;      // only the host may begin
   // reset everyone to zero so a rematch does not inherit the last race
-  NET.roster = NET.roster.map(r=>({name:r.name, score:0, words:0, done:false}));
+  NET.locked = true;                 // no more joiners from here
+  NET.podium = [];
+  NET.roster = NET.roster.map(r=>({id:r.id, name:r.name, score:0, words:0, done:false}));
   netBroadcast({t:'start', mode});
   netBroadcast({t:'roster', roster:NET.roster});
   raceStart(mode, true);
@@ -1498,6 +1976,7 @@ function raceStart(mode, online){
       target: mode[0]==='p' ? +mode.slice(1) : 0,
       round:0, letters: raceLetters(code+':0',15), clues:[],
       used:new Set(), found:[], score:0,
+      nLong:0, nClues:0, nSweeps:0, roundClues:0,
       building:[], started:Date.now(), over:false };
   R.clues = raceClues(R.code, 0, R.letters, 3);
   raceRender();
@@ -1517,6 +1996,7 @@ function raceTick(){
     R.round = round;
     R.letters = raceLetters(R.code+':'+round, 15);
     R.clues   = raceClues(R.code, round, R.letters, 3);
+    R.roundClues = 0;
     R.building = [];
     raceTray(); raceClueBar();
     raceFlash('fresh letters');
@@ -1547,13 +2027,15 @@ function raceRender(){
       <div class="tally"><b id="rscore">${R.score}</b> points · <b>${R.found.length}</b> words</div>
       <div class="tally" id="rnext" style="font-size:12px"></div>
       <div id="rroster" class="roster"></div>
+      <div id="rtray" class="tray racetray"></div>
       <div id="rclues"></div>
-      <div id="rtray" class="tray"></div>
       <div id="rword" class="wordtray"></div>
-      <div style="margin-top:10px">
-        <button onclick="raceSubmit()">Submit</button>
+      <div class="playrow">
+        <button class="psubmit" onclick="raceSubmit()">Submit</button>
         <button onclick="R.building=[];raceTray()">Clear</button>
-        <button onclick="raceEnd()">give up</button>
+      </div>
+      <div class="quitrow">
+        <button class="quit" onclick="raceQuitAsk()">✕ leave the race</button>
       </div>
       <div id="rfound" class="found"></div>
     </div>`;
@@ -1579,7 +2061,7 @@ function raceClueBar(){
 
 function raceTray(){
   const used={};
-  R.building.forEach(b=>used[b.from]=true);
+  R.building.forEach(b=>{ if(b.from>=0) used[b.from]=true; });
   $('rtray').innerHTML = R.letters.map((ch,i)=>
     `<div class="slot filled ${used[i]?'used':''}" onclick="racePick(${i})">${ch}</div>`).join('');
   $('rword').innerHTML = R.building.length
@@ -1594,6 +2076,7 @@ function racePick(i){
 
 function raceSubmit(){
   if(!R || R.over) return;
+  if(R.target && R.score>=R.target) return;   // you are on the podium; wait it out
   const word=R.building.map(b=>b.ch).join('').toLowerCase();
   R.building=[];
   if(word.length<3) return raceTray();
@@ -1602,6 +2085,11 @@ function raceSubmit(){
   if(!known) { raceFlash('not a word'); return raceTray(); }
   R.used.add(word);
   const isClue = R.clues.some(c=>c.spell===word);
+  if(word.length>=8) R.nLong++;
+  if(isClue){
+    R.nClues++; R.roundClues++;
+    if(R.roundClues===R.clues.length){ R.nSweeps++; raceFlash('every clue on this tray · sweep'); }
+  }
   const pts = sparksFor(word.length) * (isClue?2:1);
   R.score+=pts; R.found.push({word,pts});
   $('rscore').textContent=R.score;
@@ -1610,6 +2098,28 @@ function raceSubmit(){
   raceTray(); raceClueBar(); netSendScore();
   if(isClue) raceFlash('clue solved · double points');
   if(R.target && R.score>=R.target) raceEnd();
+}
+
+/* One confirmation, because leaving a room mid-race cannot be undone. */
+function racePodiumNote(){
+  const el=$('rnext'); if(!el || !NET || !NET.podium) return;
+  const p=NET.podium;
+  if(!p.length) return;
+  const need=Math.min(3, Math.max(1, NET.roster.length));
+  el.innerHTML = p.map(x=>`${['🥇','🥈','🥉'][x.place-1]||''} ${x.name}`).join(' · ')
+               + ` <span style="opacity:.6">— ${p.length}/${need} places filled</span>`;
+}
+
+function raceQuitAsk(){
+  const b=document.querySelector('#race .quit');
+  if(!b) return;
+  if(b.dataset.armed){ raceEnd(); return; }
+  b.dataset.armed='1';
+  b.textContent='✕ really leave? tap again';
+  b.style.opacity='1'; b.style.color='var(--bad)';
+  setTimeout(()=>{ if(!b.isConnected) return;
+    delete b.dataset.armed; b.textContent='✕ leave the race';
+    b.style.opacity=''; b.style.color=''; }, 4000);
 }
 
 function raceFlash(msg){
@@ -1623,6 +2133,16 @@ function raceEnd(){
   if(!R || R.over) return;
   R.over=true;
   netSendScore();
+
+  /* Log it before drawing the result, so the screen can announce anything
+     that unlocked. Solo races count too - you are still playing. */
+  const rows = NET ? NET.roster.slice().sort((a,b)=>b.score-a.score) : [];
+  const won  = NET ? (rows.length>1 && rows[0] && rows[0].id===NET.myId) : false;
+  const unlocked = profRecord({
+    score:R.score, words:R.found.length, long:R.nLong, clues:R.nClues,
+    sweeps:R.nSweeps, won, ranked: !!(NET && rows.length>1),
+    opponents: rows.filter(r=>r.id!==(NET&&NET.myId)).map(r=>r.name)
+  });
   const secs=Math.floor((Date.now()-R.started)/1000);
   const best=R.found.slice().sort((a,b)=>b.pts-a.pts)[0];
   const share=`VOCAP RACE · ${R.code}\n${R.score} points · ${R.found.length} words`
@@ -1639,6 +2159,12 @@ function raceEnd(){
           .map(f=>`<span>${f.word} <b style="color:var(--glow)">+${f.pts}</b></span>`).join('')
           || '<span style="opacity:.5">none this time</span>'}</div>
 
+      ${unlocked.length ? `<div class="unlocks">${unlocked.map(u=>
+          `<div class="unlock"><span class="tro ${TIER_NAME[u.k]}">🏆</span>
+             <span><b>${u.t.titles[u.k]}</b><small>${u.t.name} · ${TIER_NAME[u.k]}
+             · +${TIER_LAUREL[u.k]} laurels</small></span></div>`).join('')}</div>` : ''}
+      <div class="laurelrow">+${(NET&&rows.length>1&&rows[0]&&rows[0].id===NET.myId)?30:10} laurels
+        <span>· ${PROF.laurels} total</span></div>
       <div class="share">${share}</div>
       <button onclick="navigator.clipboard.writeText(${JSON.stringify(share)});this.textContent='copied'">copy result</button>
 
@@ -1663,7 +2189,7 @@ function renderBoard(){
     const gap = i===0 ? '' : `−${top-r.score}`;
     return `<div class="brow${r.name===netName()?' me':''}">
       <span class="pos">${medal[i]||(i+1)+'.'}</span>
-      <span class="nm">${r.name}${r.done?'':' <i>still going</i>'}</span>
+      <span class="nm">${r.name}${r.title?`<em>${r.title}</em>`:''}${r.done?'':' <i>still going</i>'}</span>
       <span class="pts"><b>${r.score}</b><small>${r.words}w ${gap}</small></span>
     </div>`;
   }).join('');
@@ -1741,7 +2267,29 @@ $('ivl').onclick=()=>{
   $('ivl').textContent='⏱ '+IVLS[ivlIdx]+' min';
   scheduleDrop();
 };
-$('speed').onclick=()=>{fast=!fast;$('speed').textContent='⚡ fast mode: '+(fast?'ON':'OFF');scheduleDrop()};
+/* Fast mode used to drip a letter every two seconds, which is still waiting.
+   Filling the tray outright is what people actually want it for, and turning
+   itself off afterwards stops it quietly ruining the next run. */
+function fillTrayNow(){
+  while(dropped < order.length){
+    pool.push(order[dropped]); dropped++;
+  }
+  renderTray(); renderClue(); save();
+  flash('tray filled','good');
+  scheduleDrop();
+}
+$('swapgame').onclick=()=>{
+  /* Back to the front door rather than switching in place: the two games have
+     different alphabets and different saves, so a clean restart is honest. */
+  localStorage.removeItem('vocap-game');
+  location.reload();
+};
+$('uilang').onclick=()=>{
+  UI = UI==='en' ? 'th' : 'en';
+  localStorage.setItem('vocap-ui', UI);
+  applyUI();
+};
+$('speed').onclick=()=>{ fillTrayNow(); };
 
 /* Skip to the next run: for when the tray is full, the clue won't crack, and
    waiting out Last Call is just dead time. Leftover letters still pay out. */
@@ -1821,13 +2369,27 @@ Promise.all([
   loadJSON('words.json','../content/words.json'),
   loadJSON('dictionary.json','../content/dictionary.json').catch(()=>null)
 ]).then(([d,dict])=>{
-  BANK_ALL=d.words;
-  // formable = non-starter words (rude words ARE formable, never seeded)
-  BANK=d.words.filter(w=>!w.starter);
+  if(!GAME){ showStartup(); return; }     // nothing starts until a game is chosen
+
+  if(GAME==='th'){
+    /* Thai runs on the same file: the Thai word is the answer and the Thai
+       definition is the clue. No second data file, no second pipeline. */
+    BANK_ALL = buildThaiBank(d.words);
+    BANK = BANK_ALL.slice();
+    Object.assign(FREQ_ACTIVE, thaiFreq(BANK_ALL));
+    for(const k in FREQ) delete FREQ[k];
+    Object.assign(FREQ, FREQ_ACTIVE);
+    GROWTH_BASE = 12;                     // Thai needs a wider tray: 61 characters, not 26
+    MAXTRAY = 18;
+  }else{
+    BANK_ALL=d.words;
+    // formable = non-starter words (rude words ARE formable, never seeded)
+    BANK=d.words.filter(w=>!w.starter);
+    if(dict){ for(const k in dict.shelves) for(const w of dict.shelves[k]) DICT.add(w);
+              DEFS=dict.defs||{}; }
+  }
   $('total').textContent=BANK.length;
-  if(dict){ for(const k in dict.shelves) for(const w of dict.shelves[k]) DICT.add(w);
-            DEFS=dict.defs||{}; }
-  load(); startCycle(); starterGift();
+  load(); startCycle(); if(GAME==='en') starterGift(); applyUI(); renderMarks();
 }).catch(()=>{
   $('msg').textContent='Could not load words.json — it must sit beside index.html';
   $('msg').className='bad';
