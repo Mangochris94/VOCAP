@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vocap — M1 prototype (gray boxes)</title>
+<style>
+  /* ============================================================
+     M1 = deliberately ugly. Gray boxes. If this is fun, art will
+     only make it better. Everything visual here is placeholder.
+     ============================================================ */
+  /* A lamplit study: dark walnut and leather, ivory letter tiles like real
+     wooden pieces, and a sage green that reads as something growing rather
+     than something alerting. */
+  /* Paper on a desk: a cream page, dark walnut letter tiles with the letter
+     printed in warm white, and terracotta for anything worth noticing. */
+  :root{
+    --bg:#332920;          /* dark walnut desk                          */
+    --panel:#3e3226;       /* a slightly lighter surface for panels     */
+    --box:#453729;         /* an empty slot in the tray                 */
+    --box-lit:#544332;
+    --tile:#f0e7d6;        /* cream letter tile                         */
+    --tile-ink:#3a2e24;    /* the letter printed on it                  */
+    --glow:#d9825a;        /* terracotta, lifted to read on dark        */
+    --glow-soft:#b5613c;
+    --text:#f0e7d6;        /* cream text                                */
+    --dim:#b09a80;         /* faded taupe                               */
+    --good:#8fae6f; --bad:#d9825a;
+  }
+  *{box-sizing:border-box}
+  /* Sit the whole thing in the middle of the window. `safe center` keeps the
+     top reachable when the content is taller than the window, which plain
+     centring would clip. */
+  body{background:radial-gradient(130% 100% at 50% 40%, #3d3026 0%, var(--bg) 70%);
+       background-attachment:fixed;
+       color:var(--text);font-family:system-ui,'Noto Sans Thai',sans-serif;
+       margin:0;min-height:100vh;box-sizing:border-box;
+       display:flex;flex-direction:column;align-items:center;
+       justify-content:safe center;
+       padding:16px 12px;gap:12px;
+       max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
+  h1{letter-spacing:9px;color:var(--text);font-weight:900;font-size:34px;
+     margin:0 0 4px;text-indent:9px;
+  font-size:15px;letter-spacing:3px;color:var(--dim);margin:0;font-weight:600}
+
+  /* --- the tray: one gray box per letter slot --- */
+  #tray,.tray{display:flex;gap:8px;min-height:64px;align-items:center;flex-wrap:wrap;
+        justify-content:center;max-width:100%}
+  .slot{width:52px;height:60px;border-radius:8px;background:var(--panel);
+        display:flex;align-items:center;justify-content:center;font-size:26px;
+        font-weight:700;border:2px solid transparent;text-transform:uppercase}
+  .slot.filled{background:var(--tile);color:var(--tile-ink);
+               border-color:#d8c9ae;font-weight:600;
+               box-shadow:0 2px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.55)}
+  .slot.typed{background:var(--tile);color:var(--tile-ink);
+              border-color:var(--glow);box-shadow:0 0 0 2px rgba(217,130,90,.5),
+              0 2px 3px rgba(0,0,0,.35)}   /* highlighted while typing */
+  .slot.empty{opacity:.35}
+
+  /* --- the clue line: the learning mechanic, front and centre --- */
+  #clue{font-size:16px;line-height:1.6;
+  min-height:24px;color:var(--glow);font-size:15px;text-align:center;
+        max-width:min(640px,100%);line-height:1.6}
+  #clue.spellable{text-shadow:0 0 12px var(--glow)}
+  .clueline{margin:6px 0}
+  .hintbar{display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle}
+  .hintbar button{border-color:#5a4835;
+  font-size:11px;padding:3px 8px;border-radius:5px;opacity:.75}
+  .hintbar button:hover:not(:disabled){opacity:1}
+  .hintbar button:disabled{opacity:.3;cursor:default}
+  .hintbar button.solve{border-color:var(--glow);color:var(--glow)}
+  .reveal{font-family:monospace;letter-spacing:4px;font-size:17px;color:var(--text)}                 /* the "glow" from §3.6 */
+
+  .slot.used{background:var(--tile);color:var(--tile-ink);
+             border-color:var(--glow);opacity:.4;box-shadow:none}  /* in use below */
+  .slot.filled{cursor:pointer}
+  .slot.filled:hover{border-color:var(--glow)}
+
+  /* --- the word tray: where letters go to become a word --- */
+  #wordtray,.wordtray{background:rgba(0,0,0,.18);border-radius:10px;
+  display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
+            background:rgba(0,0,0,.18);border-radius:10px;padding:10px 14px;
+            width:min(560px,100%);flex-wrap:wrap;border:2px dashed #4a4d55}
+  #wordtray.ready{border-color:var(--good);border-style:solid}
+  #wordtray .wslot{width:44px;height:50px;border-radius:6px;background:var(--box-lit);
+        display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;
+        text-transform:uppercase;cursor:pointer;border:2px solid var(--glow)}
+  #wordtray .wslot.space{background:transparent;border:2px dashed #666;width:22px}
+  #wordtray .hint{color:var(--dim);font-size:13px}
+
+  /* --- submit / clear buttons (essential on touch: no keyboard, no Enter key) --- */
+  #actions{display:flex;gap:10px}
+  #actions button{padding:11px 26px;font-size:15px;font-weight:600;border-radius:8px}
+  #submit{background:var(--good);color:#123;border-color:var(--good)}
+  #submit:disabled{background:var(--panel);color:var(--dim);border-color:#555;font-weight:400}
+  /* bigger touch targets on small screens */
+  @media (max-width:700px){
+    /* tiles scale with the screen so a full 15-slot tray always fits */
+    .slot{width:min(46px,10.5vw);height:min(54px,13vw);font-size:min(22px,5.4vw);border-radius:6px}
+    #tray{gap:5px;min-height:auto}
+    #wordtray .wslot{width:min(40px,9.5vw);height:min(48px,12vw);font-size:min(20px,5vw)}
+    #wordtray{gap:4px;padding:8px 10px}
+    #actions button{padding:14px 32px;font-size:16px}
+    /* A single segmented strip rather than separate buttons, so the controls
+     read as one object instead of six competing ones. */
+  /* Everything on show. Hiding half the controls behind a gear saved a row and
+     cost the player the ability to see, at a glance, what language the clues
+     are in - which is the setting they most need to know. */
+  #controls{display:inline-flex;gap:1px;flex-wrap:wrap;justify-content:center;
+            margin:8px auto 0;border:1px solid #5a4835;border-radius:10px;
+            overflow:hidden;background:#5a4835;max-width:560px}
+  #controls button{font-size:12px;padding:7px 11px;border:none;border-radius:0;
+                   background:var(--tile);color:var(--tile-ink);flex:1 1 auto;
+                   white-space:nowrap}
+  #controls button:hover{background:#fffaf0}
+  #controls button.on{background:var(--glow);color:#fff}
+
+
+  #bar{letter-spacing:.2px;
+  gap:12px;font-size:12px}
+    #bar button{padding:8px 12px}
+    h1{font-size:26px;letter-spacing:6px;text-indent:6px}
+    #clue{font-size:14px}
+    #card{padding:14px 16px}
+    #card h2{font-size:22px}
+  }
+
+  /* --- typing area (kept for the letter count) --- */
+  #typed{font-size:13px;letter-spacing:2px;min-height:18px;color:var(--dim)}
+  #msg{min-height:22px;color:var(--dim);font-size:14px}
+  #msg.good{color:var(--good)} #msg.bad{color:#e07a7a}
+
+  /* --- status bar --- */
+  /* A single segmented strip rather than separate buttons, so the controls
+     read as one object instead of six competing ones. */
+
+  #controls button:hover{background:#fffaf0}
+  #controls button.on{background:var(--glow);color:#fff}
+
+
+  #bar{display:flex;gap:22px;color:var(--dim);font-size:13px;align-items:center;flex-wrap:wrap;justify-content:center}
+  #bar b{color:var(--text)}
+  button{background:var(--panel);color:var(--text);border:1px solid #5a4835;border-radius:6px;
+         padding:5px 12px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--glow)}
+
+  /* --- discovery card ---------------------------------------------
+     Sits alongside the tray rather than taking over, but announces itself
+     in proportion to the word. Short words get a quiet entrance; long ones
+     get a longer glow and a slower reveal. */
+  #card{display:none;position:relative;background:var(--panel);border-radius:14px;
+        padding:18px 46px 16px 18px;width:min(620px,100%);border:1px solid #55442f;
+        gap:16px;align-items:flex-start}
+  #card.show{display:flex;animation:cardIn .45s cubic-bezier(.2,.9,.3,1)}
+  @keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.985)}
+                    to{opacity:1;transform:none}}
+
+  /* celebration scales with word length */
+  #card.tier1{box-shadow:0 0 0 1px rgba(181,97,60,.14)}
+  #card.tier2{box-shadow:0 0 18px -4px rgba(181,97,60,.24);border-color:#c98f70}
+  #card.tier3{box-shadow:0 0 30px -4px rgba(181,97,60,.38);border-color:var(--glow)}
+  #card.tier4{box-shadow:0 0 46px -2px rgba(181,97,60,.5);border-color:var(--glow);
+              animation:cardIn .45s cubic-bezier(.2,.9,.3,1), bigPulse 1.6s ease-out}
+  @keyframes bigPulse{0%{box-shadow:0 0 0 0 rgba(181,97,60,.35)}
+                      100%{box-shadow:0 0 46px -2px rgba(181,97,60,.5)}}
+
+  /* reserved art slot — a real illustration drops in here later */
+  #c-art{flex:0 0 84px;height:84px;border-radius:10px;background:rgba(0,0,0,.18);
+         display:flex;align-items:center;justify-content:center;font-size:30px;
+         border:1px dashed #5a4835;color:#7d6a55}
+  #c-body{flex:1;min-width:0}
+
+  #c-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px}
+  #card h2{margin:0;font-size:27px;line-height:1.1;cursor:pointer;user-select:none}
+  #card h2:after{content:' 🔊';font-size:15px;opacity:.45}
+  #c-pos{font-size:12px;color:var(--dim);font-style:italic}
+  #c-spark{margin-left:auto;font-size:13px;color:var(--glow);white-space:nowrap}
+  #card .th{color:var(--glow);font-size:17px;margin-bottom:6px}
+  #card p{margin:5px 0;font-size:14px;line-height:1.55}
+  #c-thdef{color:#dcd0bd}
+  #c-factbox{border-left:2px solid #55442f;padding-left:11px;margin:10px 0}
+  #c-factbox p{margin:3px 0;font-size:13px;color:#cfc0aa}
+  #c-sent{font-style:italic;color:var(--dim);font-size:13px}
+  #c-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  #c-tags span{font-size:11px;background:rgba(0,0,0,.20);border:1px solid #55442f;
+               border-radius:20px;padding:3px 10px;color:var(--dim)}
+  #c-close{position:absolute;top:8px;right:10px;background:none;border:none;
+           color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
+  #c-close:hover{color:var(--text)}
+
+  /* dictionary words share the card but stay visibly plainer */
+  #card.dict{border-style:dashed;box-shadow:none}
+  #card.dict h2{font-size:22px;color:var(--dim)}
+  #card.dict #c-art{opacity:.5}
+  #card.dict #c-thdef{color:var(--text);font-size:14px}
+
+  #lookup{display:none;margin-top:10px}
+  #card.dict #lookup{display:block}
+  #lookup a{color:var(--glow);font-size:12px;text-decoration:none;border:1px solid #5a4835;
+            border-radius:6px;padding:5px 11px;display:inline-block}
+  #lookup a:hover{border-color:var(--glow)}
+
+  @media (max-width:700px){
+    #card{flex-direction:column;padding:16px 40px 14px 16px}
+    #c-art{flex:0 0 auto;width:64px;height:64px;font-size:26px}
+    #card h2{font-size:23px}
+  }
+
+  /* --- race mode -------------------------------------------------
+     A separate mode you enter deliberately. Two people type the same code,
+     get the same fifteen letters, and race a clock. No server involved: the
+     code IS the shared state. */
+  #race{display:none;position:fixed;inset:0;z-index:70;overflow-y:auto;
+        background:radial-gradient(130% 100% at 50% 30%, #3d3026 0%, var(--bg) 70%);
+        padding:22px 14px}
+  #race.show{display:block}
+  #race .sheet{max-width:620px;margin:0 auto;text-align:center}
+  #race h2{font-size:26px;letter-spacing:5px;margin:6px 0 2px;font-weight:900}
+  #race .sub{color:var(--dim);font-size:13px;margin-bottom:18px}
+  #race .field{margin:14px 0}
+  #race label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px;
+              letter-spacing:1px;text-transform:uppercase}
+  #race input{background:var(--panel);border:1px solid #5a4835;color:var(--text);
+              border-radius:8px;padding:10px 14px;font-size:19px;text-align:center;
+              letter-spacing:4px;font-family:monospace;width:210px;text-transform:uppercase}
+  #race .opts{display:inline-flex;border:1px solid #5a4835;border-radius:9px;overflow:hidden}
+  #race .opts button{border:none;border-radius:0;background:var(--panel);
+                     border-right:1px solid #5a4835;font-size:12px;padding:8px 13px}
+  #race .opts button:last-child{border-right:none}
+  #race .opts button.on{background:var(--glow);color:#fff}
+  /* Hosting and joining are equally normal things to do, so they get equal
+     weight. The join button is outlined rather than filled only so you can
+     tell them apart at a glance, not because it matters less. */
+  #race .gorow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+  #race .go{font-size:15px;font-weight:700;letter-spacing:2px;padding:12px 26px;
+            border-radius:10px;background:var(--glow);color:#fff;border-color:var(--glow)}
+  #race .go:hover{background:#e59468;border-color:#e59468}
+  #race .go.alt{background:transparent;color:var(--glow);border:2px solid var(--glow)}
+  #race .go.alt:hover{background:rgba(217,130,90,.14)}
+  #race .clock{font-size:44px;font-weight:900;letter-spacing:2px;margin:6px 0}
+  #race .clock.low{color:var(--bad)}
+  #race .tally{color:var(--dim);font-size:14px;margin-bottom:10px}
+  #race .found{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:14px}
+  #race .roster{max-width:320px;margin:10px auto;text-align:left}
+  #race .rrow{display:flex;justify-content:space-between;gap:10px;
+              padding:6px 11px;border-radius:7px;font-size:13px;
+              background:var(--panel);border:1px solid #5a4835;margin-bottom:4px}
+  #race .rrow.me{border-color:var(--glow)}
+  /* Racing is a mode you choose, not a toggle you might miss, so it gets a
+     button of its own rather than an icon in a row of six. */
+  #racebtn{margin:4px auto 2px;font-size:13px;font-weight:700;letter-spacing:2px;
+           padding:10px 22px;border-radius:10px;
+           background:var(--glow);color:#fff;border-color:var(--glow)}
+  #racebtn:hover{background:#e59468;border-color:#e59468}
+  #race .board{max-width:400px;margin:12px auto;text-align:left}
+  #race .linkbox{max-width:420px;margin:14px auto;padding:11px;border-radius:9px;
+                 background:var(--panel);border:1px solid #5a4835}
+  #race .linkbox code{font-size:12px;color:var(--glow);word-break:break-all}
+  #race .brow{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:5px;
+              background:var(--panel);border:1px solid #5a4835;border-radius:9px}
+  #race .brow.me{border-color:var(--glow);background:rgba(217,130,90,.10)}
+  #race .brow .pos{width:26px;font-size:15px}
+  #race .brow .nm{flex:1;font-size:14px}
+  #race .brow .nm i{color:var(--dim);font-size:11px;font-style:normal}
+  #race .brow .pts{text-align:right;font-size:15px}
+  #race .brow .pts b{color:var(--glow)}
+  #race .brow .pts small{display:block;color:var(--dim);font-size:11px}
+  #race .waitdot{color:var(--dim);font-size:13px;margin-top:12px}
+  #race .waitdot:after{content:'';animation:dots 1.4s steps(4,end) infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+  #race .rrow b{color:var(--glow)}
+  #race #rclues{margin:10px auto 6px;font-size:14px;line-height:1.45;max-width:460px}
+  #race #rclues .clueline{background:var(--panel);border:1px solid #5a4835;
+       border-radius:9px;padding:8px 11px;margin:5px 0;text-align:left}
+  #race #rclues .clueline.done{opacity:.4;text-align:center}
+  #race #rclues .cl-th{color:var(--glow);font-size:13px;margin-top:3px}
+  #race #rclues .cl-n{color:var(--dim);font-size:11px;margin-top:3px}
+  #race #rclues .x2{color:var(--glow);font-weight:700;margin-left:6px;font-size:12px}
+  #race .found span{background:var(--panel);border:1px solid #5a4835;border-radius:7px;
+                    padding:4px 9px;font-size:13px}
+  #race .share{background:var(--panel);border:1px solid #5a4835;border-radius:8px;
+               padding:12px;font-family:monospace;font-size:13px;white-space:pre-wrap;
+               margin:14px 0;text-align:left}
+
+  /* --- overlay panels: Collection + Dictionary --- */
+  #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;
+           padding:24px 12px;overflow-y:auto}
+  #overlay.show{display:block}
+  /* A word opened from a list shows here, over the list, so you keep your
+     place instead of being thrown back to the tray. */
+  #popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
+         z-index:60;padding:24px 12px;overflow-y:auto}
+  #popup.show{display:block}
+  #popcard{position:relative;background:var(--panel);border:1px solid var(--glow);
+           border-radius:14px;max-width:620px;margin:6vh auto 0;padding:18px 46px 16px 18px;
+           display:flex;gap:16px;align-items:flex-start;
+           animation:cardIn .3s cubic-bezier(.2,.9,.3,1)}
+  #popcard.dict{border-color:#4a4d55;border-style:dashed}
+  #popcard #c-close{position:absolute;top:8px;right:10px;background:none;border:none;
+           color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
+  #popcard #c-close:hover{color:var(--text)}
+  @media (max-width:700px){ #popcard{flex-direction:column;padding:16px 40px 14px 16px} }
+  #panel{background:var(--bg);border:1px solid #5a4835;border-radius:14px;max-width:820px;
+         margin:0 auto;padding:20px 22px 28px}
+  #panel h2{margin:0;font-size:20px}
+  .phead{display:flex;justify-content:space-between;align-items:center;gap:12px;
+         border-bottom:1px solid #55442f;padding-bottom:12px;margin-bottom:16px}
+  .phead .sub{color:var(--dim);font-size:13px;margin-top:3px}
+  #panel .back{background:none;border:none;color:var(--glow);cursor:pointer;font-size:14px;
+               padding:0;margin-bottom:12px}
+
+  /* topic rows */
+  .trow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;
+        cursor:pointer;border:1px solid transparent}
+  .trow:hover{background:var(--panel);border-color:#555}
+  .trow .nm{flex:1;font-size:15px}
+  .trow .ct{color:var(--dim);font-size:13px;white-space:nowrap}
+  .bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;width:120px}
+  .bar i{display:block;height:100%;background:var(--glow);border-radius:3px}
+  .trow.done .nm:after{content:' ✓';color:var(--good)}
+
+  /* word grid: found words and silhouettes */
+  .sub-h{color:var(--dim);font-size:12px;letter-spacing:2px;margin:18px 0 8px;
+         text-transform:uppercase}
+  .wgrid{display:flex;flex-wrap:wrap;gap:7px}
+  .wchip{background:var(--panel);border:1px solid #55442f;border-radius:7px;padding:7px 11px;
+         font-size:14px;cursor:pointer}
+  .wchip:hover{border-color:var(--glow)}
+  .wchip.hidden{background:transparent;border-style:dashed;color:#7d6a55;cursor:default;
+                letter-spacing:3px;font-family:monospace}
+  .wchip.hidden:hover{border-color:#4a4d55}
+
+  /* dictionary shelves */
+  .shelf{display:flex;flex-wrap:wrap;gap:6px}
+  .letter{width:52px;height:52px;border-radius:8px;background:var(--panel);border:1px solid #55442f;
+          display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+  .letter b{font-size:18px;text-transform:uppercase}
+  .letter span{font-size:10px;color:var(--dim)}
+  .letter.empty{opacity:.3;cursor:default}
+  .letter:hover:not(.empty){border-color:var(--glow)}
+
+  /* --- found-this-cycle log --- */
+  #log{font-size:13px;color:var(--dim);max-width:640px;text-align:center;line-height:1.8}
+  #log span{background:var(--panel);border-radius:5px;padding:2px 8px;margin:2px}
+</style>
+</head>
+<body>
+<h1>VOCAP</h1>
+
+<div id="bar">
+  <span>✨ <b id="sparks">0</b></span>
+  <span>tray <b id="traysize">8</b></span>
+  <span>found <b id="foundcount">0</b>/<b id="total">?</b></span>
+  <span>📖 <b id="inkcount">0</b></span>
+  <span>next <b id="timer">–</b></span>
+</div>
+
+<div style="text-align:center"><div id="controls">
+  <button id="ivl" title="how often a letter drops">⏱ 5 min</button>
+  <button id="speed" title="drop a letter every 2 seconds">⚡ fast: OFF</button>
+  <button id="skip" title="end this run early">⏭ next</button>
+  <button id="lang" title="clue language">clue: TH</button>
+  <button id="say" title="speak each word found">🔊 words: ON</button>
+  <button id="sayl" title="speak each letter tapped">🔤 letters: OFF</button>
+  <button id="book" title="your collection">📚 collection</button>
+  <button id="dictbtn" title="dictionary">📖 dictionary</button>
+  <button id="promote" title="most-formed dictionary words">📈 top words</button>
+  <button id="reset" title="wipe progress">reset</button>
+</div></div>
+
+<button id="racebtn">🏁 &nbsp;PLAY TOGETHER</button>
+
+
+<div id="clue"></div>
+<div id="tray"></div>
+
+<div id="wordtray"></div>
+<div id="actions">
+  <button id="submit" disabled>Submit</button>
+  <button id="clear">Clear</button>
+</div>
+<div id="typed"></div>
+<div id="msg">tap or type letters · Space is free</div>
+
+<div id="card">
+  <div id="c-art"></div>
+  <div id="c-body">
+    <div id="c-head">
+      <h2 id="c-word"></h2>
+      <span id="c-pos"></span>
+      <span id="c-spark"></span>
+    </div>
+    <div class="th" id="c-thword"></div>
+    <p id="c-def"></p>
+    <p id="c-thdef"></p>
+    <div id="c-factbox"><p id="c-hist"></p><p id="c-thhist"></p></div>
+    <p id="c-sent"></p>
+    <div id="c-tags"></div>
+    <div id="lookup"><a id="c-lookup" target="_blank" rel="noopener">ดูคำแปลไทย · look up in Thai ↗</a></div>
+  </div>
+  <button id="c-close" title="close">×</button>
+</div>
+
+<div id="log"></div>
+
+<div id="race"></div>
+
+<div id="overlay"><div id="panel"></div>
+  <div id="popup"><div id="popcard"></div></div>
+</div>
+
+<script>
+/* =====================================================================
+   VOCAP M1 — direct port of drop_engine.py (the tuned reference).
+   Letters are NOT consumed. The tray is mined, not spent.
+   Growing tray: 8 slots + 1 per 2 completed sub-lists, max 15.
+   ===================================================================== */
+
+const POOL_START=8, POOL_CAP=15, MIN_NOISE=1, HF='High-Frequency / Core', HF_COOLDOWN=3;
+/* Tray growth by PROGRESS, not completion. Escalating thresholds: the first
+   upgrade lands inside a single session (so the mechanic teaches itself), the
+   last sits around 400 words (so max tray is a genuine mid-game milestone).
+   Counts CURATED discoveries only - dictionary words don't grow the tray. */
+const GROWTH=[15,50,110,200,330,520,780];  // cumulative curated words for slots 9..15
+/* Rescaled when the collection grew from 966 to ~1,930 words. The old curve
+   (10..400) was tuned for the smaller set and maxed the tray at 21% of the
+   collection - far too fast. This puts max tray back around 40%, while the
+   first upgrade still lands inside the first session so the mechanic keeps
+   teaching itself. */
+
+let INTERVAL_MS = 5*60*1000;       // player-chosen: 5 / 10 / 20 minutes
+const FAST_MS     = 2*1000;         // debug fast mode: a workday in minutes
+// English letter frequencies for noise letters (same table as the Python)
+const FREQ={e:12.5,t:9.3,a:8.0,o:7.6,i:7.7,n:7.2,s:6.5,r:6.3,h:5.1,l:4.1,d:3.8,
+c:3.3,u:2.8,m:2.5,f:2.4,p:2.1,g:1.9,w:1.7,y:1.6,b:1.5,v:1.0,k:0.6,x:0.2,j:0.1,q:0.1,z:0.1};
+const VOWELS=new Set('aeiou');
+// Everyday flavour (default). Explorer/Scholar arrive with the settings screen.
+const PLAN=[[3,5],[3,6],[4,7]];
+
+let BANK=[], seen=new Set(), sparks=0, cycleNo=0;
+/* Unsolved clues go on COOLDOWN rather than returning next run. Seeing the
+   same unsolved word immediately again is demoralising - it reads as the game
+   nagging. After a few runs away it reads as a familiar face instead. */
+let snoozed={};                  // word id -> earliest cycle it may return
+const SNOOZE_MIN=3, SNOOZE_MAX=6;
+let DICT=new Set();              // bundled common-English list (validity + Dictionary reveals)
+let DEFS={};                     // WordNet glosses for dictionary words
+let inked=new Set();             // dictionary words the player has revealed
+let inkTally={};                 // word -> times formed; drives promotion (design 5.4)
+/* Hints cost a share of what the word pays, so one is worth buying and three
+   is a clear loss. Prices are 0.5x, 1.0x and 1.5x the word's base value. */
+/* Levels 1-3 chip away at the word. Level 4 hands it over completely and is
+   priced at 3x the payout, so solving this way always loses sparks overall. */
+const HINT_MULT=[0.5,1.0,1.5,3.0];
+let hintsBought={};              // word id -> how many hints taken this cycle
+let starterDay=0, lastGift=null; // Starter Pack: one 2-letter gift word per day
+let lastTray=POOL_START;         // for announcing upgrades
+let pool=[], order=[], dropped=0, seeds=[], repeatPaid=new Set(), timerId=null, nextDrop=0;
+let fast=false, lang='th';
+/* `lang` is the learning-language switch. On TH the card carries the Thai
+   layer as well as the English; on EN the player gets an English-only game,
+   which is what an advanced learner wants. */
+/* ---- Pause system ----
+   Vocap is meant to run while you work, so an unfocused window must NOT
+   pause. What should pause is the machine being away: asleep, shut, or the
+   tab frozen. We detect that by watching for a jump in the wall clock.
+
+   The threshold scales with the interval rather than being a fixed number of
+   minutes: missing three drops means the same thing whether they are five
+   minutes apart or twenty. */
+const IDLE_INTERVALS = 3;
+let lastTick = Date.now();
+let awaySince = null;
+let burstLeft = 0;               // welcome-back: next drops come quickly
+let shownCard = null;            // {w,gain} or {word} - lets a language switch redraw
+let shownPop  = null;
+let lastActivity = Date.now();   // last time the player actually did something
+let holding = false;             // tray is full and waiting for the player
+/* `building` is the word tray: each entry is a letter taken from a pool slot,
+   or a free space. The pool letter is never removed — it just highlights. */
+let building=[];                       // [{ch:'m', from:3} | {ch:' ', from:null}]
+const typedWord = () => building.map(b=>b.ch).join('');
+
+const $=id=>document.getElementById(id);
+const save=()=>localStorage.setItem('vocap',JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
+const load=()=>{try{const d=JSON.parse(localStorage.getItem('vocap'));
+  if(d){seen=new Set(d.seen);sparks=d.sparks;
+        inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;
+        snoozed=d.snoozed||{};cycleNo=d.cycleNo||0;}
+  }catch(e){}};
+
+/* ---- speech: browser-native, no audio files needed ----
+   Pronunciation is the one thing a text game can't teach, so discovered
+   words are spoken by default. Letter-by-letter is opt-in: useful when
+   learning, grating in fast mode. */
+let sayWords=true, sayLetters=false, voiceEN=null;
+function pickVoice(){
+  const vs=speechSynthesis.getVoices();
+  voiceEN = vs.find(v=>/^en-(GB|US)/.test(v.lang)&&/natural|google|samantha|daniel/i.test(v.name))
+         || vs.find(v=>v.lang.startsWith('en')) || null;
+}
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function speak(text,{rate=0.95,pitch=1}={}){
+  if(!('speechSynthesis' in window)) return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-GB'; u.rate=rate; u.pitch=pitch; u.volume=1;
+  if(voiceEN) u.voice=voiceEN;
+  speechSynthesis.speak(u);
+}
+function speakLetter(ch){
+  if(!sayLetters||ch===' ') return;
+  speechSynthesis.cancel();               // keep up with fast tapping
+  speak(ch.toUpperCase(),{rate:0.85});
+}
+function speakWord(w){
+  if(!sayWords) return;
+  speechSynthesis.cancel();
+  speak(w,{rate:0.85});                   // clear and unhurried: this is the teaching moment
+}
+
+function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
+function count(s){const c={};for(const ch of s)if(ch!==' ')c[ch]=(c[ch]||0)+1;return c}
+function canSpell(need,poolC){for(const k in need)if((poolC[k]||0)<need[k])return false;return true}
+function union(a,b){const o={...a};for(const k in b)o[k]=Math.max(o[k]||0,b[k]);return o}
+function poolCount(){const c={};for(const ch of pool)c[ch]=(c[ch]||0)+1;return c}
+
+/* Only CURATED discoveries grow the tray. Dictionary words pay sparks and
+   ink a page, but they're the easy path - letting them buy tray upgrades
+   would make the collection feel cheap. */
+function progressCount(){ return seen.size }
+function traySize(){
+  let n=POOL_START;
+  for(const t of GROWTH) if(progressCount()>=t) n++;
+  return Math.min(POOL_CAP,n);
+}
+function nextGrowthAt(){
+  for(const t of GROWTH) if(progressCount()<t) return t;
+  return null;
+}
+/* announce an upgrade the moment it is earned */
+function checkGrowth(){
+  const size=traySize();
+  if(size>lastTray){
+    lastTray=size;
+    flash(`🌱 tray grew to ${size} slots!`,'good');
+  }
+  const nxt=nextGrowthAt();
+  $('traysize').textContent = nxt ? `${size} (next at ${nxt})` : `${size} MAX`;
+}
+
+/* ---- seed picking: adaptive bands + HF cooldown (drop_engine.py port) ---- */
+function pickSeeds(size){
+  const budget=size-MIN_NOISE, allowHF=(cycleNo%HF_COOLDOWN===0);
+  const chosen=[]; let acc={};
+  const ready = w => !(snoozed[w.id] && cycleNo < snoozed[w.id]);
+  const bands=[...PLAN].sort((a,b)=>b[1]-a[1]);
+  for(const [lo0,hi0] of bands){
+    if(chosen.length>=3)break;
+    let cands=[];
+    for(let g=0;g<13 && !cands.length;g++){          // adaptive widening
+      const lo=Math.max(3,lo0-g), hi=Math.min(15,hi0+g);
+      cands=BANK.filter(w=>!seen.has(w.id)&&!chosen.includes(w)&&ready(w)
+        &&w.letters>=lo&&w.letters<=hi&&(allowHF||w.topic!==HF));
+    }
+    // Late game safety: if everything undiscovered is still snoozed, ignore
+    // the cooldown rather than leave the run without seeds.
+    if(!cands.length){
+      cands=BANK.filter(w=>!seen.has(w.id)&&!chosen.includes(w));
+    }
+    cands.sort(()=>Math.random()-.5);
+    for(const w of cands.slice(0,80)){
+      const trial=union(acc,count(w.spell));
+      if(Object.values(trial).reduce((a,b)=>a+b,0)<=budget){chosen.push(w);acc=trial;break}
+    }
+  }
+  return [chosen,acc];
+}
+
+function noiseLetters(acc,n){
+  const out=[], ls=Object.keys(FREQ);
+  for(let i=0;i<n;i++){
+    const cur={...acc}; for(const ch of out)cur[ch]=(cur[ch]||0)+1;
+    const tot=Object.values(cur).reduce((a,b)=>a+b,0)||1;
+    const vr=Object.entries(cur).filter(([k])=>VOWELS.has(k)).reduce((a,[,v])=>a+v,0)/tot;
+    const ws=ls.map(l=>FREQ[l]*(vr<0.32&&VOWELS.has(l)?4:1));
+    let r=Math.random()*ws.reduce((a,b)=>a+b,0);
+    for(let j=0;j<ls.length;j++){r-=ws[j];if(r<=0){out.push(ls[j]);break}}
+  }
+  return out;
+}
+
+/* shortest seed's letters first so something is formable early */
+function buildOrder(size){
+  const sorted=[...seeds].sort((a,b)=>a.letters-b.letters);
+  let ord=[], built={};
+  for(const w of sorted){
+    const need=count(w.spell), chunk=[];
+    for(const k in need)for(let i=(built[k]||0);i<need[k];i++)chunk.push(k);
+    chunk.sort(()=>Math.random()-.5); ord=ord.concat(chunk); built=union(built,need);
+  }
+  ord=ord.concat(noiseLetters(built,Math.max(MIN_NOISE,size-ord.length)));
+  const head=sorted.length?Math.min(sorted[0].letters,ord.length):0;
+  const tail=ord.slice(head).sort(()=>Math.random()-.5);
+  return ord.slice(0,head).concat(tail).slice(0,size);
+}
+
+/* Park every unsolved seed for 3-6 runs before it may be chosen again. */
+function snoozeUnsolved(){
+  for(const w of seeds){
+    if(seen.has(w.id)){ delete snoozed[w.id]; continue }
+    const wait=SNOOZE_MIN+Math.floor(Math.random()*(SNOOZE_MAX-SNOOZE_MIN+1));
+    snoozed[w.id]=cycleNo+wait;
+  }
+}
+
+/* ---------------- cycle control ---------------- */
+function startCycle(){
+  cycleNo++; const size=traySize();
+  [seeds,]=pickSeeds(size); order=buildOrder(size);
+  pool=[]; dropped=0; repeatPaid=new Set(); building=[]; hintsBought={}; holding=false;
+  checkGrowth();
+  renderTray(); renderWordTray(); renderClue(); scheduleDrop();
+}
+function dropDelay(){
+  if(fast) return FAST_MS;
+  if(burstLeft>0) return 60*1000;          // one minute, to make returning feel alive
+  return INTERVAL_MS;
+}
+
+function scheduleDrop(){
+  clearTimeout(timerId);
+  const ms=dropDelay(); nextDrop=Date.now()+ms;
+  timerId=setTimeout(dropLetter,ms); tickTimer();
+}
+/* Runs every second. A gap far larger than one second means the machine was
+   not running, so we push the timer forward by exactly the missing time
+   instead of letting it expire while nobody was watching. */
+function watchClock(){
+  const now=Date.now(), gap=now-lastTick;
+  const threshold=Math.max(30000, dropDelay()*IDLE_INTERVALS);
+  if(gap>threshold){
+    nextDrop += gap;                       // credit the whole absence back
+    awaySince = gap;
+    if(gap > 2*60*60*1000) burstLeft = 2;  // away over two hours
+    const mins=Math.round(gap/60000);
+    flash(mins>=60 ? `welcome back — paused for ${Math.round(mins/60)}h`
+                   : `welcome back — paused for ${mins} min`, '');
+  }
+  lastTick=now;
+  setTimeout(watchClock,1000);
+}
+watchClock();
+
+function tickTimer(){
+  const s=Math.max(0,Math.ceil((nextDrop-Date.now())/1000));
+  if(holding){ $('timer').textContent='WAITING FOR YOU'; setTimeout(tickTimer,500); return; }
+  $('timer').textContent=dropped>=order.length?'LAST CALL':`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  if(dropped<=order.length)setTimeout(tickTimer,500);
+}
+function dropLetter(){
+  if(dropped<order.length){
+    pool.push(order[dropped]); dropped++;
+    if(burstLeft>0) burstLeft--;
+    renderTray(); renderWordTray(); renderClue(); scheduleDrop();
+  }else{
+    /* Last Call. The design promise is that the tray never resets while nobody
+       is watching, so if the player has not touched anything since it filled,
+       hold here indefinitely. They get the full tray when they come back. */
+    if(Date.now()-lastActivity > dropDelay()){
+      holding=true;
+      $('timer').textContent='WAITING FOR YOU';
+      flash('tray is full and waiting — it will not reset until you play','');
+      return;
+    }
+    sparks+=pool.length;
+    snoozeUnsolved();
+    save(); startCycle();
+  }
+}
+
+/* ---------------- rendering ---------------- */
+function renderTray(){
+  const size=order.length||traySize(); const t=$('tray'); t.innerHTML='';
+  const used=highlightMap();
+  for(let i=0;i<size;i++){
+    const d=document.createElement('div');
+    d.className='slot '+(i<pool.length?'filled':'empty');
+    if(i<pool.length){
+      d.textContent=pool[i];
+      if(used.has(i))d.classList.add('used');
+      d.onclick=()=>{ dropFocus(); noteActivity(); if(!used.has(i)){speakLetter(pool[i]);building.push({ch:pool[i],from:i});renderTray();renderWordTray()} };
+    }
+    t.appendChild(d);
+  }
+  $('sparks').textContent=sparks;
+
+  $('foundcount').textContent=seen.size;
+  $('inkcount').textContent=inked.size;
+}
+/* which pool boxes are currently in use down in the word tray */
+function highlightMap(){
+  return new Set(building.filter(b=>b.from!==null).map(b=>b.from));
+}
+
+/* claim the first unused pool slot holding this letter; null if none free */
+function claimSlot(ch){
+  const used=highlightMap();
+  for(let i=0;i<pool.length;i++) if(pool[i]===ch && !used.has(i)) return i;
+  return null;
+}
+
+/* draw the word tray */
+function renderWordTray(){
+  const wt=$('wordtray'); wt.innerHTML='';
+  if(!building.length){
+    wt.innerHTML='<span class="hint">tap letters above to build a word</span>';
+    wt.className=''; $('typed').textContent=''; $('submit').disabled=true; return;
+  }
+  building.forEach((b,i)=>{
+    const d=document.createElement('div');
+    d.className='wslot'+(b.ch===' '?' space':'');
+    d.textContent=b.ch===' '?'':b.ch;
+    d.title='remove';
+    d.onclick=()=>{building.splice(i,1);renderTray();renderWordTray()};
+    wt.appendChild(d);
+  });
+  const w=typedWord().replace(/ /g,'');
+  const match=BANK.find(x=>x.spell===typedWord()||x.spell===w);
+  wt.className = (w.length>=3 && match && !seen.has(match.id)) ? 'ready' : '';
+  $('submit').disabled = w.length<3;
+  $('typed').textContent=w.length+' letters';
+}
+function hintCost(w,level){ return Math.max(1, Math.round(sparksFor(w.letters)*HINT_MULT[level])); }
+
+/* Level 0: first letter. Level 1: every vowel placed. Level 2: one more consonant. */
+function hintMask(w,level){
+  const s=w.spell, out=[];
+  const vowels=new Set('aeiou');
+  // pick one consonant (other than the first) to reveal at level 3
+  let extra=-1;
+  for(let i=s.length-1;i>0;i--) if(!vowels.has(s[i])){ extra=i; break; }
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    let show = level>=4 || (level>=1 && i===0) || (level>=2 && vowels.has(c)) || (level>=3 && i===extra);
+    out.push(show?c:'_');
+  }
+  return out.join(' ');
+}
+
+function buyHint(id){
+  const w=BANK.find(x=>x.id===id); if(!w) return;
+  const have=hintsBought[id]||0;
+  if(have>=4){flash('the whole word is already showing','');return}
+  const cost=hintCost(w,have);
+  if(sparks<cost){flash(`need ${cost} sparks for that hint`,'bad');return}
+  sparks-=cost; hintsBought[id]=have+1; save();
+  flash(have===3 ? `word revealed · -${cost} ✨` : `hint bought · -${cost} ✨`,'');
+  renderTray(); renderClue();
+}
+
+function renderClue(){
+  const active=seeds.filter(w=>!seen.has(w.id));
+  const el=$('clue');
+  if(!active.length){el.textContent='';return}
+  const pc=poolCount();
+  el.innerHTML=active.map(w=>{
+    const desc = lang==='th' && w.translations?.th?.definition
+        ? w.translations.th.definition : w.definition;
+    const ok=canSpell(count(w.spell),pc);
+    const lv=hintsBought[w.id]||0;
+    const shown = lv>0 ? `<div class="reveal">${hintMask(w,lv)}</div>` : '';
+    let next;
+    if(lv>=4)      next=`<button disabled>revealed</button>`;
+    else if(lv===3) next=`<button class="solve" onclick="buyHint('${w.id}')" `
+                        + `${sparks<hintCost(w,lv)?'disabled':''}>🔓 reveal · ${hintCost(w,lv)}✨</button>`;
+    else            next=`<button onclick="buyHint('${w.id}')" `
+                        + `${sparks<hintCost(w,lv)?'disabled':''}>💡 ${hintCost(w,lv)}✨</button>`;
+    return `<div class="clueline"><span class="${ok?'spellable':''}">🔎 ${desc} — ${w.letters} letters</span>`
+         + `<span class="hintbar">${next}</span>${shown}</div>`;
+  }).join('');
+  el.className=active.some(w=>canSpell(count(w.spell),poolCount()))?'spellable':'';
+}
+
+/* ---------------- word submission ---------------- */
+function submit(){
+  const raw=typedWord().trim().toLowerCase();
+  building=[]; renderWordTray();
+  const plain=raw.replace(/ /g,'');
+  const pc=poolCount();
+
+  if(plain.length<3){flash('too short','bad');renderTray();return}
+
+  /* ---- ONE guard for everything: a word pays at most once per run ----
+     Previously each reward branch tracked its own state, so resubmitting a
+     word could fall through to a different branch and pay again. Now every
+     credited word - curated or dictionary - lands in repeatPaid, and this
+     check runs before any reward is considered. */
+  if(repeatPaid.has(plain)){
+    flash('already used this run','');
+    renderTray(); return;
+  }
+
+  const w=BANK.find(x=>x.spell===plain||x.word===raw);
+
+  /* ---------- curated word ---------- */
+  if(w){
+    if(!canSpell(count(w.spell),pc)){flash('letters not in the tray','bad');renderTray();return}
+    repeatPaid.add(plain);
+    if(seen.has(w.id)){                       // found on an earlier run
+      sparks++; save(); speakWord(w.word);
+      flash('already in your collection · +1 ✨','good');
+      renderTray(); renderClue(); return;
+    }
+    const fresh=1+(order.length-dropped)/8;   // freshness bonus (design 4.4)
+    const gain=Math.round(sparksFor(w.letters)*fresh);
+    sparks+=gain; seen.add(w.id); save();
+    speakWord(w.word); showCard(w,gain); logWord(w);
+    flash(`+${gain} ✨`,'good');
+    renderTray(); renderClue(); checkGrowth();
+    return;
+  }
+
+  /* ---------- dictionary word ---------- */
+  if(DICT.has(plain)){
+    if(!canSpell(count(plain),pc)){flash('letters not in the tray','bad');renderTray();return}
+    repeatPaid.add(plain);
+    inkTally[plain]=(inkTally[plain]||0)+1;
+    if(inked.has(plain)){                     // inked on an earlier run
+      sparks++; save(); flash('already inked · +1 ✨','good');
+      renderTray(); renderClue(); return;
+    }
+    inked.add(plain); sparks+=2; save();
+    speakWord(plain); showDictCard(plain);
+    const before=Math.floor((inked.size-1)/100), after=Math.floor(inked.size/100);
+    if(after>before){sparks+=100;flash(`📖 ${inked.size} words inked · +100 ✨ milestone!`,'good')}
+    else flash('📖 inked in the Dictionary · +2 ✨','good');
+    renderTray(); renderClue(); return;
+  }
+
+  flash('not an English word','bad');
+  renderTray();
+}
+
+/* One card, several moods. The tier controls how much the card announces
+   itself: a three-letter word should feel like a tick, a fourteen-letter one
+   like an event. Everything else stays identical so the layout is learnable. */
+const TOPIC_ICON={
+ 'Animals':'🐾','Fruits':'🍎','Vegetables':'🥕','Food & Drink':'🍜','Thai Food & Cooking':'🌶️',
+ 'Body Parts':'🖐️','Health & Body':'🩺','Family & People':'👪','Emotions & Feelings':'💭',
+ 'Colors & Shapes':'🎨','Clothes & Fashion':'👕','House & Home':'🏠','Kitchen & Utensils':'🍳',
+ 'Buildings & Structures':'🏛️','Tools & DIY':'🔧','Containers & Materials':'📦',
+ 'Nature & Weather':'🌦️','Flowers & Plants':'🌸','Ocean & Beach':'🌊','Sky & Space':'🪐',
+ 'Science Basics':'🔬','Technology':'💻','Transportation':'🚌','Travel & Places':'🧭',
+ 'Directions & Position':'🧭','Time & Calendar':'🕰️','Numbers & Measurement':'📏',
+ 'Education':'📚','Jobs & Work':'💼','Money & Shopping':'🏷️','Restaurant & Ordering':'🍽️',
+ 'Sports & Games':'⚽','Music & Instruments':'🎵','Art & Crafts':'🎨',
+ 'Media & Entertainment':'🎬','Celebrations & Festivals':'🎉','Slang & GenZ':'💬',
+ 'High-Frequency / Core':'⭐','Describing Words':'✨','Actions & Movement':'🏃'};
+
+function tierFor(n){ return n<=5?1 : n<=8?2 : n<=12?3 : 4; }
+
+/* Both the main card and the in-menu popup are built from this, so a word
+   looks identical wherever you meet it. */
+function cardHTML(w,gain){
+  const th = lang==='th' ? (w.translations?.th||{}) : {};
+  const tags=[w.topic,w.topic2].filter(Boolean)
+      .map(t=>`<span>${TOPIC_ICON[t]||'✦'} ${t}</span>`).join('');
+  return `
+    <div id="c-art">${TOPIC_ICON[w.topic]||'✦'}</div>
+    <div id="c-body">
+      <div id="c-head">
+        <h2 id="c-word">${w.word}</h2>
+        <span id="c-pos">${w.letters} letters</span>
+        <span id="c-spark">${gain?`+${gain} ✨`:'in your collection'}</span>
+      </div>
+      <div class="th">${th.word||''}</div>
+      <p>${w.definition}</p>
+      <p id="c-thdef">${th.definition||''}</p>
+      <div id="c-factbox"><p>${w.history||''}</p><p>${th.history||''}</p></div>
+      <p id="c-sent">${w.sentence?'\u201c'+w.sentence+'\u201d':''}</p>
+      <div id="c-tags">${tags}</div>
+    </div>`;
+}
+
+function dictCardHTML(word){
+  const g=DEFS[word];
+  const senses=Array.isArray(g)?g:(g?[g]:[]);
+  const list=senses.length
+    ? senses.map((s,i)=>`<p>${i+1}. ${s}</p>`).join('')
+    : '<p>(no definition available)</p>';
+  return `
+    <div id="c-art">📖</div>
+    <div id="c-body">
+      <div id="c-head">
+        <h2 id="c-word">${word}</h2>
+        <span id="c-pos">${word.length} letters</span>
+      </div>
+      ${list}
+      <div id="c-tags"><span>📖 Dictionary word</span></div>
+      <div id="lookup"><a href="https://dict.longdo.com/search/${encodeURIComponent(word)}"
+         target="_blank" rel="noopener">ดูคำแปลไทย · look up in Thai ↗</a></div>
+    </div>`;
+}
+
+function showCard(w,gain){
+  shownCard={w,gain};
+  $('card').innerHTML = cardHTML(w,gain) + '<button id="c-close" title="close">×</button>';
+  $('card').className = 'show tier'+tierFor(w.letters);
+  bindCard(w);
+}
+
+/* Dictionary card — deliberately plainer than a discovery card. The curated
+   966 get history, Thai and (later) art; dictionary words get a definition
+   and a page. The gap between them is what makes the collection feel special. */
+function showDictCard(word){
+  shownCard={word};
+  $('card').innerHTML = dictCardHTML(word) + '<button id="c-close" title="close">×</button>';
+  $('card').className='show dict';
+  bindCard(null,word);
+}
+
+/* wire the close button and the tap-to-hear-it-again word */
+function bindCard(w,plainWord){
+  const c=$('c-close'); if(c) c.onclick=()=>{ $('card').className=''; shownCard=null; };
+  const h=$('c-word');
+  if(h) h.onclick=()=>{ speechSynthesis.cancel(); speak(w?w.word:plainWord,{rate:0.8}); };
+}
+
+function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
+function flash(t,c){$('msg').textContent=t;$('msg').className=c||''}
+
+/* ═══════════════ Collection & Dictionary browsers ═══════════════
+   The tray is where you play; these are where the collection lives. Topic
+   screens show undiscovered words as silhouettes with their letter count -
+   the design's "tease, don't hide" rule: a blank slot invites a hunt, a
+   hidden list invites nothing. */
+
+/* Stop a previously clicked button from stealing the Enter key. */
+function noteActivity(){ lastActivity=Date.now(); if(holding){ holding=false; scheduleDrop(); } }
+
+function dropFocus(){ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+
+function openPanel(html){ $('panel').innerHTML=html; $('overlay').className='show'; }
+function closePanel(){ $('overlay').className=''; }
+$('overlay') && ($('overlay').onclick=e=>{ if(e.target.id==='overlay') closePanel() });
+
+function topicStats(){
+  const m={};
+  for(const w of BANK_ALL){
+    for(const t of [w.topic, w.topic2]){
+      if(!t) continue;
+      (m[t]=m[t]||{total:0,found:0,words:[]});
+      m[t].total++; m[t].words.push(w);
+      if(seen.has(w.id)) m[t].found++;
+    }
+  }
+  return m;
+}
+
+function showCollection(){
+  const m=topicStats();
+  const names=Object.keys(m).sort((a,b)=>m[b].found-m[a].found||a.localeCompare(b));
+  const rows=names.map(t=>{
+    const s=m[t], pct=Math.round(s.found/s.total*100);
+    const started=s.found>0;
+    return `<div class="trow ${s.found===s.total?'done':''}" onclick="showTopic('${t.replace(/'/g,"\\'")}')">
+      <span class="nm">${started?t:'? ? ?'}</span>
+      <span class="bar"><i style="width:${pct}%"></i></span>
+      <span class="ct">${s.found}/${s.total}</span></div>`;
+  }).join('');
+  const tot=seen.size, all=BANK_ALL.length;
+  openPanel(`<div class="phead"><div><h2>Collection</h2>
+      <div class="sub">${tot} of ${all} words found · ${Math.round(tot/all*100)}%</div></div>
+      <button onclick="closePanel()">close</button></div>${rows}`);
+}
+
+function showTopic(t){
+  const m=topicStats()[t];
+  if(!m) return;
+  const bySub={};
+  for(const w of m.words) (bySub[w.sublist]=bySub[w.sublist]||[]).push(w);
+  let html='';
+  for(const sub of Object.keys(bySub).sort()){
+    const ws=bySub[sub].sort((a,b)=>a.letters-b.letters||a.word.localeCompare(b.word));
+    const f=ws.filter(w=>seen.has(w.id)).length;
+    html+=`<div class="sub-h">${sub} — ${f}/${ws.length}</div><div class="wgrid">`;
+    html+=ws.map(w=>seen.has(w.id)
+      ? `<span class="wchip" onclick="replay('${w.id}')">${w.word}</span>`
+      : `<span class="wchip hidden">${'_'.repeat(w.letters)}</span>`).join('');
+    html+='</div>';
+  }
+  openPanel(`<button class="back" onclick="showCollection()">← all topics</button>
+    <div class="phead"><div><h2>${t}</h2>
+    <div class="sub">${m.found} of ${m.total} found</div></div>
+    <button onclick="closePanel()">close</button></div>${html}`);
+}
+
+function openPop(html,extraClass){
+  $('popcard').className = extraClass||'';
+  $('popcard').innerHTML = html + '<button id="c-close" title="close">×</button>';
+  $('popup').className='show';
+  const c=$('c-close'); if(c) c.onclick=closePop;
+}
+function closePop(){ $('popup').className=''; shownPop=null; }
+$('popup') && ($('popup').onclick=e=>{ if(e.target.id==='popup') closePop(); });
+
+/* Opening a word from the collection keeps you inside the collection. */
+function replay(id){
+  const w=BANK_ALL.find(x=>x.id===id); if(!w) return;
+  shownPop={w};
+  openPop(cardHTML(w,0));
+  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})};
+  speakWord(w.word);
+}
+function peekDict(word){
+  shownPop={word};
+  openPop(dictCardHTML(word),'dict');
+  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(word,{rate:0.8})};
+}
+
+function showDictionary(){
+  const letters='abcdefghijklmnopqrstuvwxyz'.split('');
+  const byL={};
+  for(const w of inked) (byL[w[0]]=byL[w[0]]||[]).push(w);
+  const shelf=letters.map(L=>{
+    const n=(byL[L]||[]).length;
+    return `<div class="letter ${n?'':'empty'}" ${n?`onclick="showShelf('${L}')"`:''}>
+      <b>${L}</b><span>${n||''}</span></div>`;
+  }).join('');
+  const next=100-(inked.size%100);
+  openPanel(`<div class="phead"><div><h2>Dictionary</h2>
+    <div class="sub">${inked.size} words inked · ${next} more to the next milestone</div></div>
+    <button onclick="closePanel()">close</button></div>
+    <div class="shelf">${shelf}</div>
+    <div class="sub-h">how it works</div>
+    <div style="color:var(--dim);font-size:13px;line-height:1.6">
+      Any real English word you spell from the tray is inked here permanently, even if it
+      isn't one of the ${BANK_ALL.length} collection words. There is no completion target —
+      the Dictionary is a log of everything you've found, not a checklist.</div>`);
+}
+
+function showShelf(L){
+  const ws=[...inked].filter(w=>w[0]===L).sort();
+  const chips=ws.map(w=>`<span class="wchip" onclick="peekDict('${w}')">${w}</span>`).join('');
+  openPanel(`<button class="back" onclick="showDictionary()">← shelves</button>
+    <div class="phead"><div><h2>${L.toUpperCase()}</h2>
+    <div class="sub">${ws.length} words inked</div></div>
+    <button onclick="closePanel()">close</button></div>
+    <div class="wgrid">${chips}</div>`);
+}
+
+$('book').onclick=showCollection;
+$('dictbtn').onclick=showDictionary;
+
+
+
+/* ═══════════════════ LIVE RACE ROOMS ═══════════════════
+   Optional networking for race mode only. Nothing here runs unless the player
+   opens a race and chooses to go online: the library is fetched on demand, and
+   every failure path falls back to playing solo rather than blocking the game.
+
+   Topology is a star. The host holds the room and relays scores; joiners talk
+   only to the host. Words are never sent - only names and totals. */
+
+const MAX_DUEL = 2, MAX_PARTY = 10;
+let NET = null;   // {peer, conns, isHost, roster, code, cap, myId}
+
+function loadPeerJS(){
+  if(window.Peer) return Promise.resolve(true);
+  return new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    s.onload=()=>res(true);
+    s.onerror=()=>res(false);         // offline or blocked: caller falls back
+    document.head.appendChild(s);
+    setTimeout(()=>res(!!window.Peer), 8000);
+  });
+}
+
+function netName(){
+  return (localStorage.getItem('vocap-name') || 'player').slice(0,14);
+}
+
+function netBroadcast(msg){
+  if(!NET) return;
+  for(const c of NET.conns) { try{ c.send(msg); }catch(e){} }
+}
+
+/* Every player is identified by their peer id, never by their name. Two people
+   called "mango" are two players; someone who leaves and rejoins is a new one.
+   Keying on name was why a father and son could not sit in the same room. */
+function netUpsert(id, name, row){
+  if(!NET) return;
+  const i = NET.roster.findIndex(r => r.id === id);
+  const entry = {id, name, score:row.score|0, words:row.words|0, done:!!row.done};
+  if(i >= 0) NET.roster[i] = entry; else NET.roster.push(entry);
+  NET.roster.sort((a,b)=>b.score-a.score);
+  renderRoster();
+}
+
+function netRemove(id){
+  if(!NET) return;
+  NET.roster = NET.roster.filter(r => r.id !== id);
+  renderRoster();
+  if(NET.isHost) netBroadcast({t:'roster', roster:NET.roster});
+}
+
+function netSendScore(){
+  if(!NET || !R) return;
+  const row = {t:'score', id:NET.myId, name:netName(),
+               score:R.score, words:R.found.length, done:!!R.over};
+  if(NET.isHost){
+    netUpsert(NET.myId, netName(), row);
+    netBroadcast({t:'roster', roster:NET.roster});
+  } else {
+    netBroadcast(row);
+  }
+}
+
+/* Names are not unique, so if two players share one we number them. Without
+   this a room of "player, player, player" is unreadable. */
+function displayNames(rows){
+  const seen={};
+  return rows.map(r=>{
+    seen[r.name] = (seen[r.name]||0)+1;
+    return {...r, label: seen[r.name]>1 ? `${r.name} (${seen[r.name]})` : r.name};
+  });
+}
+
+function renderRoster(){
+  const el=$('rroster'); if(!el || !NET) return;
+  const racing = !!(R && !R.over);
+  const rows = displayNames(NET.roster);
+  el.innerHTML = rows.map((r,i)=>
+    `<div class="rrow${r.id===NET.myId?' me':''}">
+       <span>${racing?(i+1)+'. ':'· '}${r.label}</span>
+       ${racing ? `<span><b>${r.score}</b> · ${r.words}w ${r.done?'✔':''}</span>`
+                : `<span class="sub" style="font-size:11px">ready</span>`}
+     </div>`).join('') || '<div class="sub">nobody here yet…</div>';
+  const c=$('rcount');
+  if(c) c.textContent = `${NET.roster.length} of ${NET.cap} in the room`;
+}
+
+async function netHost(code, cap){
+  const ok=await loadPeerJS();
+  if(!ok) return {error:'could not reach the matchmaking service'};
+  return new Promise(res=>{
+    let peer;
+    try{ peer = new Peer('vocap-'+code); }catch(e){ return res({error:'could not start a room'}); }
+    peer.on('open', id=>{
+      NET={peer, conns:[], isHost:true, roster:[], code, cap, myId:id};
+      netUpsert(id, netName(), {score:0, words:0, done:false});
+      peer.on('connection', c=>{
+        if(NET.roster.length >= cap){ try{c.send({t:'full'});setTimeout(()=>c.close(),200);}catch(e){} return; }
+        NET.conns.push(c);
+        c.on('data', m=>{
+          if(m.t==='hello'){ c.__pid=m.id; netUpsert(m.id, m.name, {score:0,words:0,done:false});
+                             netBroadcast({t:'roster', roster:NET.roster}); }
+          if(m.t==='score'){ c.__pid=m.id; netUpsert(m.id, m.name, m);
+                             netBroadcast({t:'roster', roster:NET.roster}); }
+          if(m.t==='bye'){ netRemove(m.id); }
+        });
+        const gone = ()=>{ NET.conns=NET.conns.filter(x=>x!==c);
+                           if(c.__pid) netRemove(c.__pid); };
+        c.on('close', gone);
+        c.on('error', gone);
+      });
+      res({ok:true});
+    });
+    peer.on('error', e=>{
+      res({error: String(e).includes('taken') ? 'that code is already in use'
+                                              : 'could not start a room'});
+    });
+    setTimeout(()=>res({error:'timed out starting the room'}), 9000);
+  });
+}
+
+async function netJoin(code){
+  const ok=await loadPeerJS();
+  if(!ok) return {error:'could not reach the matchmaking service'};
+  return new Promise(res=>{
+    let peer, settled=false;
+    const done=v=>{ if(!settled){ settled=true; res(v); } };
+    try{ peer = new Peer(); }catch(e){ return done({error:'could not connect'}); }
+    peer.on('open', myId=>{
+      const c=peer.connect('vocap-'+code, {reliable:true});
+      c.on('open', ()=>{
+        NET={peer, conns:[c], isHost:false, roster:[], code, cap:MAX_PARTY, myId};
+        c.send({t:'hello', id:myId, name:netName()});
+        done({ok:true});
+      });
+      c.on('data', m=>{
+        if(m.t==='roster'){ NET.roster=m.roster; renderRoster(); }
+        if(m.t==='start'){ raceStart(m.mode, true); }
+        if(m.t==='full'){ done({error:'that room is full'}); }
+        if(m.t==='hostleft'){ raceHostGone(); }
+      });
+      c.on('close', ()=>{ if(NET && !NET.isHost) raceHostGone(); });
+      c.on('error', ()=>done({error:'could not reach that room'}));
+      setTimeout(()=>done({error:'no room with that code'}), 9000);
+    });
+    peer.on('error', ()=>done({error:'could not connect'}));
+  });
+}
+
+function raceHostGone(){
+  const el=$('rroster');
+  if(el) el.insertAdjacentHTML('beforebegin',
+    '<div class="sub" style="color:var(--bad)">the host has left the room</div>');
+}
+
+/* Announce departure so the roster does not keep a ghost. The host also
+   catches the connection closing, so a crash is handled too. */
+function netLeave(){
+  if(!NET) return;
+  try{
+    if(!NET.isHost) netBroadcast({t:'bye', id:NET.myId});
+    else netBroadcast({t:'hostleft'});
+  }catch(e){}
+  try{ NET.peer.destroy(); }catch(e){}
+  NET=null;
+}
+
+/* ═══════════════════ RACE MODE ═══════════════════
+   Deliberately separate from the collection. Race finds do not fill topics
+   and race points are not sparks, because otherwise racing would become the
+   efficient way to finish the game and the slow loop would lose its purpose. */
+
+let R = null;   // active race state, or null
+
+/* A tiny deterministic generator. Two people typing the same code must get
+   exactly the same fifteen letters, so nothing here may use Math.random. */
+function seedRNG(str){
+  let h = 2166136261;
+  for(const ch of str.toUpperCase()){
+    h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619);
+  }
+  return function(){
+    h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+    return ((h >>> 0) % 100000) / 100000;
+  };
+}
+
+/* Fresh letters and fresh clues every minute, in every mode. A fixed cadence
+   means a 2-minute sprint and a race to 500 points feel like the same game,
+   and nobody can sit on one lucky tray. */
+const RACE_ROUND = 60;
+
+function raceLetters(code, n){
+  const rnd = seedRNG(code);
+  const pool = Object.entries(FREQ);
+  const total = pool.reduce((a,[,w])=>a+w, 0);
+  /* Draw vowels and consonants separately against a fixed ratio. Sampling the
+     plain frequency table gives vowel soup - about eight vowels in fifteen -
+     which looks right on paper and plays terribly. Five is close to what a
+     Scrabble rack gives you, and leaves room to actually build words. */
+  const VOWELS = n<=8 ? 3 : Math.round(n/3);
+  const isV = c=>'aeiou'.includes(c);
+  const vPool = pool.filter(([c])=>isV(c)), cPool = pool.filter(([c])=>!isV(c));
+  const draw = (list, k)=>{
+    const tot = list.reduce((a,[,w])=>a+w,0), got=[];
+    while(got.length<k){
+      let r = rnd()*tot;
+      for(const [ch,w] of list){ r-=w; if(r<=0){ got.push(ch); break; } }
+    }
+    return got;
+  };
+  const out = draw(vPool, VOWELS).concat(draw(cPool, n-VOWELS));
+  // deterministic shuffle so the vowels are not all at the front
+  for(let i=out.length-1;i>0;i--){
+    const j = Math.floor(rnd()*(i+1));
+    [out[i],out[j]] = [out[j],out[i]];
+  }
+  return out;
+}
+
+/* Pick clue words that can actually be spelled from this tray. Both players
+   run the same filter over the same word list in the same order, so the
+   targets match without anything being sent between them. */
+function raceClues(code, round, letters, n){
+  const rnd = seedRNG(code+':clue:'+round);
+  const have = count(letters.join(''));
+  /* Widen the net if a tray cannot supply three targets in the ideal length
+     band. About one tray in twenty is awkward, and a player should never get
+     fewer clues - and so fewer chances at double points - than their opponent. */
+  const pick = (lo,hi) => BANK_ALL.filter(w =>
+      w.letters>=lo && w.letters<=hi && canSpell(count(w.spell), have));
+  let able = pick(5,12);
+  if(able.length < n) able = pick(4,14);
+  if(able.length < n) able = pick(3,15);
+  const out=[];
+  const pool=able.slice();
+  while(out.length<n && pool.length){
+    const i=Math.floor(rnd()*pool.length);
+    out.push(pool.splice(i,1)[0]);
+  }
+  return out;
+}
+
+function newCode(){
+  const A='BCDFGHJKLMNPQRSTVWXYZ23456789';
+  let s=''; for(let i=0;i<5;i++) s+=A[Math.floor(Math.random()*A.length)];
+  return s;
+}
+
+function openRace(code){ $('race').className='show'; raceSetup();
+  if(code && $('rcode')) $('rcode').value=code.toUpperCase(); }
+function closeRace(){ $('race').className=''; R=null; netLeave(); }
+
+function raceSetup(){
+  const code = (R && R.code) || newCode();
+  netLeave();
+  $('race').innerHTML = `
+    <div class="sheet">
+      <h2>RACE</h2>
+      <div class="sub">Same code, same letters, same clues.</div>
+
+      <div class="field">
+        <label>your name</label>
+        <input id="rname" value="${netName()}" maxlength="14" style="letter-spacing:1px">
+      </div>
+
+      <div class="field">
+        <label>race code</label>
+        <input id="rcode" value="${code}" maxlength="8">
+        <div style="margin-top:8px"><button onclick="$('rcode').value=newCode()">new code</button></div>
+      </div>
+
+      <div class="field">
+        <label>how it ends</label>
+        <div class="opts" id="rmode">
+          <button data-m="t120" class="on">2 min</button>
+          <button data-m="t180">3 min</button>
+          <button data-m="t300">5 min</button>
+          <button data-m="p300">to 300</button>
+          <button data-m="p500">to 500</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>who is playing</label>
+        <div class="opts" id="rkind">
+          <button data-k="solo" class="on">just me</button>
+          <button data-k="duel">duel · 2</button>
+          <button data-k="party">party · up to 10</button>
+        </div>
+        <div class="sub" id="rkindnote" style="margin-top:8px">
+          Play alone. Share the code and compare scores afterwards.
+        </div>
+      </div>
+
+      <div class="gorow">
+        <button class="go" id="rgo" onclick="raceGo()">START</button>
+        <button class="go alt" id="rjoin" onclick="raceJoinScreen()">JOIN A ROOM</button>
+      </div>
+      <div class="sub" id="rerr" style="color:var(--bad);margin-top:10px"></div>
+      <div style="margin-top:16px"><button onclick="closeRace()">back to the game</button></div>
+    </div>`;
+
+  for(const id of ['rmode','rkind']){
+    const g=$(id);
+    g.onclick=e=>{
+      if(!e.target.dataset.m && !e.target.dataset.k) return;
+      [...g.children].forEach(b=>b.className=''); e.target.className='on';
+      if(id==='rkind'){
+        const k=e.target.dataset.k;
+        $('rkindnote').textContent =
+          k==='solo'  ? 'Play alone. Share the code and compare scores afterwards.' :
+          k==='duel'  ? 'Two players, live scores. You host; they join with your code.' :
+                        'Up to ten players, live scores. You host; they join with your code.';
+      }
+    };
+  }
+}
+
+function raceLink(code){
+  const base = location.protocol==='http:' || location.protocol==='https:'
+      ? location.origin + location.pathname
+      : 'https://YOUR-GITHUB-PAGES-URL/';
+  return `${base}?race=${code}`;
+}
+
+function raceKind(){ return [...$('rkind').children].find(b=>b.className==='on').dataset.k; }
+function raceMode(){ return [...$('rmode').children].find(b=>b.className==='on').dataset.m; }
+
+async function raceGo(){
+  localStorage.setItem('vocap-name', ($('rname').value||'player').trim() || 'player');
+  const kind=raceKind(), code=($('rcode').value||'').trim().toUpperCase() || newCode();
+  if(kind==='solo') return raceStart(raceMode());
+
+  const btn=$('rgo'); btn.textContent='opening room…'; btn.disabled=true;
+  const r=await netHost(code, kind==='duel'?MAX_DUEL:MAX_PARTY);
+  btn.disabled=false; btn.textContent='start';
+  if(r.error){
+    $('rerr').textContent = r.error + ' — starting a solo race instead';
+    return setTimeout(()=>raceStart(raceMode()), 1400);
+  }
+  raceLobby(code, raceMode());
+}
+
+function raceLobby(code, mode){
+  const label = {t120:'2 min',t180:'3 min',t300:'5 min',p300:'to 300',p500:'to 500'}[mode];
+  $('race').innerHTML=`
+    <div class="sheet">
+      <div class="sub">waiting room</div>
+      <h2>${code}</h2>
+      <div class="sub">Nobody starts until you do — ${label}.</div>
+      <div class="linkbox">
+        <div class="sub" style="margin:0 0 5px">share this link and they join in one click</div>
+        <code id="rlink">${raceLink(code)}</code>
+        <div style="margin-top:7px">
+          <button onclick="navigator.clipboard.writeText($('rlink').textContent);this.textContent='copied'">copy link</button>
+        </div>
+      </div>
+      <div id="rroster" class="roster"></div>
+      <div class="sub" id="rcount"></div>
+      <button class="go" onclick="raceHostStart('${mode}')">start the race</button>
+      <div style="margin-top:14px"><button onclick="netLeave();raceSetup()">cancel</button></div>
+    </div>`;
+  renderRoster();
+}
+
+function raceHostStart(mode){
+  if(!NET || !NET.isHost) return;      // only the host may begin
+  // reset everyone to zero so a rematch does not inherit the last race
+  NET.roster = NET.roster.map(r=>({name:r.name, score:0, words:0, done:false}));
+  netBroadcast({t:'start', mode});
+  netBroadcast({t:'roster', roster:NET.roster});
+  raceStart(mode, true);
+  netHeartbeat();
+}
+
+/* Without this the board only moves when somebody scores, so a quiet minute
+   looks like a broken connection. Two seconds is plenty for ten players. */
+function netHeartbeat(){
+  if(!NET || !NET.isHost) return;
+  netBroadcast({t:'roster', roster:NET.roster});
+  renderRoster();
+  if(R && !R.over) setTimeout(netHeartbeat, 2000);
+}
+
+/* Joining is its own screen. Reusing the host's code box meant typing your
+   friend's code into a field labelled "your room code", which read as though
+   you were about to host with it. */
+function raceJoinScreen(prefill){
+  netLeave();
+  $('race').innerHTML=`
+    <div class="sheet">
+      <h2>JOIN</h2>
+      <div class="sub">Ask the host for their code.</div>
+
+      <div class="field">
+        <label>your name</label>
+        <input id="jname" value="${netName()}" maxlength="14" style="letter-spacing:1px">
+      </div>
+
+      <div class="field">
+        <label>their room code</label>
+        <input id="jcode" value="${prefill||''}" maxlength="8" placeholder="ABC12">
+      </div>
+
+      <div class="gorow">
+        <button class="go" id="jgo" onclick="raceJoinGo()">JOIN</button>
+      </div>
+      <div class="sub" id="jerr" style="color:var(--bad);margin-top:10px"></div>
+      <div style="margin-top:16px"><button onclick="raceSetup()">back</button></div>
+    </div>`;
+  const f=$('jcode'); if(f && !prefill) f.focus();
+  if(f) f.onkeydown=e=>{ if(e.key==='Enter') raceJoinGo(); };
+}
+
+async function raceJoinGo(){
+  const code=($('jcode').value||'').trim().toUpperCase();
+  if(!code) { $('jerr').textContent='type the code you were given'; return; }
+  const jb=$('jgo'); jb.textContent='CONNECTING…'; jb.disabled=true;
+  localStorage.setItem('vocap-name', ($('jname').value||'player').trim() || 'player');
+  $('jerr').textContent='';
+  const r=await netJoin(code);
+  jb.textContent='JOIN'; jb.disabled=false;
+  if(r.error){ $('jerr').textContent=r.error; return; }
+  $('race').innerHTML=`
+    <div class="sheet">
+      <div class="sub">waiting room</div>
+      <h2>${code}</h2>
+      <div class="sub">You are in. The race begins when the host starts it.</div>
+      <div id="rroster" class="roster"></div>
+      <div class="sub" id="rcount"></div>
+      <div class="waitdot">waiting for the host…</div>
+      <div style="margin-top:14px"><button onclick="netLeave();raceJoinScreen()">leave</button></div>
+    </div>`;
+  renderRoster();
+}
+
+function raceStart(mode, online){
+  const code = (NET && NET.code) || ($('rcode') ? ($('rcode').value||'').trim().toUpperCase() : '') || newCode();
+  R={ code, mode, online:!!online,
+      limit: mode[0]==='t' ? +mode.slice(1) : 0,
+      target: mode[0]==='p' ? +mode.slice(1) : 0,
+      round:0, letters: raceLetters(code+':0',15), clues:[],
+      used:new Set(), found:[], score:0,
+      building:[], started:Date.now(), over:false };
+  R.clues = raceClues(R.code, 0, R.letters, 3);
+  raceRender();
+  raceTick();
+}
+
+function raceTick(){
+  if(!R || R.over) return;
+  const el=$('rclock'); if(!el) return;
+
+  /* Fresh letters on a fixed cadence. The round number is folded into the
+     seed rather than taken from the clock, so two players who started a few
+     seconds apart still see identical trays. */
+  const elapsed = Math.floor((Date.now()-R.started)/1000);
+  const round = Math.floor(elapsed / RACE_ROUND);
+  if(round !== R.round){
+    R.round = round;
+    R.letters = raceLetters(R.code+':'+round, 15);
+    R.clues   = raceClues(R.code, round, R.letters, 3);
+    R.building = [];
+    raceTray(); raceClueBar();
+    raceFlash('fresh letters');
+  }
+  const nextIn = RACE_ROUND - (elapsed % RACE_ROUND);
+  const nx=$('rnext');
+  if(nx) nx.textContent = `new letters in ${Math.floor(nextIn/60)}:${String(nextIn%60).padStart(2,'0')}`;
+
+  if(R.limit){
+    const left=Math.max(0, R.limit-Math.floor((Date.now()-R.started)/1000));
+    el.textContent=`${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}`;
+    el.className = 'clock' + (left<=15?' low':'');
+    if(left<=0) return raceEnd();
+  }else{
+    const up=Math.floor((Date.now()-R.started)/1000);
+    el.textContent=`${Math.floor(up/60)}:${String(up%60).padStart(2,'0')}`;
+    el.className='clock';
+  }
+  setTimeout(raceTick,250);
+}
+
+function raceRender(){
+  const goal = R.limit ? `first to run out of time` : `first to ${R.target} points`;
+  $('race').innerHTML=`
+    <div class="sheet">
+      <div class="sub">code <b>${R.code}</b> · ${goal}</div>
+      <div id="rclock" class="clock">–</div>
+      <div class="tally"><b id="rscore">${R.score}</b> points · <b>${R.found.length}</b> words</div>
+      <div class="tally" id="rnext" style="font-size:12px"></div>
+      <div id="rroster" class="roster"></div>
+      <div id="rclues"></div>
+      <div id="rtray" class="tray"></div>
+      <div id="rword" class="wordtray"></div>
+      <div style="margin-top:10px">
+        <button onclick="raceSubmit()">Submit</button>
+        <button onclick="R.building=[];raceTray()">Clear</button>
+        <button onclick="raceEnd()">give up</button>
+      </div>
+      <div id="rfound" class="found"></div>
+    </div>`;
+  raceTray(); raceClueBar(); renderRoster();
+}
+
+/* Solving a clue is worth double, so hunting the targets beats grinding
+   short words - which is what makes it a race rather than a typing test. */
+function raceClueBar(){
+  const el=$('rclues'); if(!el) return;
+  /* Both languages, always. A room may hold Thai and English speakers at once,
+     and everyone must be able to read the same clue. */
+  el.innerHTML = R.clues.map(w=>{
+    const got = R.used.has(w.spell);
+    const th  = w.translations?.th?.definition || '';
+    if(got) return `<div class="clueline done">✔ <b>${w.word}</b> — solved</div>`;
+    return `<div class="clueline">🔎 ${w.definition}`
+         + `<span class="x2">×2</span>`
+         + (th?`<div class="cl-th">${th}</div>`:'')
+         + `<div class="cl-n">${w.letters} letters</div></div>`;
+  }).join('');
+}
+
+function raceTray(){
+  const used={};
+  R.building.forEach(b=>used[b.from]=true);
+  $('rtray').innerHTML = R.letters.map((ch,i)=>
+    `<div class="slot filled ${used[i]?'used':''}" onclick="racePick(${i})">${ch}</div>`).join('');
+  $('rword').innerHTML = R.building.length
+    ? R.building.map(b=>`<div class="slot filled">${b.ch}</div>`).join('')
+    : `<div style="color:var(--dim);font-size:13px;padding:10px">tap or type letters</div>`;
+}
+
+function racePick(i){
+  if(R.building.some(b=>b.from===i)) return;
+  R.building.push({ch:R.letters[i],from:i}); raceTray();
+}
+
+function raceSubmit(){
+  if(!R || R.over) return;
+  const word=R.building.map(b=>b.ch).join('').toLowerCase();
+  R.building=[];
+  if(word.length<3) return raceTray();
+  if(R.used.has(word)) { raceFlash('already found'); return raceTray(); }
+  const known = BANK_ALL.some(w=>w.spell===word) || (DEFS && word in DEFS);
+  if(!known) { raceFlash('not a word'); return raceTray(); }
+  R.used.add(word);
+  const isClue = R.clues.some(c=>c.spell===word);
+  const pts = sparksFor(word.length) * (isClue?2:1);
+  R.score+=pts; R.found.push({word,pts});
+  $('rscore').textContent=R.score;
+  $('rfound').innerHTML=R.found.slice().reverse()
+      .map(f=>`<span>${f.word} <b style="color:var(--glow)">+${f.pts}</b></span>`).join('');
+  raceTray(); raceClueBar(); netSendScore();
+  if(isClue) raceFlash('clue solved · double points');
+  if(R.target && R.score>=R.target) raceEnd();
+}
+
+function raceFlash(msg){
+  const el=$('rfound'); if(!el) return;
+  const n=document.createElement('span');
+  n.textContent=msg; n.style.opacity='.6';
+  el.prepend(n); setTimeout(()=>n.remove(),1200);
+}
+
+function raceEnd(){
+  if(!R || R.over) return;
+  R.over=true;
+  netSendScore();
+  const secs=Math.floor((Date.now()-R.started)/1000);
+  const best=R.found.slice().sort((a,b)=>b.pts-a.pts)[0];
+  const share=`VOCAP RACE · ${R.code}\n${R.score} points · ${R.found.length} words`
+            + `\nbest: ${best?best.word.toUpperCase()+' +'+best.pts:'—'}`
+            + `\ntime: ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`
+            + `\ntrays: ${R.round+1}`;
+  $('race').innerHTML=`
+    <div class="sheet">
+      ${NET ? '<div class="sub">final standings</div><div id="rboard" class="board"></div>'
+            : `<h2>${R.score}</h2><div class="sub">${R.found.length} words · code ${R.code}</div>`}
+
+      <div class="sub" style="margin-top:14px">your words</div>
+      <div class="found">${R.found.slice().sort((a,b)=>b.pts-a.pts)
+          .map(f=>`<span>${f.word} <b style="color:var(--glow)">+${f.pts}</b></span>`).join('')
+          || '<span style="opacity:.5">none this time</span>'}</div>
+
+      <div class="share">${share}</div>
+      <button onclick="navigator.clipboard.writeText(${JSON.stringify(share)});this.textContent='copied'">copy result</button>
+
+      <div style="margin-top:18px">
+        <button onclick="raceSetup()">race again</button>
+        <button onclick="closeRace()">back to the game</button>
+      </div>
+    </div>`;
+  renderBoard();
+  // keep the standings updating while slower players finish
+  if(NET) { const t=setInterval(()=>{ if($('rboard')) renderBoard(); else clearInterval(t); }, 1000); }
+}
+
+/* The finishing table: everyone in order, with the gap to first so a close
+   race reads as close. */
+function renderBoard(){
+  const el=$('rboard'); if(!el || !NET) return;
+  const rows=NET.roster.slice().sort((a,b)=>b.score-a.score);
+  const top=rows.length?rows[0].score:0;
+  const medal=['🥇','🥈','🥉'];
+  el.innerHTML = rows.map((r,i)=>{
+    const gap = i===0 ? '' : `−${top-r.score}`;
+    return `<div class="brow${r.name===netName()?' me':''}">
+      <span class="pos">${medal[i]||(i+1)+'.'}</span>
+      <span class="nm">${r.name}${r.done?'':' <i>still going</i>'}</span>
+      <span class="pts"><b>${r.score}</b><small>${r.words}w ${gap}</small></span>
+    </div>`;
+  }).join('');
+}
+
+$('racebtn').onclick=()=>openRace();
+
+/* A link like  .../?race=KTQ7M  opens straight into the join screen with the
+   code already filled in. On stream you paste one link and nobody has to type
+   anything or install anything - the web build is the whole game. */
+(function deepLink(){
+  const code=new URLSearchParams(location.search).get('race');
+  if(!code) return;
+  setTimeout(()=>{
+    $('race').className='show';
+    raceJoinScreen(code.toUpperCase());
+  }, 400);
+})();
+
+/* typing works in a race too */
+document.addEventListener('keydown',e=>{
+  if(!R || R.over || $('race').className!=='show') return;
+  if(e.key==='Enter'){ raceSubmit(); return; }
+  if(e.key==='Escape'){ R.building=[]; raceTray(); return; }
+  if(e.key==='Backspace'){ R.building.pop(); raceTray(); return; }
+  const ch=e.key.toLowerCase();
+  if(!/^[a-z]$/.test(ch)) return;
+  const i=R.letters.findIndex((L,idx)=>L===ch && !R.building.some(b=>b.from===idx));
+  if(i>=0){ R.building.push({ch,from:i}); raceTray(); }
+}, true);
+
+/* ---------------- input ---------------- */
+document.addEventListener('keydown',e=>{
+  if($('race').className==='show') return;
+  if(($('overlay').className==='show'||$('popup').className==='show') && e.key!=='Escape') return;
+  // A focused button would otherwise fire on Enter or Space as well.
+  if(document.activeElement && document.activeElement.tagName==='BUTTON'
+     && document.activeElement.id!=='submit') dropFocus();
+  noteActivity();
+  if(e.key==='Enter'){submit();return}
+  if(e.key==='Escape'){
+    if($('popup').className==='show'){closePop();return}
+    if($('overlay').className==='show'){closePanel();return}
+    building=[];renderTray();renderWordTray();return}
+  if(e.key==='Backspace'){building.pop()}
+  else if(e.key===' '){building.push({ch:' ',from:null});e.preventDefault()}   // free space
+  else if(/^[a-zA-Z']$/.test(e.key)){
+    const ch=e.key.toLowerCase();
+    const slot=claimSlot(ch);
+    if(slot===null){flash(`no free "${ch}" in the tray`,'bad');return}
+    speakLetter(ch);
+    building.push({ch,from:slot});
+  }
+  else return;
+  $('card').className='';
+  flash('');
+  renderTray(); renderWordTray();
+});
+for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit','racebtn']){
+  const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
+$('c-close').onclick=()=>{$('card').className='';};
+$('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
+$('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
+$('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};
+$('submit').onclick=()=>submit();
+$('clear').onclick=()=>{building=[];renderTray();renderWordTray()};
+/* 5 / 10 / 20 minutes: some players want a slow ambient trickle, others a
+   livelier tray. Idle-pause still protects anyone who steps away. */
+const IVLS=[5,10,20]; let ivlIdx=0;
+$('ivl').onclick=()=>{
+  ivlIdx=(ivlIdx+1)%IVLS.length;
+  INTERVAL_MS=IVLS[ivlIdx]*60*1000;
+  $('ivl').textContent='⏱ '+IVLS[ivlIdx]+' min';
+  scheduleDrop();
+};
+$('speed').onclick=()=>{fast=!fast;$('speed').textContent='⚡ fast mode: '+(fast?'ON':'OFF');scheduleDrop()};
+
+/* Skip to the next run: for when the tray is full, the clue won't crack, and
+   waiting out Last Call is just dead time. Leftover letters still pay out. */
+$('skip').onclick=()=>{
+  if(!confirm('Start a fresh run? Leftover letters become sparks and new clues are drawn.')) return;
+  sparks+=pool.length;
+  snoozeUnsolved(); save();
+  startCycle();
+  flash('new run started','');
+};
+function redrawOpenCards(){
+  if(shownCard){
+    if(shownCard.w) showCard(shownCard.w, shownCard.gain);
+    else showDictCard(shownCard.word);
+  }
+  if(shownPop){
+    if(shownPop.w){ const w=shownPop.w; openPop(cardHTML(w,0));
+      const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})}; }
+    else openPop(dictCardHTML(shownPop.word),'dict');
+  }
+}
+$('lang').onclick=()=>{
+  lang = lang==='th' ? 'en' : 'th';
+  $('lang').textContent='clue: '+lang.toUpperCase();
+  renderClue();
+  redrawOpenCards();          // whatever is on screen switches language with you
+};
+/* The promotion list: dictionary words this player forms most often are the
+   best candidates to become curated entries (hand-written definition, fun
+   fact, Thai). This is how the 966 grows - driven by real play. */
+$('promote').onclick=()=>{
+  const rows=Object.entries(inkTally).sort((a,b)=>b[1]-a[1]).slice(0,25);
+  if(!rows.length){flash('no dictionary words formed yet','');return}
+  const list=rows.map(([w,n])=>`${w} (${n})`).join(', ');
+  $('c-word').textContent='Promotion candidates';
+  $('c-thword').textContent='';
+  $('c-def').textContent='Dictionary words you form most often. These are the best candidates to hand-write into the curated collection.';
+  $('c-thdef').textContent=''; $('c-hist').textContent=list;
+  $('c-thhist').textContent=''; $('c-sent').textContent='';
+  $('c-meta').textContent=`${Object.keys(inkTally).length} distinct dictionary words formed · copy this list into Notion`;
+  $('card').className='show';
+};
+$('reset').onclick=()=>{if(confirm('Wipe save?')){localStorage.removeItem('vocap');location.reload()}};
+
+/* ---- Starter Pack: the ten 2-letter words can't be spelled (3-letter
+   minimum), so they arrive as a daily gift. Doubles as the tutorial and
+   completes a sub-list on day 10, which triggers the first tray upgrade. ---- */
+function starterGift(){
+  const today=new Date().toISOString().slice(0,10);
+  if(lastGift===today) return;                       // one per day
+  const gifts=BANK_ALL.filter(w=>w.starter&&!seen.has(w.id));
+  if(!gifts.length) return;
+  const w=gifts[0];
+  seen.add(w.id); lastGift=today; starterDay++; sparks+=10; save();
+  setTimeout(()=>{ speakWord(w.word); showCard(w,10);
+    flash(`🎁 Starter Pack gift ${starterDay}/10 — "${w.word}"`,'good'); }, 600);
+}
+
+/* ---------------- boot ---------------- */
+let BANK_ALL=[];
+async function loadJSON(...paths){
+  let last;
+  for(const path of paths){
+    try{
+      const r = await fetch(path);
+      if(r.ok) return await r.json();
+      last = new Error(r.status+' '+path);
+    }catch(e){ last=e; }
+  }
+  throw last;
+}
+
+Promise.all([
+  /* Look beside index.html first. That is where the data lives in a packaged
+     build; ../content/ is only the layout when serving the repo root in a
+     browser during development, so it is the fallback rather than the rule. */
+  loadJSON('words.json','../content/words.json'),
+  loadJSON('dictionary.json','../content/dictionary.json').catch(()=>null)
+]).then(([d,dict])=>{
+  BANK_ALL=d.words;
+  // formable = non-starter words (rude words ARE formable, never seeded)
+  BANK=d.words.filter(w=>!w.starter);
+  $('total').textContent=BANK.length;
+  if(dict){ for(const k in dict.shelves) for(const w of dict.shelves[k]) DICT.add(w);
+            DEFS=dict.defs||{}; }
+  load(); startCycle(); starterGift();
+}).catch(()=>{
+  $('msg').textContent='Could not load words.json — it must sit beside index.html';
+  $('msg').className='bad';
+});
+</script>
+</body>
+</html>
