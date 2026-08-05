@@ -101,28 +101,21 @@
     #wordtray .wslot{width:min(40px,9.5vw);height:min(48px,12vw);font-size:min(20px,5vw)}
     #wordtray{gap:4px;padding:8px 10px}
     #actions button{padding:14px 32px;font-size:16px}
-    /* In a narrow always-on-top window every wrapped row steals space from the
-     tray, so only mid-play controls stay out. The rest live behind the gear. */
-  /* A single segmented strip rather than separate buttons, so the controls
+    /* A single segmented strip rather than separate buttons, so the controls
      read as one object instead of six competing ones. */
-  #controls{display:inline-flex;gap:0;flex-wrap:wrap;justify-content:center;
+  /* Everything on show. Hiding half the controls behind a gear saved a row and
+     cost the player the ability to see, at a glance, what language the clues
+     are in - which is the setting they most need to know. */
+  #controls{display:inline-flex;gap:1px;flex-wrap:wrap;justify-content:center;
             margin:8px auto 0;border:1px solid #5a4835;border-radius:10px;
-            overflow:hidden;background:var(--tile)}
-  #controls button{font-size:12px;padding:7px 12px;border:none;border-radius:0;
-                   background:var(--tile);color:var(--tile-ink);
-                   border-right:1px solid rgba(58,46,36,.18)}
-  #controls button:last-child{border-right:none}
+            overflow:hidden;background:#5a4835;max-width:560px}
+  #controls button{font-size:12px;padding:7px 11px;border:none;border-radius:0;
+                   background:var(--tile);color:var(--tile-ink);flex:1 1 auto;
+                   white-space:nowrap}
   #controls button:hover{background:#fffaf0}
   #controls button.on{background:var(--glow);color:#fff}
-  #settings{display:none;gap:0;flex-wrap:wrap;justify-content:center;
-            margin:-1px auto 8px;border:1px solid #5a4835;border-top:none;
-            border-radius:0 0 10px 10px;overflow:hidden;background:var(--tile)}
-  #settings.show{display:flex}
-  #settings button{font-size:11px;padding:6px 11px;border:none;border-radius:0;
-                   background:var(--tile);color:var(--tile-ink);
-                   border-right:1px solid rgba(58,46,36,.18)}
-  #settings button:last-child{border-right:none}
-  #settings button:hover{background:#fffaf0}
+
+
   #bar{letter-spacing:.2px;
   gap:12px;font-size:12px}
     #bar button{padding:8px 12px}
@@ -138,28 +131,13 @@
   #msg.good{color:var(--good)} #msg.bad{color:#e07a7a}
 
   /* --- status bar --- */
-  /* In a narrow always-on-top window every wrapped row steals space from the
-     tray, so only mid-play controls stay out. The rest live behind the gear. */
   /* A single segmented strip rather than separate buttons, so the controls
      read as one object instead of six competing ones. */
-  #controls{display:inline-flex;gap:0;flex-wrap:wrap;justify-content:center;
-            margin:8px auto 0;border:1px solid #5a4835;border-radius:10px;
-            overflow:hidden;background:var(--tile)}
-  #controls button{font-size:12px;padding:7px 12px;border:none;border-radius:0;
-                   background:var(--tile);color:var(--tile-ink);
-                   border-right:1px solid rgba(58,46,36,.18)}
-  #controls button:last-child{border-right:none}
+
   #controls button:hover{background:#fffaf0}
   #controls button.on{background:var(--glow);color:#fff}
-  #settings{display:none;gap:0;flex-wrap:wrap;justify-content:center;
-            margin:-1px auto 8px;border:1px solid #5a4835;border-top:none;
-            border-radius:0 0 10px 10px;overflow:hidden;background:var(--tile)}
-  #settings.show{display:flex}
-  #settings button{font-size:11px;padding:6px 11px;border:none;border-radius:0;
-                   background:var(--tile);color:var(--tile-ink);
-                   border-right:1px solid rgba(58,46,36,.18)}
-  #settings button:last-child{border-right:none}
-  #settings button:hover{background:#fffaf0}
+
+
   #bar{display:flex;gap:22px;color:var(--dim);font-size:13px;align-items:center;flex-wrap:wrap;justify-content:center}
   #bar b{color:var(--text)}
   button{background:var(--panel);color:var(--text);border:1px solid #5a4835;border-radius:6px;
@@ -381,20 +359,17 @@
   <button id="ivl" title="how often a letter drops">⏱ 5 min</button>
   <button id="speed" title="drop a letter every 2 seconds">⚡ fast: OFF</button>
   <button id="skip" title="end this run early">⏭ next</button>
-  <button id="book" title="your collection">📚</button>
-  <button id="dictbtn" title="dictionary">📖</button>
-  <button id="gear" title="settings">⚙</button>
-</div>
-
-</div>
-<button id="racebtn">🏁 &nbsp;PLAY TOGETHER</button>
-<div style="text-align:center"><div id="settings">
-  <button id="lang">clue: TH</button>
-  <button id="say">🔊 words: ON</button>
-  <button id="sayl">🔤 letters: OFF</button>
-  <button id="promote">📈 top words</button>
-  <button id="reset">reset save</button>
+  <button id="lang" title="clue language">clue: TH</button>
+  <button id="say" title="speak each word found">🔊 words: ON</button>
+  <button id="sayl" title="speak each letter tapped">🔤 letters: OFF</button>
+  <button id="book" title="your collection">📚 collection</button>
+  <button id="dictbtn" title="dictionary">📖 dictionary</button>
+  <button id="promote" title="most-formed dictionary words">📈 top words</button>
+  <button id="reset" title="wipe progress">reset</button>
 </div></div>
+
+<button id="racebtn">🏁 &nbsp;PLAY TOGETHER</button>
+
 
 <div id="clue"></div>
 <div id="tray"></div>
@@ -1747,11 +1722,10 @@ document.addEventListener('keydown',e=>{
   flash('');
   renderTray(); renderWordTray();
 });
-for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit']){
+for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit','racebtn']){
   const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
-$('gear').onclick=()=>{ const s=$('settings'); s.className = s.className==='show'?'':'show'; };
 $('c-close').onclick=()=>{$('card').className='';};
 $('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
 $('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
