@@ -69,7 +69,15 @@
     #wordtray .wslot{width:min(40px,9.5vw);height:min(48px,12vw);font-size:min(20px,5vw)}
     #wordtray{gap:4px;padding:8px 10px}
     #actions button{padding:14px 32px;font-size:16px}
-    #bar{gap:12px;font-size:12px}
+    /* In a narrow always-on-top window every wrapped row steals space from the
+     tray, so only mid-play controls stay out. The rest live behind the gear. */
+  #controls{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:8px 0 4px}
+  #controls button{font-size:12px;padding:5px 10px}
+  #settings{display:none;gap:5px;flex-wrap:wrap;justify-content:center;
+            margin:0 0 8px;padding:8px;background:rgba(0,0,0,.22);border-radius:10px}
+  #settings.show{display:flex}
+  #settings button{font-size:11px;padding:4px 9px}
+  #bar{gap:12px;font-size:12px}
     #bar button{padding:8px 12px}
     h1{font-size:13px}
     #clue{font-size:14px}
@@ -83,6 +91,14 @@
   #msg.good{color:var(--good)} #msg.bad{color:#e07a7a}
 
   /* --- status bar --- */
+  /* In a narrow always-on-top window every wrapped row steals space from the
+     tray, so only mid-play controls stay out. The rest live behind the gear. */
+  #controls{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:8px 0 4px}
+  #controls button{font-size:12px;padding:5px 10px}
+  #settings{display:none;gap:5px;flex-wrap:wrap;justify-content:center;
+            margin:0 0 8px;padding:8px;background:rgba(0,0,0,.22);border-radius:10px}
+  #settings.show{display:flex}
+  #settings button{font-size:11px;padding:4px 9px}
   #bar{display:flex;gap:22px;color:var(--dim);font-size:13px;align-items:center;flex-wrap:wrap;justify-content:center}
   #bar b{color:var(--text)}
   button{background:var(--panel);color:var(--text);border:1px solid #555;border-radius:6px;
@@ -221,15 +237,22 @@
   <span>tray <b id="traysize">8</b></span>
   <span>found <b id="foundcount">0</b>/<b id="total">?</b></span>
   <span>📖 <b id="inkcount">0</b></span>
-  <span>next letter <b id="timer">–</b></span>
-  <button id="ivl">⏱ 5 min</button>
-  <button id="speed">⚡ fast mode: OFF</button>
-  <button id="skip">⏭ next run</button>
+  <span>next <b id="timer">–</b></span>
+</div>
+
+<div id="controls">
+  <button id="ivl" title="how often a letter drops">⏱ 5 min</button>
+  <button id="speed" title="drop a letter every 2 seconds">⚡ fast: OFF</button>
+  <button id="skip" title="end this run early">⏭ next</button>
+  <button id="book" title="your collection">📚</button>
+  <button id="dictbtn" title="dictionary">📖</button>
+  <button id="gear" title="settings">⚙</button>
+</div>
+
+<div id="settings">
   <button id="lang">clue: TH</button>
   <button id="say">🔊 words: ON</button>
   <button id="sayl">🔤 letters: OFF</button>
-  <button id="book">📚 collection</button>
-  <button id="dictbtn">📖 dictionary</button>
   <button id="promote">📈 top words</button>
   <button id="reset">reset save</button>
 </div>
@@ -943,6 +966,7 @@ for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','prom
   const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
+$('gear').onclick=()=>{ const s=$('settings'); s.className = s.className==='show'?'':'show'; };
 $('c-close').onclick=()=>{$('card').className='';};
 $('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
 $('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
@@ -1019,9 +1043,24 @@ function starterGift(){
 
 /* ---------------- boot ---------------- */
 let BANK_ALL=[];
+async function loadJSON(...paths){
+  let last;
+  for(const path of paths){
+    try{
+      const r = await fetch(path);
+      if(r.ok) return await r.json();
+      last = new Error(r.status+' '+path);
+    }catch(e){ last=e; }
+  }
+  throw last;
+}
+
 Promise.all([
-  fetch('../content/words.json').then(r=>r.json()),
-  fetch('../content/dictionary.json').then(r=>r.json()).catch(()=>null)   // optional
+  /* Look beside index.html first. That is where the data lives in a packaged
+     build; ../content/ is only the layout when serving the repo root in a
+     browser during development, so it is the fallback rather than the rule. */
+  loadJSON('words.json','../content/words.json'),
+  loadJSON('dictionary.json','../content/dictionary.json').catch(()=>null)
 ]).then(([d,dict])=>{
   BANK_ALL=d.words;
   // formable = non-starter words (rude words ARE formable, never seeded)
@@ -1031,7 +1070,7 @@ Promise.all([
             DEFS=dict.defs||{}; }
   load(); startCycle(); starterGift();
 }).catch(()=>{
-  $('msg').textContent='Could not load ../content/words.json — run the server from the repo root';
+  $('msg').textContent='Could not load words.json — it must sit beside index.html';
   $('msg').className='bad';
 });
 </script>
