@@ -1088,7 +1088,7 @@ $('dictbtn').onclick=showDictionary;
    only to the host. Words are never sent - only names and totals. */
 
 const MAX_DUEL = 2, MAX_PARTY = 10;
-let NET = null;   // {peer, conns, isHost, roster, code, cap}
+let NET = null;   // {peer, conns, isHost, roster, code, cap, myId}
 
 function loadPeerJS(){
   if(window.Peer) return Promise.resolve(true);
@@ -1111,29 +1111,54 @@ function netBroadcast(msg){
   for(const c of NET.conns) { try{ c.send(msg); }catch(e){} }
 }
 
-function netSendScore(){
-  if(!NET || !R) return;
-  const row={t:'score', name:netName(), score:R.score, words:R.found.length,
-             done:!!R.over};
-  if(NET.isHost){ netRoster(netName(), row); netBroadcast({t:'roster', roster:NET.roster}); }
-  else netBroadcast(row);
-}
-
-function netRoster(name, row){
+/* Every player is identified by their peer id, never by their name. Two people
+   called "mango" are two players; someone who leaves and rejoins is a new one.
+   Keying on name was why a father and son could not sit in the same room. */
+function netUpsert(id, name, row){
   if(!NET) return;
-  const i=NET.roster.findIndex(r=>r.name===name);
-  const entry={name, score:row.score, words:row.words, done:row.done};
-  if(i>=0) NET.roster[i]=entry; else NET.roster.push(entry);
+  const i = NET.roster.findIndex(r => r.id === id);
+  const entry = {id, name, score:row.score|0, words:row.words|0, done:!!row.done};
+  if(i >= 0) NET.roster[i] = entry; else NET.roster.push(entry);
   NET.roster.sort((a,b)=>b.score-a.score);
   renderRoster();
+}
+
+function netRemove(id){
+  if(!NET) return;
+  NET.roster = NET.roster.filter(r => r.id !== id);
+  renderRoster();
+  if(NET.isHost) netBroadcast({t:'roster', roster:NET.roster});
+}
+
+function netSendScore(){
+  if(!NET || !R) return;
+  const row = {t:'score', id:NET.myId, name:netName(),
+               score:R.score, words:R.found.length, done:!!R.over};
+  if(NET.isHost){
+    netUpsert(NET.myId, netName(), row);
+    netBroadcast({t:'roster', roster:NET.roster});
+  } else {
+    netBroadcast(row);
+  }
+}
+
+/* Names are not unique, so if two players share one we number them. Without
+   this a room of "player, player, player" is unreadable. */
+function displayNames(rows){
+  const seen={};
+  return rows.map(r=>{
+    seen[r.name] = (seen[r.name]||0)+1;
+    return {...r, label: seen[r.name]>1 ? `${r.name} (${seen[r.name]})` : r.name};
+  });
 }
 
 function renderRoster(){
   const el=$('rroster'); if(!el || !NET) return;
   const racing = !!(R && !R.over);
-  el.innerHTML = NET.roster.map((r,i)=>
-    `<div class="rrow${r.name===netName()?' me':''}">
-       <span>${racing?(i+1)+'. ':'· '}${r.name}</span>
+  const rows = displayNames(NET.roster);
+  el.innerHTML = rows.map((r,i)=>
+    `<div class="rrow${r.id===NET.myId?' me':''}">
+       <span>${racing?(i+1)+'. ':'· '}${r.label}</span>
        ${racing ? `<span><b>${r.score}</b> · ${r.words}w ${r.done?'✔':''}</span>`
                 : `<span class="sub" style="font-size:11px">ready</span>`}
      </div>`).join('') || '<div class="sub">nobody here yet…</div>';
@@ -1147,20 +1172,23 @@ async function netHost(code, cap){
   return new Promise(res=>{
     let peer;
     try{ peer = new Peer('vocap-'+code); }catch(e){ return res({error:'could not start a room'}); }
-    peer.on('open', ()=>{
-      NET={peer, conns:[], isHost:true, roster:[], code, cap};
-      netRoster(netName(), {score:0, words:0, done:false});
+    peer.on('open', id=>{
+      NET={peer, conns:[], isHost:true, roster:[], code, cap, myId:id};
+      netUpsert(id, netName(), {score:0, words:0, done:false});
       peer.on('connection', c=>{
-        if(NET.conns.length >= cap-1){ try{c.send({t:'full'});c.close();}catch(e){} return; }
+        if(NET.roster.length >= cap){ try{c.send({t:'full'});setTimeout(()=>c.close(),200);}catch(e){} return; }
         NET.conns.push(c);
         c.on('data', m=>{
-          if(m.t==='score'){ netRoster(m.name, m); netBroadcast({t:'roster', roster:NET.roster}); }
-          if(m.t==='bye'){ NET.roster=NET.roster.filter(r=>r.name!==m.name); renderRoster();
-                           netBroadcast({t:'roster', roster:NET.roster}); }
-          if(m.t==='hello'){ netRoster(m.name, {score:0,words:0,done:false});
+          if(m.t==='hello'){ c.__pid=m.id; netUpsert(m.id, m.name, {score:0,words:0,done:false});
                              netBroadcast({t:'roster', roster:NET.roster}); }
+          if(m.t==='score'){ c.__pid=m.id; netUpsert(m.id, m.name, m);
+                             netBroadcast({t:'roster', roster:NET.roster}); }
+          if(m.t==='bye'){ netRemove(m.id); }
         });
-        c.on('close', ()=>{ NET.conns=NET.conns.filter(x=>x!==c); });
+        const gone = ()=>{ NET.conns=NET.conns.filter(x=>x!==c);
+                           if(c.__pid) netRemove(c.__pid); };
+        c.on('close', gone);
+        c.on('error', gone);
       });
       res({ok:true});
     });
@@ -1176,30 +1204,44 @@ async function netJoin(code){
   const ok=await loadPeerJS();
   if(!ok) return {error:'could not reach the matchmaking service'};
   return new Promise(res=>{
-    let peer;
-    try{ peer = new Peer(); }catch(e){ return res({error:'could not connect'}); }
-    peer.on('open', ()=>{
+    let peer, settled=false;
+    const done=v=>{ if(!settled){ settled=true; res(v); } };
+    try{ peer = new Peer(); }catch(e){ return done({error:'could not connect'}); }
+    peer.on('open', myId=>{
       const c=peer.connect('vocap-'+code, {reliable:true});
       c.on('open', ()=>{
-        NET={peer, conns:[c], isHost:false, roster:[], code, cap:MAX_PARTY};
-        c.send({t:'hello', name:netName()});
-        res({ok:true});
+        NET={peer, conns:[c], isHost:false, roster:[], code, cap:MAX_PARTY, myId};
+        c.send({t:'hello', id:myId, name:netName()});
+        done({ok:true});
       });
       c.on('data', m=>{
         if(m.t==='roster'){ NET.roster=m.roster; renderRoster(); }
-        if(m.t==='ping'){ netSendScore(); }
         if(m.t==='start'){ raceStart(m.mode, true); }
-        if(m.t==='full'){ res({error:'that room is full'}); }
+        if(m.t==='full'){ done({error:'that room is full'}); }
+        if(m.t==='hostleft'){ raceHostGone(); }
       });
-      c.on('error', ()=>res({error:'could not reach that room'}));
-      setTimeout(()=>res({error:'no room with that code'}), 9000);
+      c.on('close', ()=>{ if(NET && !NET.isHost) raceHostGone(); });
+      c.on('error', ()=>done({error:'could not reach that room'}));
+      setTimeout(()=>done({error:'no room with that code'}), 9000);
     });
-    peer.on('error', ()=>res({error:'could not connect'}));
+    peer.on('error', ()=>done({error:'could not connect'}));
   });
 }
 
+function raceHostGone(){
+  const el=$('rroster');
+  if(el) el.insertAdjacentHTML('beforebegin',
+    '<div class="sub" style="color:var(--bad)">the host has left the room</div>');
+}
+
+/* Announce departure so the roster does not keep a ghost. The host also
+   catches the connection closing, so a crash is handled too. */
 function netLeave(){
   if(!NET) return;
+  try{
+    if(!NET.isHost) netBroadcast({t:'bye', id:NET.myId});
+    else netBroadcast({t:'hostleft'});
+  }catch(e){}
   try{ NET.peer.destroy(); }catch(e){}
   NET=null;
 }
@@ -1334,7 +1376,7 @@ function raceSetup(){
 
       <div class="gorow">
         <button class="go" id="rgo" onclick="raceGo()">START</button>
-        <button class="go alt" id="rjoin" onclick="raceJoinPrompt()">JOIN A ROOM</button>
+        <button class="go alt" id="rjoin" onclick="raceJoinScreen()">JOIN A ROOM</button>
       </div>
       <div class="sub" id="rerr" style="color:var(--bad);margin-top:10px"></div>
       <div style="margin-top:16px"><button onclick="closeRace()">back to the game</button></div>
@@ -1422,15 +1464,45 @@ function netHeartbeat(){
   if(R && !R.over) setTimeout(netHeartbeat, 2000);
 }
 
-async function raceJoinPrompt(){
-  const code=($('rcode').value||'').trim().toUpperCase();
-  if(!code) { $('rerr').textContent='type the code you were given first'; return; }
-  const jb=$('rjoin'); if(jb){ jb.textContent='CONNECTING…'; jb.disabled=true; }
-  localStorage.setItem('vocap-name', ($('rname').value||'player').trim() || 'player');
-  $('rerr').textContent='connecting…';
+/* Joining is its own screen. Reusing the host's code box meant typing your
+   friend's code into a field labelled "your room code", which read as though
+   you were about to host with it. */
+function raceJoinScreen(prefill){
+  netLeave();
+  $('race').innerHTML=`
+    <div class="sheet">
+      <h2>JOIN</h2>
+      <div class="sub">Ask the host for their code.</div>
+
+      <div class="field">
+        <label>your name</label>
+        <input id="jname" value="${netName()}" maxlength="14" style="letter-spacing:1px">
+      </div>
+
+      <div class="field">
+        <label>their room code</label>
+        <input id="jcode" value="${prefill||''}" maxlength="8" placeholder="ABC12">
+      </div>
+
+      <div class="gorow">
+        <button class="go" id="jgo" onclick="raceJoinGo()">JOIN</button>
+      </div>
+      <div class="sub" id="jerr" style="color:var(--bad);margin-top:10px"></div>
+      <div style="margin-top:16px"><button onclick="raceSetup()">back</button></div>
+    </div>`;
+  const f=$('jcode'); if(f && !prefill) f.focus();
+  if(f) f.onkeydown=e=>{ if(e.key==='Enter') raceJoinGo(); };
+}
+
+async function raceJoinGo(){
+  const code=($('jcode').value||'').trim().toUpperCase();
+  if(!code) { $('jerr').textContent='type the code you were given'; return; }
+  const jb=$('jgo'); jb.textContent='CONNECTING…'; jb.disabled=true;
+  localStorage.setItem('vocap-name', ($('jname').value||'player').trim() || 'player');
+  $('jerr').textContent='';
   const r=await netJoin(code);
-  if(jb){ jb.textContent='JOIN A ROOM'; jb.disabled=false; }
-  if(r.error){ $('rerr').textContent=r.error; return; }
+  jb.textContent='JOIN'; jb.disabled=false;
+  if(r.error){ $('jerr').textContent=r.error; return; }
   $('race').innerHTML=`
     <div class="sheet">
       <div class="sub">waiting room</div>
@@ -1439,7 +1511,7 @@ async function raceJoinPrompt(){
       <div id="rroster" class="roster"></div>
       <div class="sub" id="rcount"></div>
       <div class="waitdot">waiting for the host…</div>
-      <div style="margin-top:14px"><button onclick="netLeave();raceSetup()">leave</button></div>
+      <div style="margin-top:14px"><button onclick="netLeave();raceJoinScreen()">leave</button></div>
     </div>`;
   renderRoster();
 }
@@ -1631,9 +1703,8 @@ $('racebtn').onclick=()=>openRace();
   const code=new URLSearchParams(location.search).get('race');
   if(!code) return;
   setTimeout(()=>{
-    openRace();
-    const f=$('rcode'); if(f) f.value=code.toUpperCase();
-    raceJoinPrompt();
+    $('race').className='show';
+    raceJoinScreen(code.toUpperCase());
   }, 400);
 })();
 
