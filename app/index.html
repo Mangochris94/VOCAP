@@ -79,6 +79,10 @@
   .slot.filled:hover{border-color:var(--glow)}
 
   /* --- the word tray: where letters go to become a word --- */
+  .wordtray.thai{min-height:74px;align-items:center;justify-content:center}
+  .thword{font-size:40px;line-height:1.5;letter-spacing:1px;
+          font-family:'Noto Sans Thai','Leelawadee UI',system-ui,sans-serif}
+  .hintline{color:var(--dim);font-size:13px}
   #marks{display:none;gap:6px;justify-content:center;margin:4px 0}
   #marks .slot.mark{width:38px;height:42px;font-size:20px;opacity:.9}
   #marks .slot.mark:hover{border-color:var(--glow)}
@@ -425,9 +429,8 @@
   <button id="ivl" title="how often a letter drops">⏱ 5 min</button>
   <button id="speed" title="fill the tray straight away">⚡ fill tray</button>
   <button id="skip" title="end this run early">⏭ next</button>
-  <button id="uilang" title="interface language">🌐 EN</button>
+  <button id="lang" title="add a language you are learning">+ ไทย</button>
   <button id="swapgame" title="switch game language">🔁</button>
-  <button id="lang" title="clue language">clue: TH</button>
   <button id="say" title="speak each word found">🔊 words: ON</button>
   <button id="sayl" title="speak each letter tapped">🔤 letters: OFF</button>
   <button id="book" title="your collection">📚 collection</button>
@@ -770,7 +773,7 @@ function renderTray(){
     const d=document.createElement('div');
     d.className='slot '+(i<pool.length?'filled':'empty');
     if(i<pool.length){
-      d.textContent=pool[i];
+      d.textContent=tileGlyph(pool[i]);
       if(used.has(i))d.classList.add('used');
       d.onclick=()=>{ dropFocus(); noteActivity(); if(!used.has(i)){speakLetter(pool[i]);building.push({ch:pool[i],from:i});renderTray();renderWordTray()} };
     }
@@ -800,6 +803,7 @@ function renderMarks(){
   const el=$('marks'); if(!el) return;
   if(GAME!=='th'){ el.style.display='none'; return; }
   el.style.display='flex';
+  el.title='tone marks — always free, tap after a letter';
   el.innerHTML=[...FREE_MARKS].map(m=>
     `<div class="slot filled mark" onclick="addMark('${m}')">${'\u25CC'+m}</div>`).join('');
 }
@@ -809,55 +813,36 @@ function addMark(m){
   renderTray(); renderWordTray();
 }
 
+/* Thai marks that attach to a letter: vowels written above or below, and the
+   tone marks. Shown on a tile they need a carrier, and the dotted circle is
+   the convention every Thai dictionary and keyboard uses. */
+const COMBINING = new Set([
+  '\u0E31','\u0E34','\u0E35','\u0E36','\u0E37','\u0E38','\u0E39','\u0E3A',
+  '\u0E47','\u0E48','\u0E49','\u0E4A','\u0E4B','\u0E4C','\u0E4D','\u0E4E'
+]);
+function tileGlyph(ch){ return COMBINING.has(ch) ? '\u25CC'+ch : ch; }
+
 function renderWordTray(){
-  const wt=$('wordtray'); wt.innerHTML='';
-  if(!building.length){
-    wt.innerHTML='<span class="hint">tap letters above to build a word</span>';
-    wt.className=''; $('typed').textContent=''; $('submit').disabled=true; return;
+  const t=$('wordtray'); if(!t) return;
+  const s=building.map(b=>b.ch).join('');
+  if(GAME==='th'){
+    /* Let the font do the stacking. Laying Thai out as separate tiles put
+       vowels and tone marks beside the letter they belong on, which is simply
+       the wrong word. A text run renders it the way Thai is actually written. */
+    t.className='wordtray thai';
+    t.innerHTML = s
+      ? `<span class="thword">${s}</span>`
+      : `<span class="hintline">${t('tapAbove')}</span>`;
+    return;
   }
-  building.forEach((b,i)=>{
-    const d=document.createElement('div');
-    d.className='wslot'+(b.ch===' '?' space':'');
-    d.textContent=b.ch===' '?'':b.ch;
-    d.title='remove';
-    d.onclick=()=>{building.splice(i,1);renderTray();renderWordTray()};
-    wt.appendChild(d);
-  });
-  const w=typedWord().replace(/ /g,'');
-  const match=BANK.find(x=>x.spell===typedWord()||x.spell===w);
-  wt.className = (w.length>=3 && match && !seen.has(match.id)) ? 'ready' : '';
-  $('submit').disabled = w.length<3;
-  $('typed').textContent=w.length+' letters';
-}
-function hintCost(w,level){ return Math.max(1, Math.round(sparksFor(w.letters)*HINT_MULT[level])); }
-
-/* Level 0: first letter. Level 1: every vowel placed. Level 2: one more consonant. */
-function hintMask(w,level){
-  const s=w.spell, out=[];
-  const vowels=new Set('aeiou');
-  // pick one consonant (other than the first) to reveal at level 3
-  let extra=-1;
-  for(let i=s.length-1;i>0;i--) if(!vowels.has(s[i])){ extra=i; break; }
-  for(let i=0;i<s.length;i++){
-    const c=s[i];
-    let show = level>=4 || (level>=1 && i===0) || (level>=2 && vowels.has(c)) || (level>=3 && i===extra);
-    out.push(show?c:'_');
-  }
-  return out.join(' ');
-}
-
-function buyHint(id){
-  const w=BANK.find(x=>x.id===id); if(!w) return;
-  const have=hintsBought[id]||0;
-  if(have>=4){flash('the whole word is already showing','');return}
-  const cost=hintCost(w,have);
-  if(sparks<cost){flash(`need ${cost} sparks for that hint`,'bad');return}
-  sparks-=cost; hintsBought[id]=have+1; save();
-  flash(have===3 ? `word revealed · -${cost} ✨` : `hint bought · -${cost} ✨`,'');
-  renderTray(); renderClue();
+  t.className='wordtray';
+  t.innerHTML = building.length
+    ? building.map(b=>`<div class="slot filled">${b.ch}</div>`).join('')
+    : `<span class="hintline">${t('tapAbove')}</span>`;
 }
 
 function renderClue(){
+  renderMarks();
   const active=seeds.filter(w=>!seen.has(w.id));
   const el=$('clue');
   if(!active.length){el.textContent='';return}
@@ -866,7 +851,7 @@ function renderClue(){
     /* On TH the player sees both, exactly as they do in a race: the English
        is what they are hunting, the Thai is the way in. On EN it is English
        only, which is the harder game an advanced learner wants. */
-    const th = lang==='th' ? (w.translations?.th?.definition || '') : '';
+    const th = (GAME!=='th' && lang==='th') ? (w.translations?.th?.definition || '') : '';
     const desc = w.definition;
     const ok=canSpell(count(w.spell),pc);
     const lv=hintsBought[w.id]||0;
@@ -966,7 +951,11 @@ function tierFor(n){ return n<=5?1 : n<=8?2 : n<=12?3 : 4; }
 /* Both the main card and the in-menu popup are built from this, so a word
    looks identical wherever you meet it. */
 function cardHTML(w,gain){
-  const th = lang==='th' ? (w.translations?.th||{}) : {};
+  /* English game: the Thai layer is optional and follows the + ไทย button.
+     Thai game: the English translation is always shown, because it is the
+     only thing the card can teach and there is nothing to switch off. */
+  const th = GAME==='th' ? (w.translations?.en||{})
+                         : (lang==='th' ? (w.translations?.th||{}) : {});
   const tags=[w.topic,w.topic2].filter(Boolean)
       .map(t=>`<span>${TOPIC_ICON[t]||'✦'} ${t}</span>`).join('');
   return `
@@ -1284,15 +1273,19 @@ let UI = localStorage.getItem('vocap-ui') || 'en';
 function t(k){ return (STR[UI] && STR[UI][k]) || STR.en[k] || k; }
 
 function applyUI(){
+  syncUILang();
   const set=(id,v)=>{ const e=$(id); if(e) e.textContent=v; };
+  /* Thai mode has no language choice to make: the answers are Thai and the
+     card carries the English translation. One button, not three. */
+  const lb=$('lang');
+  if(lb) lb.style.display = GAME==='th' ? 'none' : '';
   set('speed', t('fillTray'));
   set('skip',  t('nextRun'));
   set('book',  t('collection'));
   set('dictbtn', t('dictionary'));
   set('promote', t('topWords'));
   set('reset', t('reset'));
-  set('uilang', '🌐 ' + t('uiLang'));
-  set('lang', t('clue')+': '+lang.toUpperCase());
+  set('lang', lang==='th' ? '✓ ไทย' : '+ ไทย');
   const say=$('say'), sayl=$('sayl');
   if(say)  say.textContent  = t('words')+': '+(speakWords?t('on'):t('off'));
   if(sayl) sayl.textContent = t('letters')+': '+(speakLetters?t('on'):t('off'));
@@ -2063,7 +2056,7 @@ function raceTray(){
   const used={};
   R.building.forEach(b=>{ if(b.from>=0) used[b.from]=true; });
   $('rtray').innerHTML = R.letters.map((ch,i)=>
-    `<div class="slot filled ${used[i]?'used':''}" onclick="racePick(${i})">${ch}</div>`).join('');
+    `<div class="slot filled ${used[i]?'used':''}" onclick="racePick(${i})">${tileGlyph(ch)}</div>`).join('');
   $('rword').innerHTML = R.building.length
     ? R.building.map(b=>`<div class="slot filled">${b.ch}</div>`).join('')
     : `<div style="color:var(--dim);font-size:13px;padding:10px">tap or type letters</div>`;
@@ -2216,7 +2209,15 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){ R.building=[]; raceTray(); return; }
   if(e.key==='Backspace'){ R.building.pop(); raceTray(); return; }
   const ch=e.key.toLowerCase();
-  if(!/^[a-z]$/.test(ch)) return;
+  /* Latin in the English game, Thai script in the Thai one. Without this a
+     Thai keyboard simply did nothing. */
+  const ok = GAME==='th' ? /^[\u0E00-\u0E7F]$/.test(ch) : /^[a-z]$/.test(ch);
+  if(!ok) return;
+  if(GAME==='th' && FREE_MARKS.has(ch)){
+    // tone marks are free: type one and it goes straight onto the word
+    if(building.length){ building.push({ch, from:-1}); renderTray(); renderWordTray(); }
+    return;
+  }
   const i=R.letters.findIndex((L,idx)=>L===ch && !R.building.some(b=>b.from===idx));
   if(i>=0){ R.building.push({ch,from:i}); raceTray(); }
 }, true);
@@ -2239,7 +2240,7 @@ document.addEventListener('keydown',e=>{
   else if(/^[a-zA-Z']$/.test(e.key)){
     const ch=e.key.toLowerCase();
     const slot=claimSlot(ch);
-    if(slot===null){flash(`no free "${ch}" in the tray`,'bad');return}
+    if(slot===null){flash(`no free "${tileGlyph(ch)}" in the tray`,'bad');return}
     speakLetter(ch);
     building.push({ch,from:slot});
   }
@@ -2278,16 +2279,18 @@ function fillTrayNow(){
   flash('tray filled','good');
   scheduleDrop();
 }
+/* The interface follows the game. A Thai player picked the Thai game, so
+   asking them again which language the menus should be in is noise. */
+function syncUILang(){
+  UI = GAME==='th' ? 'th' : 'en';
+  localStorage.setItem('vocap-ui', UI);
+}
+
 $('swapgame').onclick=()=>{
   /* Back to the front door rather than switching in place: the two games have
      different alphabets and different saves, so a clean restart is honest. */
   localStorage.removeItem('vocap-game');
   location.reload();
-};
-$('uilang').onclick=()=>{
-  UI = UI==='en' ? 'th' : 'en';
-  localStorage.setItem('vocap-ui', UI);
-  applyUI();
 };
 $('speed').onclick=()=>{ fillTrayNow(); };
 
@@ -2312,10 +2315,12 @@ function redrawOpenCards(){
   }
 }
 $('lang').onclick=()=>{
+  /* Adds or removes the learning-language layer: Thai clues alongside the
+     English ones, and Thai on the discovery card. */
   lang = lang==='th' ? 'en' : 'th';
-  $('lang').textContent='clue: '+lang.toUpperCase();
+  applyUI();
   renderClue();
-  redrawOpenCards();          // whatever is on screen switches language with you
+  redrawOpenCards();
 };
 /* The promotion list: dictionary words this player forms most often are the
    best candidates to become curated entries (hand-written definition, fun
@@ -2362,38 +2367,52 @@ async function loadJSON(...paths){
   throw last;
 }
 
-Promise.all([
-  /* Look beside index.html first. That is where the data lives in a packaged
-     build; ../content/ is only the layout when serving the repo root in a
-     browser during development, so it is the fallback rather than the rule. */
-  loadJSON('words.json','../content/words.json'),
-  loadJSON('dictionary.json','../content/dictionary.json').catch(()=>null)
-]).then(([d,dict])=>{
-  if(!GAME){ showStartup(); return; }     // nothing starts until a game is chosen
-
-  if(GAME==='th'){
-    /* Thai runs on the same file: the Thai word is the answer and the Thai
-       definition is the clue. No second data file, no second pipeline. */
-    BANK_ALL = buildThaiBank(d.words);
-    BANK = BANK_ALL.slice();
-    Object.assign(FREQ_ACTIVE, thaiFreq(BANK_ALL));
-    for(const k in FREQ) delete FREQ[k];
-    Object.assign(FREQ, FREQ_ACTIVE);
-    GROWTH_BASE = 12;                     // Thai needs a wider tray: 61 characters, not 26
-    MAXTRAY = 18;
-  }else{
-    BANK_ALL=d.words;
-    // formable = non-starter words (rude words ARE formable, never seeded)
-    BANK=d.words.filter(w=>!w.starter);
-    if(dict){ for(const k in dict.shelves) for(const w of dict.shelves[k]) DICT.add(w);
-              DEFS=dict.defs||{}; }
-  }
-  $('total').textContent=BANK.length;
-  load(); startCycle(); if(GAME==='en') starterGift(); applyUI(); renderMarks();
-}).catch(()=>{
-  $('msg').textContent='Could not load words.json — it must sit beside index.html';
-  $('msg').className='bad';
-});
+/* The startup choice does not depend on any data, so make it before fetching.
+   Previously it sat inside the success branch, which meant a data problem and
+   an unchosen game looked like the same failure. */
+if(!GAME){
+  showStartup();
+}else{
+  Promise.all([
+    /* Look beside index.html first. That is where the data lives in a packaged
+       build; ../content/ is only the layout when serving the repo root in a
+       browser during development, so it is the fallback rather than the rule. */
+    loadJSON('words.json','../content/words.json'),
+    loadJSON('dictionary.json','../content/dictionary.json').catch(()=>null)
+  ]).catch(err=>{
+    $('msg').textContent='Could not load words.json — it must sit beside index.html';
+    $('msg').className='bad';
+    throw err;
+  }).then(([d,dict])=>{
+    /* Anything that throws from here is a bug in the game, not a missing file,
+       so it must not be reported as one. */
+    try{
+      if(GAME==='th'){
+        BANK_ALL = buildThaiBank(d.words);
+        BANK = BANK_ALL.slice();
+        const tf = thaiFreq(BANK_ALL);
+        for(const k in FREQ) delete FREQ[k];
+        Object.assign(FREQ, tf);
+        GROWTH_BASE = 12;      // Thai draws from 61 characters, not 26
+        MAXTRAY = 18;
+      }else{
+        BANK_ALL=d.words;
+        // formable = non-starter words (rude words ARE formable, never seeded)
+        BANK=d.words.filter(w=>!w.starter);
+        if(dict){ for(const k in dict.shelves) for(const w of dict.shelves[k]) DICT.add(w);
+                  DEFS=dict.defs||{}; }
+      }
+      $('total').textContent=BANK.length;
+      load(); startCycle();
+      if(GAME==='en') starterGift();
+      applyUI(); renderMarks();
+    }catch(err){
+      $('msg').textContent='Something went wrong starting the game: '+err.message;
+      $('msg').className='bad';
+      console.error(err);
+    }
+  }).catch(()=>{});
+}
 </script>
 </body>
 </html>

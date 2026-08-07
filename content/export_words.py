@@ -22,7 +22,7 @@ REQUIRED_COLUMNS = ["Word", "Topic", "Topic 2", "Sub-list", "Phase", "Letters",
 MIN_LEN, MAX_LEN = 3, 15          # formable word lengths (letters, spaces free)
 STARTER_LEN = 2                   # starter-pack gift words (not formable)
 ALLOWED_WORD = re.compile(r"^[a-z][a-z' -]*[a-z]$")   # lowercase, spaces/'/- inside
-VALID_PHASES = {"1", "2", "3", "4"}
+VALID_PHASES = {"1", "2", "3", "4", "5", "6", "7", "8"}   # 5+ = post-launch expansion waves
 VALID_RUDENESS = {"", "Mild", "Medium", "Strong"}
 
 def letters_of(word: str) -> int:
@@ -83,7 +83,7 @@ for i, r in enumerate(rows, start=2):          # start=2: row 1 is the header
 
     # enums
     if r["Phase"].strip() not in VALID_PHASES:
-        errors.append(f"{where}: Phase '{r['Phase']}' not in 1-4")
+        errors.append(f"{where}: Phase '{r['Phase']}' not in 1-8")
     if r["Rudeness"].strip() not in VALID_RUDENESS:
         errors.append(f"{where}: Rudeness '{r['Rudeness']}' invalid")
 
