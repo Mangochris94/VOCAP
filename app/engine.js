@@ -382,6 +382,10 @@ function renderWordTray(){
      here made every render throw. */
   const box=$('wordtray'); if(!box) return;
   const s=building.map(b=>b.ch).join('');
+  /* Submit starts disabled in the markup so it cannot be pressed on an empty
+     word. Rewriting this function dropped the line that re-enables it, which
+     left the button dead while Enter still worked. */
+  const sb=$('submit'); if(sb) sb.disabled = building.length===0;
   if(GAME==='th'){
     /* Let the font do the stacking. Laying Thai out as separate tiles put
        vowels and tone marks beside the letter they belong on, which is simply
@@ -835,8 +839,8 @@ function applyUI(){
   set('reset', t('reset'));
   set('lang', lang==='th' ? '✓ ไทย' : '+ ไทย');
   const say=$('say'), sayl=$('sayl');
-  if(say)  say.textContent  = t('words')+': '+(speakWords?t('on'):t('off'));
-  if(sayl) sayl.textContent = t('letters')+': '+(speakLetters?t('on'):t('off'));
+  if(say)  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));
+  if(sayl) sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off'));
   const rb=$('racebtn'); if(rb) rb.innerHTML='🏁 &nbsp;'+t('playTogether');
   const sb=$('submit'); if(sb) sb.textContent=t('submit');
   const cb=$('clear');  if(cb) cb.textContent=t('clear');
@@ -1835,8 +1839,8 @@ for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','prom
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
 $('c-close').onclick=()=>{$('card').className='';};
 $('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
-$('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
-$('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};
+$('say').onclick=()=>{ sayWords=!sayWords; applyUI(); };
+$('sayl').onclick=()=>{ sayLetters=!sayLetters; applyUI(); };
 $('submit').onclick=()=>submit();
 $('clear').onclick=()=>{building=[];renderTray();renderWordTray()};
 /* 5 / 10 / 20 minutes: some players want a slow ambient trickle, others a
