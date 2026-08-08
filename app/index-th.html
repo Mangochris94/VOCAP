@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -505,11 +505,11 @@
    game. Anything language-specific belongs here or in the data file, never
    in the engine. */
 window.VOCAP_CONFIG = {
-  game:      'en',
-  data:      'words.json',
-  dict:      'dictionary.json',   // free-form English words score too
-  trayStart: 8,
-  trayMax:   15
+  game:      'th',
+  data:      'words-th.json',
+  dict:      null,                // no Thai dictionary yet; curated words only
+  trayStart: 12,                  // Thai draws from 61 tile characters, not 26
+  trayMax:   18
 };
 </script>
 <script src="engine.js"></script>
