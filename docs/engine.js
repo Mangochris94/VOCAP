@@ -842,7 +842,6 @@ function applyUI(){
   const say=$('say'), sayl=$('sayl');
   if(say)  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));
   if(sayl) sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off'));
-  const rb=$('racebtn'); if(rb) rb.innerHTML='🏁 &nbsp;'+t('playTogether');
   const sb=$('submit'); if(sb) sb.textContent=t('submit');
   const cb=$('clear');  if(cb) cb.textContent=t('clear');
   const h=document.querySelector('#hint'); if(h) h.textContent=t('tapBuild');
@@ -1774,8 +1773,6 @@ function renderBoard(){
   }).join('');
 }
 
-$('racebtn').onclick=()=>openRace();
-
 /* A link like  .../?race=KTQ7M  opens straight into the join screen with the
    code already filled in. On stream you paste one link and nobody has to type
    anything or install anything - the web build is the whole game. */
@@ -1834,7 +1831,7 @@ document.addEventListener('keydown',e=>{
   flash('');
   renderTray(); renderWordTray();
 });
-for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit','racebtn']){
+for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit']){
   const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
@@ -1870,13 +1867,48 @@ function syncUILang(){
   UI = GAME==='th' ? 'th' : 'en';
 }
 
-function renderGamePill(){
+/* Modes and language used to be two separate corner controls (a language
+   pill, and a big PLAY TOGETHER button sitting in the main screen). Both
+   are now one menu, opened from a single front-of-screen trigger - so the
+   next mode this game gets is a new row here, not a new button somewhere
+   in the tray. */
+const MODES = [
+  {key:'classic', icon:'🌱', nm:'Classic', desc:'Letters drop in on their own while you work.'},
+  {key:'race',    icon:'🏁', nm:'Play Together', desc:'Race live or async against someone else.'},
+];
+const LANGS = [
+  {key:'en', nm:'English',  file:'index.html'},
+  {key:'th', nm:'ภาษาไทย',  file:'index-th.html'},
+];
+function renderModesTrigger(){
   const el=$('gamepill'); if(!el) return;
-  el.innerHTML =
-    `<a href="index.html"    class="${GAME==='en'?'on':''}">English</a>` +
-    `<a href="index-th.html" class="${GAME==='th'?'on':''}">ไทย</a>`;
+  const here = LANGS.find(l=>l.key===GAME) || LANGS[0];
+  el.innerHTML = `<button onclick="showModeMenu()">☰ ${here.nm}</button>`;
 }
-renderGamePill();
+renderModesTrigger();
+
+function showModeMenu(){
+  let rows='';
+  for(const l of LANGS) for(const m of MODES){
+    const here = l.key===GAME && m.key==='classic';
+    rows += `<div class="moderow${here?' here':''}" onclick="goToMode('${l.key}','${m.key}')">
+      <span class="ic">${m.icon}</span>
+      <span class="txt"><b>${m.nm} — ${l.nm}</b><span>${here?'you are here · ':''}${m.desc}</span></span>
+    </div>`;
+  }
+  openPanel(`<div class="phead"><div><h2>Modes</h2>
+      <div class="sub">choose a language and a way to play</div></div>
+      <button onclick="closePanel()">close</button></div>${rows}`);
+}
+function goToMode(lang, mode){
+  if(lang===GAME){
+    closePanel();
+    if(mode==='race') openRace();
+    return;
+  }
+  const target = (LANGS.find(l=>l.key===lang)||LANGS[0]).file;
+  location.href = mode==='race' ? (target+'?open=race') : target;
+}
 
 
 $('speed').onclick=()=>{ fillTrayNow(); };
@@ -1982,6 +2014,7 @@ Promise.all([
     load(); startCycle();
     if(GAME==='en') starterGift();
     applyUI(); renderMarks();
+    if(new URLSearchParams(location.search).get('open')==='race') openRace();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
        be reported as one. */
