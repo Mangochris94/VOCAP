@@ -97,6 +97,18 @@ for i, r in enumerate(rows, start=2):          # start=2: row 1 is the header
     if thai and not any("THAI" in unicodedata.name(ch, "") for ch in thai):
         errors.append(f"{where}: Thai field has no Thai characters: '{thai}'")
 
+    # The definition IS the in-game clue, so it must never give the answer
+    # away. A plain substring check catches the obvious case (the word
+    # spelled out) and the sneaky case (the word hiding inside a longer one,
+    # e.g. "ear" inside "hear") - both defeat the clue the same way.
+    spell = re.sub(r"[ '\-]", "", wl)
+    if spell and len(spell) >= 3:
+        definition_letters = re.sub(r"[^a-z]", "", r["Definition"].strip().lower())
+        if spell in definition_letters:
+            errors.append(f"{where}: Definition contains the answer ('{spell}')")
+    if thai and r["Definition (Thai)"].strip() and thai in r["Definition (Thai)"]:
+        errors.append(f"{where}: Definition (Thai) contains the Thai answer ('{thai}')")
+
 # Topic 2 must be a real topic and must differ from Topic
 all_topics = {r["Topic"].strip() for r in rows}
 for i, r in enumerate(rows, start=2):

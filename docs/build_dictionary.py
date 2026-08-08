@@ -40,7 +40,7 @@ SRC  = os.path.join(ROOT, "content", "enable.txt")
 WNDIR= os.path.join(ROOT, "content", "wordnet")
 FREQ = os.path.join(ROOT, "content", "freq.txt")
 OUT  = os.path.join(ROOT, "content", "dictionary.json")
-WORDS = os.path.join(ROOT, "content", "words.json")
+WORDS = os.path.join(ROOT, "app", "words.json")   # words.json now lives in app/, not content/
 
 # Words that are valid in Scrabble but look like typos to a learner.
 # These are obscure two/three-letter entries with no everyday use.

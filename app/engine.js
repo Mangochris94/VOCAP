@@ -111,6 +111,11 @@ let building=[];                       // [{ch:'m', from:3} | {ch:' ', from:null
 const typedWord = () => building.map(b=>b.ch).join('');
 
 const $=id=>document.getElementById(id);
+/* Player-chosen strings (race names, equipped titles) travel over PeerJS to
+   other people's screens and get built into innerHTML there. Escape them at
+   the point of render so a hostile name/title can't inject markup or scripts
+   into an opponent's client. */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SAVEKEY = ()=> GAME==='th' ? 'vocap-th' : 'vocap';
 const save=()=>localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
 const load=()=>{try{const d=JSON.parse(localStorage.getItem(SAVEKEY()));
@@ -835,8 +840,8 @@ function applyUI(){
   set('reset', t('reset'));
   set('lang', lang==='th' ? '✓ ไทย' : '+ ไทย');
   const say=$('say'), sayl=$('sayl');
-  if(say)  say.textContent  = t('words')+': '+(speakWords?t('on'):t('off'));
-  if(sayl) sayl.textContent = t('letters')+': '+(speakLetters?t('on'):t('off'));
+  if(say)  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));
+  if(sayl) sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off'));
   const rb=$('racebtn'); if(rb) rb.innerHTML='🏁 &nbsp;'+t('playTogether');
   const sb=$('submit'); if(sb) sb.textContent=t('submit');
   const cb=$('clear');  if(cb) cb.textContent=t('clear');
@@ -1064,7 +1069,7 @@ function renderRoster(){
   const rows = displayNames(NET.roster);
   el.innerHTML = rows.map((r,i)=>
     `<div class="rrow${r.id===NET.myId?' me':''}">
-       <span>${racing?(i+1)+'. ':'· '}${r.label}${r.title?`<em>${r.title}</em>`:''}</span>
+       <span>${racing?(i+1)+'. ':'· '}${esc(r.label)}${r.title?`<em>${esc(r.title)}</em>`:''}</span>
        ${racing ? `<span><b>${r.score}</b> · ${r.words}w ${r.done?'✔':''}</span>`
                 : `<span class="sub" style="font-size:11px">ready</span>`}
      </div>`).join('') || '<div class="sub">nobody here yet…</div>';
@@ -1259,7 +1264,7 @@ function raceSetup(){
 
       <div class="field">
         <label>your name</label>
-        <input id="rname" value="${netName()}" maxlength="14" style="letter-spacing:1px">
+        <input id="rname" value="${esc(netName())}" maxlength="14" style="letter-spacing:1px">
       </div>
 
       <div class="field">
@@ -1332,8 +1337,8 @@ function raceProfile(){
   const titles=profTitles();
   $('race').innerHTML=`
     <div class="sheet">
-      <h2>${PROF.name}</h2>
-      <div class="sub">${PROF.title || 'no title equipped'} · <b style="color:var(--glow)">${PROF.laurels}</b> laurels</div>
+      <h2>${esc(PROF.name)}</h2>
+      <div class="sub">${PROF.title ? esc(PROF.title) : 'no title equipped'} · <b style="color:var(--glow)">${PROF.laurels}</b> laurels</div>
 
       <div class="statgrid">
         ${[['races','races'],['wins','won'],['streak','streak now'],['beststreak','best streak'],
@@ -1470,7 +1475,7 @@ function raceJoinScreen(prefill){
 
       <div class="field">
         <label>your name</label>
-        <input id="jname" value="${netName()}" maxlength="14" style="letter-spacing:1px">
+        <input id="jname" value="${esc(netName())}" maxlength="14" style="letter-spacing:1px">
       </div>
 
       <div class="field">
@@ -1680,7 +1685,7 @@ function racePodiumNote(){
   const p=NET.podium;
   if(!p.length) return;
   const need=Math.min(3, Math.max(1, NET.roster.length));
-  el.innerHTML = p.map(x=>`${['🥇','🥈','🥉'][x.place-1]||''} ${x.name}`).join(' · ')
+  el.innerHTML = p.map(x=>`${['🥇','🥈','🥉'][x.place-1]||''} ${esc(x.name)}`).join(' · ')
                + ` <span style="opacity:.6">— ${p.length}/${need} places filled</span>`;
 }
 
@@ -1763,7 +1768,7 @@ function renderBoard(){
     const gap = i===0 ? '' : `−${top-r.score}`;
     return `<div class="brow${r.name===netName()?' me':''}">
       <span class="pos">${medal[i]||(i+1)+'.'}</span>
-      <span class="nm">${r.name}${r.title?`<em>${r.title}</em>`:''}${r.done?'':' <i>still going</i>'}</span>
+      <span class="nm">${esc(r.name)}${r.title?`<em>${esc(r.title)}</em>`:''}${r.done?'':' <i>still going</i>'}</span>
       <span class="pts"><b>${r.score}</b><small>${r.words}w ${gap}</small></span>
     </div>`;
   }).join('');
