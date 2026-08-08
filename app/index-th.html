@@ -433,6 +433,26 @@
   /* --- found-this-cycle log --- */
   #log{font-size:13px;color:var(--dim);max-width:640px;text-align:center;line-height:1.8}
   #log span{background:var(--panel);border-radius:5px;padding:2px 8px;margin:2px}
+
+  /* --- puzzle overlay: Anagram / Listening -------------------------------
+     Same full-screen treatment as #race, since only one mode is ever open
+     at a time. The tray/word-bar/message pieces reuse the main screen's own
+     .tray/.wordtray/.msg classes; only the chrome around them is new. */
+  #puzzle{display:none;position:fixed;inset:0;z-index:70;overflow-y:auto;
+          background:radial-gradient(130% 100% at 50% 30%, #3d3026 0%, var(--bg) 70%);
+          padding:22px 14px}
+  #puzzle.show{display:block}
+  #puzzle .sheet{max-width:560px;margin:0 auto;text-align:center}
+  #puzzle h2{font-size:24px;letter-spacing:3px;margin:6px 0 4px;font-weight:900}
+  #puzzle .sub{color:var(--dim);font-size:13px;margin-bottom:16px}
+  #puzzle .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0}
+  #puzzle .quitrow{margin-top:22px;padding-top:14px;border-top:1px solid rgba(90,72,53,.5)}
+  #puzzle .quitrow button{font-size:11px;padding:5px 12px;opacity:.55;background:transparent;color:var(--dim)}
+  #puzzle .quitrow button:hover{opacity:1;color:var(--text)}
+  #pzClue{color:var(--glow);font-size:15px;line-height:1.6;margin-bottom:16px;min-height:22px}
+  #pzMarks{display:none;gap:6px;justify-content:center;margin:8px 0}
+  .primary{background:var(--good);color:#123;border-color:var(--good)}
+  .primary:hover{background:#9fc07f}
 </style>
 </head>
 <body>
@@ -494,6 +514,28 @@
 <div id="log"></div>
 
 <div id="race"></div>
+
+<div id="puzzle">
+  <div class="sheet">
+    <h2 id="pzTitle"></h2>
+    <div class="sub" id="pzSub"></div>
+    <div class="clueline" id="pzClue"></div>
+    <div class="row" id="pzListenRow" style="display:none">
+      <button id="pzPlay" onclick="puzzlePlayAgain()">🔊 play the word</button>
+    </div>
+    <div class="tray" id="pzTray"></div>
+    <div id="pzMarks"></div>
+    <div class="wordtray" id="pzWordbar"></div>
+    <div class="row">
+      <button id="pzClear" onclick="puzzleClear()">Clear</button>
+      <button id="pzSubmit" class="primary" onclick="submitPuzzle()">Submit</button>
+      <button id="pzShuffle" onclick="puzzleShuffle()">🔀 shuffle</button>
+    </div>
+    <div class="msg" id="pzMsg"></div>
+    <div class="row"><button id="pzNext" onclick="puzzleNext()">⏭ new word</button></div>
+    <div class="quitrow"><button id="pzBack" onclick="closePuzzle()">← back to the game</button></div>
+  </div>
+</div>
 
 <div id="overlay"><div id="panel"></div>
   <div id="popup"><div id="popcard"></div></div>

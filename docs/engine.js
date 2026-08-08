@@ -808,6 +808,8 @@ const STR = {
     tapBuild:'tap or type letters · Space is free',
     tapAbove:'tap letters above to build a word',
     lettersN:'letters', waitingYou:'WAITING FOR YOU', lastCall:'LAST CALL',
+    anagramTitle:'ANAGRAM', anagramSub:'The tray is full and scrambled — rearrange, don\'t mine.',
+    listeningTitle:'LISTENING', listeningSub:'Hear the word, then spell it. No clue until you\'ve guessed.',
     uiLang:'EN'
   },
   th:{
@@ -819,6 +821,8 @@ const STR = {
     tapBuild:'แตะหรือพิมพ์ตัวอักษร · เว้นวรรคฟรี',
     tapAbove:'แตะตัวอักษรด้านบนเพื่อสร้างคำ',
     lettersN:'ตัวอักษร', waitingYou:'รอคุณอยู่', lastCall:'เรียกครั้งสุดท้าย',
+    anagramTitle:'สลับคำ', anagramSub:'ถาดเต็มและสลับแล้ว — จัดเรียงใหม่ ไม่ต้องขุดหา',
+    listeningTitle:'ฟังคำ', listeningSub:'ฟังคำก่อน แล้วสะกด — ไม่มีคำใบ้จนกว่าจะเดาถูก',
     uiLang:'ไทย'
   }
 };
@@ -1804,9 +1808,32 @@ document.addEventListener('keydown',e=>{
   if(i>=0){ R.building.push({ch,from:i}); raceTray(); }
 }, true);
 
+/* typing works in puzzle mode too - same claim-a-matching-tile pattern the
+   main tray already uses for its own keyboard input. */
+document.addEventListener('keydown',e=>{
+  if(!PZ || $('puzzle').className!=='show') return;
+  if(e.key==='Enter'){ submitPuzzle(); return; }
+  if(e.key==='Escape'){ puzzleClear(); return; }
+  if(e.key==='Backspace'){
+    const b=PZ.building.pop();
+    if(b && b.from>=0) PZ.used[b.from]=false;
+    renderPuzzle();
+    return;
+  }
+  const ch = GAME==='th' ? e.key : e.key.toLowerCase();
+  const okKey = GAME==='th' ? /^[\u0E00-\u0E7F]$/.test(ch) : /^[a-z]$/.test(ch);
+  if(!okKey) return;
+  if(GAME==='th' && FREE_MARKS.has(ch)){
+    if(PZ.building.length){ PZ.building.push({ch, from:-1}); renderPuzzle(); }
+    return;
+  }
+  const i = puzzleClaimSlot(ch);
+  if(i!==null) puzzlePick(i);
+}, true);
+
 /* ---------------- input ---------------- */
 document.addEventListener('keydown',e=>{
-  if($('race').className==='show') return;
+  if($('race').className==='show' || $('puzzle').className==='show') return;
   if(($('overlay').className==='show'||$('popup').className==='show') && e.key!=='Escape') return;
   // A focused button would otherwise fire on Enter or Space as well.
   if(document.activeElement && document.activeElement.tagName==='BUTTON'
@@ -1831,7 +1858,8 @@ document.addEventListener('keydown',e=>{
   flash('');
   renderTray(); renderWordTray();
 });
-for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit']){
+for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit',
+                  'pzSubmit','pzClear','pzShuffle','pzNext','pzPlay','pzBack']){
   const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
@@ -1873,9 +1901,32 @@ function syncUILang(){
    next mode this game gets is a new row here, not a new button somewhere
    in the tray. */
 const MODES = [
-  {key:'classic', icon:'🌱', nm:'Classic', desc:'Letters drop in on their own while you work.'},
-  {key:'race',    icon:'🏁', nm:'Play Together', desc:'Race live or async against someone else.'},
+  {key:'classic',   icon:'🌱', nm:'Classic',      desc:'Letters drop in on their own while you work.'},
+  {key:'anagram',   icon:'🔀', nm:'Anagram',       desc:'The tray starts full and scrambled — rearrange, don\'t mine.'},
+  {key:'listening', icon:'🎧', nm:'Listening',     desc:'Hear the word first — no clue until you\'ve guessed.'},
+  {key:'race',      icon:'🏁', nm:'Play Together', desc:'Race live or async against someone else.'},
 ];
+/* Everyday flavour (default). Explorer/Scholar arrive with the settings
+   screen. Difficulty only changes the letter-length bands pickSeeds() draws
+   from - a wider or tighter band naturally means more or less noise too,
+   since noise is just whatever tray space is left once the seed words are
+   placed. Also biases which word Anagram/Listening pick next. */
+const DIFFS = [
+  {key:'everyday', icon:'🌱', nm:'Everyday', desc:'The default mix — always something short and solvable.', plan:[[3,5],[3,6],[4,7]]},
+  {key:'explorer', icon:'🧭', nm:'Explorer', desc:'Wider bands, more noise — a calmer, more forgiving tray.', plan:[[3,6],[3,7],[4,8]]},
+  {key:'scholar',  icon:'🎓', nm:'Scholar',  desc:'Tighter bands, longer words, noise trimmed to the bone.', plan:[[5,8],[6,10],[7,12]]},
+];
+let DIFF = localStorage.getItem('vocap-difficulty') || 'everyday';
+function applyDifficulty(){
+  const d = DIFFS.find(x=>x.key===DIFF) || DIFFS[0];
+  PLAN.length = 0; PLAN.push(...d.plan);
+}
+applyDifficulty();
+function setDifficulty(key){
+  DIFF = key; localStorage.setItem('vocap-difficulty', key);
+  applyDifficulty();
+  showModeMenu();
+}
 const LANGS = [
   {key:'en', nm:'English',  file:'index.html'},
   {key:'th', nm:'ภาษาไทย',  file:'index-th.html'},
@@ -1896,18 +1947,177 @@ function showModeMenu(){
       <span class="txt"><b>${m.nm} — ${l.nm}</b><span>${here?'you are here · ':''}${m.desc}</span></span>
     </div>`;
   }
+  const diffRows = DIFFS.map(d=>`<div class="moderow${d.key===DIFF?' here':''}" onclick="setDifficulty('${d.key}')">
+      <span class="ic">${d.icon}</span>
+      <span class="txt"><b>${d.nm}${d.key===DIFF?' — current':''}</b><span>${d.desc}</span></span>
+    </div>`).join('');
   openPanel(`<div class="phead"><div><h2>Modes</h2>
       <div class="sub">choose a language and a way to play</div></div>
-      <button onclick="closePanel()">close</button></div>${rows}`);
+      <button onclick="closePanel()">close</button></div>${rows}
+      <div class="sub-h">difficulty — applies from your next tray</div>
+      ${diffRows}`);
 }
 function goToMode(lang, mode){
   if(lang===GAME){
     closePanel();
     if(mode==='race') openRace();
+    else if(mode==='anagram' || mode==='listening') openPuzzle(mode);
     return;
   }
   const target = (LANGS.find(l=>l.key===lang)||LANGS[0]).file;
-  location.href = mode==='race' ? (target+'?open=race') : target;
+  const jumpable = ['race','anagram','listening'];
+  location.href = jumpable.includes(mode) ? (target+'?open='+mode) : target;
+}
+
+/* ═══════════════════ PUZZLE MODES (Anagram / Listening) ═══════════════════
+   Both reuse the tray-and-word-bar mechanics Classic already has, just
+   without a drip: every letter the word needs is already in the pool,
+   scrambled. The only difference between them is the clue - a definition
+   for Anagram, audio only for Listening - and both feed the same
+   collection, sparks and tray growth as Classic, since they are different
+   ways into the same words, not a separate economy the way Race
+   deliberately is. */
+let PZ = null;   // {kind, w, order, used, building} or null while closed
+
+function pickPuzzleWord(){
+  const [lo,hi] = PLAN[Math.floor(Math.random()*PLAN.length)];
+  const fresh  = BANK.filter(w=>!seen.has(w.id) && w.letters>=lo && w.letters<=hi);
+  const unseen = BANK.filter(w=>!seen.has(w.id));
+  const banded = BANK.filter(w=>w.letters>=lo && w.letters<=hi);
+  const pool = fresh.length ? fresh : unseen.length ? unseen : banded.length ? banded : BANK;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function openPuzzle(kind){
+  closePanel();
+  PZ = {kind, w:null, order:[], used:[], building:[]};
+  $('puzzle').className='show';
+  $('pzTitle').textContent = kind==='anagram' ? t('anagramTitle') : t('listeningTitle');
+  $('pzSub').textContent   = kind==='anagram' ? t('anagramSub')   : t('listeningSub');
+  puzzleNext();
+}
+function closePuzzle(){ $('puzzle').className=''; PZ=null; renderTray(); renderClue(); }
+
+function puzzleNext(){
+  PZ.w = pickPuzzleWord();
+  PZ.order = [...PZ.w.spell].sort(()=>Math.random()-.5);
+  PZ.used = PZ.order.map(()=>false);
+  PZ.building = [];
+  $('pzMsg').textContent=''; $('pzMsg').className='msg';
+  renderPuzzle();
+  /* This bypasses the sayWords toggle on purpose: for Listening mode audio
+     IS the clue, not a bonus, so muting word-speech elsewhere must not also
+     silence the one mode where silence means "no clue at all". */
+  if(PZ.kind==='listening') speak(PZ.w.word,{rate:0.85});
+}
+
+function puzzlePick(i){
+  if(!PZ || PZ.used[i]) return;
+  PZ.used[i]=true;
+  PZ.building.push({ch:PZ.order[i], from:i});
+  speakLetter(PZ.order[i]);
+  renderPuzzle();
+}
+function puzzleMarkAdd(m){
+  if(!PZ || !PZ.building.length) return;
+  PZ.building.push({ch:m, from:-1});
+  renderPuzzle();
+}
+function puzzleClaimSlot(ch){
+  for(let i=0;i<PZ.order.length;i++) if(PZ.order[i]===ch && !PZ.used[i]) return i;
+  return null;
+}
+function puzzleClear(){
+  if(!PZ) return;
+  PZ.used = PZ.order.map(()=>false);
+  PZ.building = [];
+  renderPuzzle();
+}
+function puzzleShuffle(){
+  if(!PZ) return;
+  PZ.order = [...PZ.w.spell].sort(()=>Math.random()-.5);
+  PZ.used = PZ.order.map(()=>false);
+  PZ.building = [];
+  renderPuzzle();
+}
+
+function renderPuzzle(){
+  if(!PZ) return;
+  const w = PZ.w;
+
+  $('pzTray').innerHTML = PZ.order.map((ch,i)=>
+    `<div class="slot filled${PZ.used[i]?' used':''}" onclick="puzzlePick(${i})">${tileGlyph(ch)}</div>`).join('');
+
+  const marksEl = $('pzMarks');
+  if(GAME==='th'){
+    marksEl.style.display='flex';
+    marksEl.innerHTML=[...FREE_MARKS].map(m=>
+      `<div class="slot filled mark" onclick="puzzleMarkAdd('${m}')">${'\u25CC'+m}</div>`).join('');
+  } else marksEl.style.display='none';
+
+  const s = PZ.building.map(b=>b.ch).join('');
+  const barEl = $('pzWordbar');
+  if(GAME==='th'){
+    barEl.className='wordtray thai';
+    barEl.innerHTML = s ? `<span class="thword">${s}</span>` : `<span class="hintline">${t('tapAbove')}</span>`;
+  } else {
+    barEl.className='wordtray';
+    barEl.innerHTML = PZ.building.length
+      ? PZ.building.map(b=>`<div class="slot filled">${b.ch}</div>`).join('')
+      : `<span class="hintline">${t('tapAbove')}</span>`;
+  }
+
+  const clueEl = $('pzClue');
+  if(PZ.kind==='anagram'){
+    const th = (GAME!=='th' && lang==='th') ? (w.translations?.th?.definition||'') : '';
+    clueEl.style.display='block';
+    clueEl.innerHTML = `🔎 ${w.definition}` + (th?`<div class="cl-th2">${th}</div>`:'');
+  } else clueEl.style.display='none';
+
+  $('pzListenRow').style.display = PZ.kind==='listening' ? 'flex' : 'none';
+}
+
+function puzzlePlayAgain(){ if(PZ && PZ.kind==='listening') speak(PZ.w.word,{rate:0.85}); }
+
+function submitPuzzle(){
+  if(!PZ) return;
+  const answer = PZ.building.map(b=>b.ch).join('');
+  PZ.building=[]; PZ.used=PZ.order.map(()=>false);
+  renderPuzzle();
+
+  if(answer.length<2){ $('pzMsg').textContent='too short'; $('pzMsg').className='msg bad'; return; }
+  if(answer===PZ.w.spell){ puzzleAward(PZ.w); return; }
+
+  /* A different real word made from the very same tiles still counts, the
+     same way Classic credits any valid word it finds in the tray - curated
+     first, then the free dictionary. */
+  const alt = BANK.find(x=>x.spell===answer);
+  if(alt){ puzzleAward(alt); return; }
+  if(DICT.has(answer)){
+    inkTally[answer]=(inkTally[answer]||0)+1;
+    if(inked.has(answer)){
+      sparks++; save();
+      $('pzMsg').textContent='already inked · +1 ✨';
+    } else {
+      inked.add(answer); sparks+=2; save(); speakWord(answer); showDictCard(answer);
+      $('pzMsg').textContent='📖 inked in the Dictionary · +2 ✨';
+    }
+    $('pzMsg').className='msg good';
+    return;
+  }
+  $('pzMsg').textContent='not quite — try again'; $('pzMsg').className='msg bad';
+}
+function puzzleAward(w){
+  if(seen.has(w.id)){
+    sparks++; save(); speakWord(w.word);
+    $('pzMsg').textContent=`already in your collection · +1 ✨ · ${w.word}`;
+  } else {
+    const gain=sparksFor(w.letters);
+    sparks+=gain; seen.add(w.id); save();
+    speakWord(w.word); showCard(w,gain); logWord(w); checkGrowth();
+    $('pzMsg').textContent=`+${gain} ✨ · ${w.word}`;
+  }
+  $('pzMsg').className='msg good';
 }
 
 
@@ -2014,7 +2224,9 @@ Promise.all([
     load(); startCycle();
     if(GAME==='en') starterGift();
     applyUI(); renderMarks();
-    if(new URLSearchParams(location.search).get('open')==='race') openRace();
+    const openParam = new URLSearchParams(location.search).get('open');
+    if(openParam==='race') openRace();
+    else if(openParam==='anagram' || openParam==='listening') openPuzzle(openParam);
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
        be reported as one. */
