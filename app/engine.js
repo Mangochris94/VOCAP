@@ -2005,6 +2005,7 @@ function puzzleNext(){
   PZ.building = [];
   $('pzMsg').textContent=''; $('pzMsg').className='msg';
   $('pzCard').className=''; $('pzCard').innerHTML='';
+  $('pzNext').textContent='⏭ new word'; $('pzNext').classList.remove('primary');
   renderPuzzle();
   /* This bypasses the sayWords toggle on purpose: for Listening mode audio
      IS the clue, not a bonus, so muting word-speech elsewhere must not also
@@ -2143,12 +2144,14 @@ function puzzleAward(w, isTarget){
   $('pzMsg').className='msg good';
   $('pzCard').innerHTML = puzzleCardHTML(w, gain);
   $('pzCard').className = 'show';
-  /* Anagram already shows the definition up front, so solving it is a
-     smaller reveal - the player stays on the card until they choose to
-     move on. Listening is the one mode with nothing on screen until the
-     word lands, so it keeps going on its own once it does. */
-  if(isTarget && PZ.kind==='listening'){
-    setTimeout(()=>{ if(PZ) puzzleNext(); }, 3200);
+  /* The word is solved and the card is up - moving on is now the obvious
+     next step, so the button that already does that (puzzleNext) becomes
+     the prompt, rather than the player having to notice it on their own
+     or wait out a timer. Listening used to advance on a fixed delay here;
+     it read as rushed, especially with the card now actually visible to
+     read. */
+  if(isTarget){
+    $('pzNext').textContent='▶ next word'; $('pzNext').classList.add('primary');
   }
 }
 
