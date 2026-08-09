@@ -772,6 +772,19 @@ const THAI_VOWELS = new Set([
 const FREE_MARKS = new Set(['\u0E47','\u0E48','\u0E49','\u0E4A','\u0E4B','\u0E4C']);
 const GAME = CFG.game;   // fixed by the page that loaded the engine
 
+/* For puzzle-style trays (anagram/listening/puzzle) tone marks ride on the
+   tile of the letter they follow instead of scrambling in as their own
+   piece - there is no separate free-marks row to hunt for them in, so a
+   floating tone mark with nothing to attach to would be unsolvable. */
+function clusterSpell(s){
+  const out=[];
+  for(const ch of s){
+    if(FREE_MARKS.has(ch) && out.length) out[out.length-1]+=ch;
+    else out.push(ch);
+  }
+  return out;
+}
+
 const THAI_FREQ_CACHE = {};
 function thaiFreq(bank){
   if(THAI_FREQ_CACHE.f) return THAI_FREQ_CACHE.f;
@@ -1617,9 +1630,11 @@ function raceRender(){
       <div class="tally"><b id="rscore">${R.score}</b> points · <b>${R.found.length}</b> words</div>
       <div class="tally" id="rnext" style="font-size:12px"></div>
       <div id="rroster" class="roster"></div>
-      <div id="rtray" class="tray racetray"></div>
+      <div class="trayrow">
+        <div id="rtray" class="tray racetray"></div>
+        <div id="rmarks" class="marksrow"></div>
+      </div>
       <div id="rclues"></div>
-      <div id="rmarks" class="marksrow"></div>
       <div id="rword" class="wordtray"></div>
       <div class="playrow">
         <button class="psubmit" onclick="raceSubmit()">Submit</button>
@@ -2094,10 +2109,10 @@ function puzzleNext(){
     const stage = PUZZLE_STAGES.find(s=>s.key===PZ.stage);
     PZ.w = pickStageWord(stage);
     const noise = noiseLetters(count(PZ.w.spell), stage.noise);
-    PZ.order = [...PZ.w.spell, ...noise].sort(()=>Math.random()-.5);
+    PZ.order = [...clusterSpell(PZ.w.spell), ...noise].sort(()=>Math.random()-.5);
   } else {
     PZ.w = pickPuzzleWord();
-    PZ.order = [...PZ.w.spell].sort(()=>Math.random()-.5);
+    PZ.order = clusterSpell(PZ.w.spell).sort(()=>Math.random()-.5);
   }
   PZ.used = PZ.order.map(()=>false);
   PZ.building = [];
@@ -2123,13 +2138,8 @@ function puzzlePick(i){
   speakLetter(PZ.order[i]);
   renderPuzzle();
 }
-function puzzleMarkAdd(m){
-  if(!PZ || !PZ.building.length) return;
-  PZ.building.push({ch:m, from:-1});
-  renderPuzzle();
-}
 function puzzleClaimSlot(ch){
-  for(let i=0;i<PZ.order.length;i++) if(PZ.order[i]===ch && !PZ.used[i]) return i;
+  for(let i=0;i<PZ.order.length;i++) if(!PZ.used[i] && PZ.order[i][0]===ch) return i;
   return null;
 }
 function puzzleClear(){
@@ -2153,13 +2163,6 @@ function renderPuzzle(){
   $('pzTray').innerHTML = PZ.order.map((ch,i)=>
     `<div class="slot filled${PZ.used[i]?' used':''}" onclick="puzzlePick(${i})">${tileGlyph(ch)}</div>`).join('');
 
-  const marksEl = $('pzMarks');
-  if(GAME==='th'){
-    marksEl.style.display='flex';
-    marksEl.innerHTML=[...FREE_MARKS].map(m=>
-      `<div class="slot filled mark" onclick="puzzleMarkAdd('${m}')">${'\u25CC'+m}</div>`).join('');
-  } else marksEl.style.display='none';
-
   const s = PZ.building.map(b=>b.ch).join('');
   const barEl = $('pzWordbar');
   if(GAME==='th'){
@@ -2173,7 +2176,7 @@ function renderPuzzle(){
   }
 
   const clueEl = $('pzClue');
-  if(PZ.kind==='anagram' || PZ.kind==='puzzle'){
+  if(PZ.kind==='puzzle'){
     const th = (GAME!=='th' && lang==='th') ? (w.translations?.th?.definition||'') : '';
     clueEl.style.display='block';
     clueEl.innerHTML = `🔎 ${w.definition}` + (th?`<div class="cl-th2">${th}</div>`:'');

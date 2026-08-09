@@ -48,6 +48,8 @@
      margin:0 0 4px;text-indent:5px;font-family:var(--serif)}
 
   /* --- the tray: one gray box per letter slot --- */
+  .trayrow{display:flex;align-items:flex-start;justify-content:center;gap:16px;max-width:100%}
+  .trayrow>.tray,.trayrow>#tray,.trayrow>#rtray{flex:1;min-width:0}
   #tray,.tray{display:flex;gap:8px;min-height:64px;align-items:center;flex-wrap:wrap;
         justify-content:center;max-width:100%}
   .slot{width:52px;height:60px;border-radius:9px;background:var(--panel);
@@ -86,10 +88,12 @@
   .thword{font-size:40px;line-height:1.5;letter-spacing:1px;
           font-family:'Noto Sans Thai','Leelawadee UI',system-ui,sans-serif}
   .hintline{color:var(--dim);font-size:13px}
-  .marksrow{display:none;gap:6px;justify-content:center;margin:4px 0}
+  .marksrow{display:none;flex-direction:column;gap:6px;justify-content:center;
+             margin:0;padding-left:14px;border-left:1px solid var(--line);flex:0 0 auto}
   .marksrow .slot.mark{width:38px;height:42px;font-size:20px;opacity:.9}
   .marksrow .slot.mark:hover{border-color:var(--glow)}
-  #marks{display:none;gap:6px;justify-content:center;margin:4px 0}
+  #marks{display:none;flex-direction:column;gap:6px;justify-content:center;
+         margin:0;padding-left:14px;border-left:1px solid var(--line);flex:0 0 auto}
   #marks .slot.mark{width:38px;height:42px;font-size:20px;opacity:.9}
   #marks .slot.mark:hover{border-color:var(--glow)}
   #wordtray,.wordtray{background:rgba(0,0,0,.14);border-radius:9px;
@@ -113,6 +117,10 @@
     /* tiles scale with the screen so a full 15-slot tray always fits */
     .slot{width:min(46px,10.5vw);height:min(54px,13vw);font-size:min(22px,5.4vw);border-radius:6px}
     #tray{gap:5px;min-height:auto}
+    /* no room for a side column on a phone screen - marks drop below as a row */
+    .trayrow{flex-direction:column;align-items:center}
+    #marks,.marksrow{flex-direction:row;border-left:none;border-top:1px solid var(--line);
+                      padding-left:0;padding-top:8px}
     #wordtray .wslot{width:min(40px,9.5vw);height:min(48px,12vw);font-size:min(20px,5vw)}
     #wordtray{gap:4px;padding:8px 10px}
     #actions button{padding:14px 32px;font-size:16px}
@@ -454,7 +462,6 @@
   #puzzle .quitrow button{font-size:11px;padding:5px 12px;opacity:.55;background:transparent;color:var(--dim)}
   #puzzle .quitrow button:hover{opacity:1;color:var(--text)}
   #pzClue{color:var(--glow);font-size:15px;line-height:1.6;margin-bottom:16px;min-height:22px}
-  #pzMarks{display:none;gap:6px;justify-content:center;margin:8px 0}
   .primary{background:var(--good);color:#123;border-color:var(--good)}
   .primary:hover{background:#9fc07f}
 
@@ -505,9 +512,10 @@
 </div></div>
 
 <div id="clue"></div>
-<div id="tray"></div>
-
-<div id="marks"></div>
+<div class="trayrow">
+  <div id="tray"></div>
+  <div id="marks"></div>
+</div>
 <div id="wordtray"></div>
 <div id="actions">
   <button id="submit" disabled>Submit</button>
@@ -553,7 +561,6 @@
         <button id="pzPlay" onclick="puzzlePlayAgain()">🔊 play the word</button>
       </div>
       <div class="tray" id="pzTray"></div>
-      <div id="pzMarks"></div>
       <div class="wordtray" id="pzWordbar"></div>
       <div class="row">
         <button id="pzClear" onclick="puzzleClear()">Clear</button>
