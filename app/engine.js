@@ -2004,6 +2004,7 @@ function puzzleNext(){
   PZ.used = PZ.order.map(()=>false);
   PZ.building = [];
   $('pzMsg').textContent=''; $('pzMsg').className='msg';
+  $('pzCard').className=''; $('pzCard').innerHTML='';
   renderPuzzle();
   /* This bypasses the sayWords toggle on purpose: for Listening mode audio
      IS the clue, not a bonus, so muting word-speech elsewhere must not also
@@ -2086,13 +2087,14 @@ function submitPuzzle(){
   renderPuzzle();
 
   if(answer.length<2){ $('pzMsg').textContent='too short'; $('pzMsg').className='msg bad'; return; }
-  if(answer===PZ.w.spell){ puzzleAward(PZ.w); return; }
+  if(answer===PZ.w.spell){ puzzleAward(PZ.w, true); return; }
 
   /* A different real word made from the very same tiles still counts, the
      same way Classic credits any valid word it finds in the tray - curated
-     first, then the free dictionary. */
+     first, then the free dictionary. It does not advance the puzzle: the
+     word actually asked for is still unsolved. */
   const alt = BANK.find(x=>x.spell===answer);
-  if(alt){ puzzleAward(alt); return; }
+  if(alt){ puzzleAward(alt, false); return; }
   if(DICT.has(answer)){
     inkTally[answer]=(inkTally[answer]||0)+1;
     if(inked.has(answer)){
@@ -2107,17 +2109,47 @@ function submitPuzzle(){
   }
   $('pzMsg').textContent='not quite — try again'; $('pzMsg').className='msg bad';
 }
-function puzzleAward(w){
+/* The main card (cardHTML/#card) is id-based and lives behind this
+   overlay, so it stays queued for later rather than shown here - this is
+   the same information, built the same way, but as its own classed markup
+   so it can actually be seen while the puzzle is still open. */
+function puzzleCardHTML(w,gain){
+  const th = GAME==='th' ? (w.translations?.en||{})
+                         : (lang==='th' ? (w.translations?.th||{}) : {});
+  const tags=[w.topic,w.topic2].filter(Boolean)
+      .map(t=>`<span>${TOPIC_ICON[t]||'✦'} ${t}</span>`).join('');
+  return `
+    <div class="art">${TOPIC_ICON[w.topic]||'✦'}</div>
+    <div class="body">
+      <h3 onclick="speechSynthesis.cancel();speak('${w.word}',{rate:0.8})">${w.word}
+        <span class="spark">${gain?`+${gain} ✨`:'in your collection'}</span></h3>
+      <div class="th">${th.word||''}</div>
+      <p>${w.definition}</p>
+      <p class="thdef">${th.definition||''}</p>
+      <div class="fact"><p>${w.history||''}</p><p>${th.history||''}</p></div>
+      <div class="tags">${tags}</div>
+    </div>`;
+}
+function puzzleAward(w, isTarget){
+  const gain = seen.has(w.id) ? 0 : sparksFor(w.letters);
   if(seen.has(w.id)){
     sparks++; save(); speakWord(w.word);
-    $('pzMsg').textContent=`already in your collection · +1 ✨ · ${w.word}`;
+    $('pzMsg').textContent='already in your collection · +1 ✨';
   } else {
-    const gain=sparksFor(w.letters);
     sparks+=gain; seen.add(w.id); save();
     speakWord(w.word); showCard(w,gain); logWord(w); checkGrowth();
-    $('pzMsg').textContent=`+${gain} ✨ · ${w.word}`;
+    $('pzMsg').textContent=`+${gain} ✨`;
   }
   $('pzMsg').className='msg good';
+  $('pzCard').innerHTML = puzzleCardHTML(w, gain);
+  $('pzCard').className = 'show';
+  /* Anagram already shows the definition up front, so solving it is a
+     smaller reveal - the player stays on the card until they choose to
+     move on. Listening is the one mode with nothing on screen until the
+     word lands, so it keeps going on its own once it does. */
+  if(isTarget && PZ.kind==='listening'){
+    setTimeout(()=>{ if(PZ) puzzleNext(); }, 3200);
+  }
 }
 
 

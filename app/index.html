@@ -453,6 +453,25 @@
   #pzMarks{display:none;gap:6px;justify-content:center;margin:8px 0}
   .primary{background:var(--good);color:#123;border-color:var(--good)}
   .primary:hover{background:#9fc07f}
+
+  #pzCard{display:none;position:relative;background:var(--panel);
+          border-radius:14px;padding:16px 20px 14px;margin:16px 0 0;text-align:left;
+          border:1px solid #55442f;gap:14px}
+  #pzCard.show{display:flex;animation:cardIn .4s cubic-bezier(.2,.9,.3,1)}
+  #pzCard .art{flex:0 0 56px;height:56px;border-radius:9px;background:rgba(0,0,0,.18);
+               display:flex;align-items:center;justify-content:center;font-size:22px}
+  #pzCard .body{flex:1;min-width:0}
+  #pzCard h3{margin:0;font-size:21px;line-height:1.2;cursor:pointer;user-select:none}
+  #pzCard h3 .spark{font-size:12.5px;color:var(--glow);font-weight:400;margin-left:8px;
+                     white-space:nowrap}
+  #pzCard .th{color:var(--glow);font-size:16px;margin:3px 0 6px}
+  #pzCard p{margin:4px 0;font-size:13.5px;line-height:1.55;color:var(--text)}
+  #pzCard .thdef{color:#dcd0bd}
+  #pzCard .fact{border-left:2px solid #55442f;padding-left:10px;margin:8px 0}
+  #pzCard .fact p{font-size:12.5px;color:#cfc0aa}
+  #pzCard .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  #pzCard .tags span{font-size:11px;background:rgba(0,0,0,.20);border:1px solid #55442f;
+                      border-radius:20px;padding:3px 10px;color:var(--dim)}
 </style>
 </head>
 <body>
@@ -532,6 +551,7 @@
       <button id="pzShuffle" onclick="puzzleShuffle()">🔀 shuffle</button>
     </div>
     <div class="msg" id="pzMsg"></div>
+    <div id="pzCard"></div>
     <div class="row"><button id="pzNext" onclick="puzzleNext()">⏭ new word</button></div>
     <div class="quitrow"><button id="pzBack" onclick="closePuzzle()">← back to the game</button></div>
   </div>
