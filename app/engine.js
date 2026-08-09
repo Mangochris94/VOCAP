@@ -918,6 +918,11 @@ const STR = {
     leaderboardBtn:'🏆 leaderboard', lbRaceTitle:'Race Leaderboard', lbClassicTitle:'Leaderboard',
     lbNotSetUp:'The leaderboard isn\'t set up yet.', lbLoading:'loading…',
     lbEmpty:'No scores yet — be the first!', lbError:'Could not load the leaderboard right now.',
+    modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
+    hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
+    guessesLeft:'guesses left', chooseSkin:'choose a skin',
+    youWon:'you got it!', youLost:'out of guesses — the word was',
+    skinSprout:'Sprout', skinKite:'Kite', skinLantern:'Lantern',
     uiLang:'EN'
   },
   th:{
@@ -997,6 +1002,11 @@ const STR = {
     leaderboardBtn:'🏆 ตารางอันดับ', lbRaceTitle:'ตารางอันดับการแข่งขัน', lbClassicTitle:'ตารางอันดับ',
     lbNotSetUp:'ยังไม่ได้ตั้งค่าตารางอันดับ', lbLoading:'กำลังโหลด…',
     lbEmpty:'ยังไม่มีคะแนน — เป็นคนแรกเลยสิ!', lbError:'โหลดตารางอันดับไม่ได้ตอนนี้',
+    modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
+    hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
+    guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
+    youWon:'ทายถูก!', youLost:'หมดโอกาสแล้ว — คำนั้นคือ',
+    skinSprout:'ต้นอ่อน', skinKite:'ว่าว', skinLantern:'โคมไฟ',
     uiLang:'ไทย'
   }
 };
@@ -2236,6 +2246,7 @@ const MODES = [
   {key:'anagram',   icon:'🔀', nmKey:'modeAnagram',   descKey:'modeAnagramDesc'},
   {key:'listening', icon:'🎧', nmKey:'modeListening', descKey:'modeListeningDesc'},
   {key:'puzzle',    icon:'🧩', nmKey:'modePuzzle',    descKey:'modePuzzleDesc'},
+  {key:'hangman',   icon:'🎨', nmKey:'modeHangman',   descKey:'modeHangmanDesc'},
   {key:'race',      icon:'🏁', nmKey:'modeRace',      descKey:'modeRaceDesc'},
 ];
 const LANGS = [
@@ -2284,6 +2295,7 @@ function goToMode(mode){
   closePanel();
   if(mode==='race') openRace();
   else if(mode==='anagram' || mode==='listening' || mode==='puzzle') openPuzzle(mode);
+  else if(mode==='hangman') openHangman();
 }
 
 /* ═══════════════════ PUZZLE MODES (Anagram / Listening) ═══════════════════
@@ -2561,6 +2573,188 @@ function puzzleAward(w, isTarget){
   }
 }
 
+/* ═══════════════════ HANGMAN ═══════════════════
+   A classic guess-the-letters game dressed in cosmetics instead of a
+   gallows: each skin is its own small SVG scene that gets worse, one
+   step at a time, as wrong guesses come in - a wilting sprout, a kite
+   losing its string, a guttering lantern - rather than a fixed drawing
+   of a figure on a gallows. Tone marks stay "free" here exactly as they
+   already are everywhere else in this file (see FREE_MARKS/count()):
+   they ride along on whichever letter they follow rather than being a
+   guessable unit of their own. */
+const HANGMAN_MAX_WRONG = 6;
+const HANGMAN_SKINS = [
+  {id:'sprout',  icon:'🌱', nameKey:'skinSprout',  draw:skinSprout},
+  {id:'kite',    icon:'🪁', nameKey:'skinKite',    draw:skinKite},
+  {id:'lantern', icon:'🏮', nameKey:'skinLantern', draw:skinLantern},
+];
+function skinSprout(wrong,maxWrong){
+  const p = wrong/maxWrong;
+  const stemBend = p*35;
+  const leaves = [0,1,2].map(i=>{
+    const d = Math.min(1, Math.max(0, p*3 - i));
+    const y = 130 - i*28;
+    const col = `hsl(${100-70*d},${55-25*d}%,${42-14*d}%)`;
+    return `<g transform="translate(100 ${y})">
+      <ellipse cx="0" cy="0" rx="22" ry="10" fill="${col}" transform="rotate(${-40-d*70})"/>
+      <ellipse cx="0" cy="0" rx="22" ry="10" fill="${col}" transform="rotate(${40+d*70})"/>
+    </g>`;
+  }).join('');
+  const budDroop = Math.min(1, p*3);
+  return `<svg viewBox="0 0 200 200" width="180" height="180">
+    <path d="M60 190 L140 190 L128 150 L72 150 Z" fill="#a5643a"/>
+    <path d="M100 150 Q${100+stemBend} 100 100 74" fill="none" stroke="#3f6b34" stroke-width="6" stroke-linecap="round"/>
+    ${leaves}
+    <circle cx="100" cy="70" r="7" fill="${budDroop<0.5?'#e8b4d8':'#8a7a5a'}" transform="rotate(${budDroop*50} 100 74)"/>
+  </svg>`;
+}
+function skinKite(wrong,maxWrong){
+  const p = wrong/maxWrong;
+  const tilt = p*35, drift = p*40, snapped = wrong>=maxWrong;
+  const wind = Array.from({length:Math.floor(p*4)},(_,i)=>
+    `<path d="M${20+i*10} ${40+i*15} q10 -6 20 0" stroke="#9db3c8" stroke-width="2" fill="none" opacity="${0.4+0.15*i}"/>`).join('');
+  const string = snapped
+    ? `<path d="M100 90 L100 130" stroke="#7a6a52" stroke-width="2" stroke-dasharray="4 6"/>`
+    : `<path d="M${100+drift*0.3} ${90+drift*0.3} L100 170" stroke="#7a6a52" stroke-width="2" stroke-dasharray="${Math.max(1,6-p*5)} ${p*10}"/>`;
+  return `<svg viewBox="0 0 200 200" width="180" height="180">
+    <rect x="90" y="172" width="20" height="10" rx="2" fill="#8a6b4a"/>
+    ${wind}${string}
+    <g transform="translate(${100+drift} ${90-drift}) rotate(${tilt})">
+      <path d="M0 -30 L20 0 L0 30 L-20 0 Z" fill="#d9765a" stroke="#a4472f" stroke-width="2"/>
+      <path d="M0 -30 L0 30 M-20 0 L20 0" stroke="#a4472f" stroke-width="1.5"/>
+      <path d="M0 30 q-4 10 -10 12 M0 30 q4 10 10 12" stroke="#a4472f" stroke-width="2" fill="none"/>
+    </g>
+  </svg>`;
+}
+function skinLantern(wrong,maxWrong){
+  const p = wrong/maxWrong, flameH = Math.max(2,26*(1-p)), out = wrong>=maxWrong;
+  const drops = Array.from({length:Math.floor(p*6)},(_,i)=>
+    `<line x1="${30+i*22}" y1="${10+(i*13)%20}" x2="${24+i*22}" y2="${30+(i*13)%20}" stroke="#7fa6c9" stroke-width="2" opacity="0.6"/>`).join('');
+  return `<svg viewBox="0 0 200 200" width="180" height="180">
+    ${drops}
+    <rect x="70" y="120" width="60" height="60" rx="8" fill="#6b4a2f"/>
+    <rect x="78" y="128" width="44" height="44" rx="5" fill="#2a2018"/>
+    ${out?'':`<path d="M100 ${150-flameH} Q108 ${150-flameH*0.5} 100 150 Q92 ${150-flameH*0.5} 100 ${150-flameH}" fill="#f2a44a"/>`}
+    <rect x="94" y="105" width="12" height="18" fill="#4a3a2a"/>
+  </svg>`;
+}
+function loadHangmanSkin(){
+  const id = localStorage.getItem('vocap-hangman-skin');
+  return (HANGMAN_SKINS.find(s=>s.id===id)||HANGMAN_SKINS[0]).id;
+}
+function setHangmanSkin(id){
+  localStorage.setItem('vocap-hangman-skin', id);
+  if(HM){ HM.skin=id; HM.showSkins=false; }
+  renderHangman();
+}
+
+let HM = null;   // {w, units, guessed:Set, wrong, done:null|'won'|'lost', skin, showSkins, gain, cardHtml}
+let HM_ALPHABET_CACHE = null;
+/* English guesses the fixed a-z alphabet; Thai has no fixed 26-key set,
+   so the keyboard is built from every non-space, non-tone-mark character
+   that actually occurs across the curated word list - every key on it is
+   guaranteed to be a real answer somewhere, never a dead key. */
+function hangmanAlphabet(){
+  if(HM_ALPHABET_CACHE) return HM_ALPHABET_CACHE;
+  if(GAME!=='th'){ HM_ALPHABET_CACHE = 'abcdefghijklmnopqrstuvwxyz'.split(''); return HM_ALPHABET_CACHE; }
+  const set = new Set();
+  for(const w of BANK) for(const ch of w.spell) if(ch!==' ' && !FREE_MARKS.has(ch)) set.add(ch);
+  HM_ALPHABET_CACHE = [...set].sort((a,b)=>a.localeCompare(b,'th'));
+  return HM_ALPHABET_CACHE;
+}
+function pickHangmanWord(){
+  const unseen = BANK.filter(w=>!seen.has(w.id));
+  const pool = unseen.length ? unseen : BANK;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function openHangman(){
+  closePanel();
+  $('hangman').className='show';
+  hangmanNext();
+}
+function closeHangman(){ $('hangman').className=''; HM=null; renderTray(); renderClue(); }
+function hangmanNext(){
+  const w = pickHangmanWord();
+  const units = [...w.spell].map(ch=>({ch, guessable: ch!==' ' && !FREE_MARKS.has(ch), revealed:false}));
+  HM = {w, units, guessed:new Set(), wrong:0, done:null, skin:loadHangmanSkin(), showSkins:false, gain:0, cardHtml:''};
+  renderHangman();
+}
+function hangmanToggleSkins(){ if(!HM) return; HM.showSkins=!HM.showSkins; renderHangman(); }
+function hangmanGuess(ch){
+  if(!HM || HM.done || HM.guessed.has(ch)) return;
+  HM.guessed.add(ch);
+  const hit = HM.units.some(u=>u.guessable && u.ch===ch);
+  if(hit){
+    for(const u of HM.units) if(u.guessable && u.ch===ch) u.revealed=true;
+  } else {
+    HM.wrong++;
+  }
+  checkHangmanEnd();
+  renderHangman();
+}
+function checkHangmanEnd(){
+  if(!HM || HM.done) return;
+  if(HM.units.every(u=>!u.guessable || u.revealed)){ HM.done='won'; hangmanAward(); }
+  else if(HM.wrong>=HANGMAN_MAX_WRONG){ HM.done='lost'; HM.units.forEach(u=>u.revealed=true); }
+}
+function hangmanAward(){
+  const w = HM.w;
+  const gain = seen.has(w.id) ? 0 : sparksFor(w.letters);
+  HM.gain = gain;
+  if(seen.has(w.id)){ sparks++; save(); speakEntry(w); }
+  else { sparks+=gain; seen.add(w.id); save(); speakEntry(w); logWord(w); checkGrowth(); }
+  HM.cardHtml = `<div class="wordcard show">${puzzleCardHTML(w,gain)}</div>`;
+}
+function renderHangman(){
+  if(!HM) return;
+  const skin = HANGMAN_SKINS.find(s=>s.id===HM.skin) || HANGMAN_SKINS[0];
+
+  if(HM.showSkins){
+    const cards = HANGMAN_SKINS.map(s=>`
+      <div class="modecard${s.id===HM.skin?' here':''}" onclick="setHangmanSkin('${s.id}')">
+        <span class="ic">${s.icon}</span><b>${t(s.nameKey)}</b>
+      </div>`).join('');
+    $('hangman').innerHTML = `<div class="sheet">
+      <h2>${t('chooseSkin')}</h2>
+      <div class="modegrid">${cards}</div>
+      <div class="row"><button onclick="hangmanToggleSkins()">${t('backToGame')}</button></div>
+    </div>`;
+    return;
+  }
+
+  const blanks = HM.units.map(u=>{
+    if(!u.guessable) return u.ch===' ' ? `<span class="hmgap"></span>` : `<span class="hmfree">${u.ch}</span>`;
+    return u.revealed ? `<span class="hmslot filled">${u.ch}</span>` : `<span class="hmslot"></span>`;
+  }).join('');
+
+  const keys = hangmanAlphabet().map(ch=>{
+    const done = HM.guessed.has(ch);
+    const hit = done && HM.units.some(u=>u.guessable && u.ch===ch);
+    const cls = done ? (hit?'good':'bad') : '';
+    const label = ch.toUpperCase ? ch.toUpperCase() : ch;
+    return `<button class="hmkey ${cls}" ${done?'disabled':''} onclick="hangmanGuess('${ch.replace(/'/g,"\\'")}')">${label}</button>`;
+  }).join('');
+
+  const won = HM.done==='won', lost = HM.done==='lost';
+  const msg = won ? `+${HM.gain} ✨ ${t('youWon')}` : lost ? `${t('youLost')} "${HM.w.word}"` : '';
+
+  $('hangman').innerHTML = `<div class="sheet">
+    <h2>${t('hangmanTitle')}</h2>
+    <div class="sub">${t('hangmanSub')}</div>
+    <div class="hmstage">${skin.draw(HM.wrong, HANGMAN_MAX_WRONG)}</div>
+    <div class="hmguesses">${t('guessesLeft')}: ${HANGMAN_MAX_WRONG-HM.wrong}</div>
+    <div class="hmword">${blanks}</div>
+    <div class="clueline">🔎 ${HM.w.definition}</div>
+    <div class="hmkeys">${keys}</div>
+    <div class="msg ${won?'good':lost?'bad':''}">${msg}</div>
+    <div id="hmCard">${HM.cardHtml}</div>
+    <div class="row">
+      ${(won||lost) ? `<button class="primary" onclick="hangmanNext()">${t('newWord')}</button>` : ''}
+      <button onclick="hangmanToggleSkins()">${skin.icon} ${t('chooseSkin')}</button>
+    </div>
+    <div class="quitrow"><button onclick="closeHangman()">${t('backToGame')}</button></div>
+  </div>`;
+}
 
 $('speed').onclick=()=>{ fillTrayNow(); };
 
@@ -2675,6 +2869,7 @@ Promise.all([
     const openParam = new URLSearchParams(location.search).get('open');
     if(openParam==='race') openRace();
     else if(openParam==='anagram' || openParam==='listening' || openParam==='puzzle') openPuzzle(openParam);
+    else if(openParam==='hangman') openHangman();
     else if(openParam==='modes') showModeMenu();
     else showLanguageSplash();
   }catch(err){
