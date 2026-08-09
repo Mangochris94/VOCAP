@@ -152,6 +152,12 @@ function speakWord(w){
   speechSynthesis.cancel();
   speak(w,{rate:0.85});                   // clear and unhurried: this is the teaching moment
 }
+/* speak() only knows English pronunciation. On the Thai page a curated
+   entry's own .word is Thai text, which speak() would just mangle - so
+   always resolve to the English side (the translation on the Thai page,
+   the word itself on the English page) before handing it to speak(). */
+function englishOf(w){ return GAME==='th' ? (w.translations?.en?.word||'') : w.word; }
+function speakEntry(w){ const e=englishOf(w); if(e) speakWord(e); }
 
 function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
 function count(s){
@@ -492,14 +498,14 @@ function submit(){
     if(!canSpell(count(w.spell),pc)){flash('letters not in the tray','bad');renderTray();return}
     repeatPaid.add(plain);
     if(seen.has(w.id)){                       // found on an earlier run
-      sparks++; save(); speakWord(w.word);
+      sparks++; save(); speakEntry(w);
       flash('already in your collection · +1 ✨','good');
       renderTray(); renderClue(); return;
     }
     const fresh=1+(order.length-dropped)/8;   // freshness bonus (design 4.4)
     const gain=Math.round(sparksFor(w.letters)*fresh);
     sparks+=gain; seen.add(w.id); save();
-    speakWord(w.word); showCard(w,gain); logWord(w);
+    speakEntry(w); showCard(w,gain); logWord(w);
     flash(`+${gain} ✨`,'good');
     renderTray(); renderClue(); checkGrowth();
     return;
@@ -559,6 +565,7 @@ function cardHTML(w,gain){
     <div id="c-body">
       <div id="c-head">
         <h2 id="c-word">${w.word}</h2>
+        <button id="c-speak" class="speakbtn" title="listen">🔊</button>
         <span id="c-pos">${w.letters} letters</span>
         <span id="c-spark">${gain?`+${gain} ✨`:'in your collection'}</span>
       </div>
@@ -582,6 +589,7 @@ function dictCardHTML(word){
     <div id="c-body">
       <div id="c-head">
         <h2 id="c-word">${word}</h2>
+        <button id="c-speak" class="speakbtn" title="listen">🔊</button>
         <span id="c-pos">${word.length} letters</span>
       </div>
       ${list}
@@ -607,11 +615,13 @@ function showDictCard(word){
   bindCard(null,word);
 }
 
-/* wire the close button and the tap-to-hear-it-again word */
+/* wire the close button and the speaker button. A dictionary word (plainWord)
+   is always plain English already; a curated word goes through englishOf()
+   since w.word is Thai text on the Thai page and speak() only knows English. */
 function bindCard(w,plainWord){
   const c=$('c-close'); if(c) c.onclick=()=>{ $('card').className=''; shownCard=null; };
-  const h=$('c-word');
-  if(h) h.onclick=()=>{ speechSynthesis.cancel(); speak(w?w.word:plainWord,{rate:0.8}); };
+  const s=$('c-speak');
+  if(s) s.onclick=()=>{ speechSynthesis.cancel(); speak(w?englishOf(w):plainWord,{rate:0.8}); };
 }
 
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
@@ -701,18 +711,23 @@ function openPop(html,extraClass){
 function closePop(){ $('popup').className=''; shownPop=null; }
 $('popup') && ($('popup').onclick=e=>{ if(e.target.id==='popup') closePop(); });
 
-/* Opening a word from the collection keeps you inside the collection. */
+/* Opening a word from the collection keeps you inside the collection.
+   Queried scoped to #popcard, not $('c-speak') - #card can already hold a
+   stale copy of the same id from an earlier discovery, and a plain
+   getElementById would silently bind the popup's button to that one. */
 function replay(id){
   const w=BANK_ALL.find(x=>x.id===id); if(!w) return;
   shownPop={w};
   openPop(cardHTML(w,0));
-  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})};
-  speakWord(w.word);
+  const s=document.querySelector('#popcard #c-speak');
+  if(s) s.onclick=()=>{ speechSynthesis.cancel(); speak(englishOf(w),{rate:0.8}); };
+  speakEntry(w);
 }
 function peekDict(word){
   shownPop={word};
   openPop(dictCardHTML(word),'dict');
-  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(word,{rate:0.8})};
+  const s=document.querySelector('#popcard #c-speak');
+  if(s) s.onclick=()=>{speechSynthesis.cancel();speak(word,{rate:0.8})};
 }
 
 function showDictionary(){
@@ -1929,7 +1944,6 @@ for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','prom
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
 $('c-close').onclick=()=>{$('card').className='';};
-$('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
 $('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
 $('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};
 $('submit').onclick=()=>submit();
@@ -2235,10 +2249,17 @@ function puzzleCardHTML(w,gain){
                          : (lang==='th' ? (w.translations?.th||{}) : {});
   const tags=[w.topic,w.topic2].filter(Boolean)
       .map(t=>`<span>${TOPIC_ICON[t]||'✦'} ${t}</span>`).join('');
+  /* speechSynthesis only knows English pronunciation - on the Thai page
+     w.word is the Thai spelling, so the speaker plays the English side
+     (englishOf) instead of trying, and failing, to say the Thai word. */
+  const speakText = englishOf(w).replace(/'/g,"\\'");
+  const speakBtn = speakText
+    ? `<button class="speakbtn" onclick="speechSynthesis.cancel();speak('${speakText}',{rate:0.8})" title="listen">🔊</button>`
+    : '';
   return `
     <div class="art">${TOPIC_ICON[w.topic]||'✦'}</div>
     <div class="body">
-      <h3 onclick="speechSynthesis.cancel();speak('${w.word}',{rate:0.8})">${w.word}
+      <h3>${w.word} ${speakBtn}
         <span class="spark">${gain?`+${gain} ✨`:'in your collection'}</span></h3>
       <div class="th">${th.word||''}</div>
       <p>${w.definition}</p>
@@ -2250,11 +2271,11 @@ function puzzleCardHTML(w,gain){
 function puzzleAward(w, isTarget){
   const gain = seen.has(w.id) ? 0 : sparksFor(w.letters);
   if(seen.has(w.id)){
-    sparks++; save(); speakWord(w.word);
+    sparks++; save(); speakEntry(w);
     $('pzMsg').textContent=t('alreadyInCollection');
   } else {
     sparks+=gain; seen.add(w.id); save();
-    speakWord(w.word); showCard(w,gain); logWord(w); checkGrowth();
+    speakEntry(w); showCard(w,gain); logWord(w); checkGrowth();
     $('pzMsg').textContent=`+${gain} ✨`;
   }
   $('pzMsg').className='msg good';
@@ -2305,7 +2326,8 @@ function redrawOpenCards(){
   }
   if(shownPop){
     if(shownPop.w){ const w=shownPop.w; openPop(cardHTML(w,0));
-      const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})}; }
+      const s=document.querySelector('#popcard #c-speak');
+      if(s) s.onclick=()=>{speechSynthesis.cancel();speak(englishOf(w),{rate:0.8})}; }
     else openPop(dictCardHTML(shownPop.word),'dict');
   }
 }
