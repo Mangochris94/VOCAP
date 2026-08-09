@@ -810,6 +810,21 @@ const STR = {
     lettersN:'letters', waitingYou:'WAITING FOR YOU', lastCall:'LAST CALL',
     anagramTitle:'ANAGRAM', anagramSub:'The tray is full and scrambled — rearrange, don\'t mine.',
     listeningTitle:'LISTENING', listeningSub:'Hear the word, then spell it. No clue until you\'ve guessed.',
+    modes:'Modes', modesSub:'choose a language and a way to play', close:'close', youAreHere:'you are here · ',
+    modeClassic:'Classic', modeClassicDesc:'Letters drop in on their own while you work.',
+    modeAnagram:'Anagram', modeAnagramDesc:'The tray starts full and scrambled — rearrange, don\'t mine.',
+    modeListening:'Listening', modeListeningDesc:'Hear the word first — no clue until you\'ve guessed.',
+    modePuzzle:'Puzzle', modePuzzleDesc:'Easy, Medium, Hard — clear a stage to unlock the next.',
+    modeRace:'Play Together', modeRaceDesc:'Race live or async against someone else.',
+    puzzleTitle:'PUZZLE', puzzleSub:'Clear a stage to unlock the next.',
+    stageEasy:'Easy', stageMedium:'Medium', stageHard:'Hard',
+    solved:'solved', clearedSuffix:' — cleared', lockedStage:'clear the stage before this one first',
+    stageClearedWord:'cleared', unlockedWord:'unlocked', allStagesCleared:'that\'s all three stages!',
+    chooseOtherStage:'↑ choose a different stage', backToGame:'← back to the game',
+    newWord:'⏭ new word', nextWord:'▶ next word', shuffle:'🔀 shuffle', playWord:'🔊 play the word',
+    tooShort:'too short', notQuite:'not quite — try again',
+    alreadyInCollection:'already in your collection · +1 ✨', alreadyInked:'already inked · +1 ✨',
+    inkedInDictionary:'📖 inked in the Dictionary · +2 ✨',
     uiLang:'EN'
   },
   th:{
@@ -823,6 +838,21 @@ const STR = {
     lettersN:'ตัวอักษร', waitingYou:'รอคุณอยู่', lastCall:'เรียกครั้งสุดท้าย',
     anagramTitle:'สลับคำ', anagramSub:'ถาดเต็มและสลับแล้ว — จัดเรียงใหม่ ไม่ต้องขุดหา',
     listeningTitle:'ฟังคำ', listeningSub:'ฟังคำก่อน แล้วสะกด — ไม่มีคำใบ้จนกว่าจะเดาถูก',
+    modes:'โหมด', modesSub:'เลือกภาษาและวิธีเล่น', close:'ปิด', youAreHere:'คุณอยู่ตรงนี้ · ',
+    modeClassic:'คลาสสิก', modeClassicDesc:'ตัวอักษรจะทยอยปรากฏเองระหว่างที่คุณทำงาน',
+    modeAnagram:'สลับคำ', modeAnagramDesc:'ถาดเต็มและสลับแล้วตั้งแต่ต้น — จัดเรียงใหม่ ไม่ต้องขุดหา',
+    modeListening:'ฟังคำ', modeListeningDesc:'ฟังคำก่อน — ไม่มีคำใบ้จนกว่าจะเดาถูก',
+    modePuzzle:'ปริศนา', modePuzzleDesc:'ง่าย กลาง ยาก — ผ่านด่านเพื่อปลดล็อกด่านถัดไป',
+    modeRace:'เล่นด้วยกัน', modeRaceDesc:'แข่งกับคนอื่นแบบสดหรือย้อนหลังก็ได้',
+    puzzleTitle:'ปริศนา', puzzleSub:'ผ่านด่านเพื่อปลดล็อกด่านถัดไป',
+    stageEasy:'ง่าย', stageMedium:'กลาง', stageHard:'ยาก',
+    solved:'ผ่านแล้ว', clearedSuffix:' — ผ่านแล้ว', lockedStage:'ผ่านด่านก่อนหน้านี้ก่อนเพื่อปลดล็อก',
+    stageClearedWord:'ผ่านแล้ว', unlockedWord:'ปลดล็อกแล้ว', allStagesCleared:'ครบทั้งสามด่านแล้ว!',
+    chooseOtherStage:'↑ เลือกด่านอื่น', backToGame:'← กลับไปเล่นเกม',
+    newWord:'⏭ คำใหม่', nextWord:'▶ คำถัดไป', shuffle:'🔀 สลับใหม่', playWord:'🔊 ฟังคำ',
+    tooShort:'สั้นเกินไป', notQuite:'ยังไม่ถูก ลองอีกครั้ง',
+    alreadyInCollection:'มีอยู่ในคลังคำแล้ว · +1 ✨', alreadyInked:'บันทึกไว้แล้ว · +1 ✨',
+    inkedInDictionary:'📖 บันทึกลงพจนานุกรม · +2 ✨',
     uiLang:'ไทย'
   }
 };
@@ -849,6 +879,16 @@ function applyUI(){
   const sb=$('submit'); if(sb) sb.textContent=t('submit');
   const cb=$('clear');  if(cb) cb.textContent=t('clear');
   const h=document.querySelector('#hint'); if(h) h.textContent=t('tapBuild');
+  /* the puzzle overlay's static chrome - none of it changes per session, so
+     one pass here (boot + language toggle) is enough; the dynamic bits
+     (titles, stage progress, submit feedback) translate themselves inline
+     wherever they're generated. */
+  set('pzBack', t('backToGame'));
+  set('pzClear', t('clear'));
+  set('pzSubmit', t('submit'));
+  set('pzShuffle', t('shuffle'));
+  set('pzPlay', t('playWord'));
+  set('pzStageBack', t('chooseOtherStage'));
   renderTray(); renderWordTray(); renderClue();
 }
 
@@ -1899,11 +1939,11 @@ function syncUILang(){
    rather than scattered across the main screen. The next mode this game
    gets is a new card here, not a new button somewhere in the tray. */
 const MODES = [
-  {key:'classic',   icon:'🌱', nm:'Classic',      desc:'Letters drop in on their own while you work.'},
-  {key:'anagram',   icon:'🔀', nm:'Anagram',       desc:'The tray starts full and scrambled — rearrange, don\'t mine.'},
-  {key:'listening', icon:'🎧', nm:'Listening',     desc:'Hear the word first — no clue until you\'ve guessed.'},
-  {key:'puzzle',    icon:'🧩', nm:'Puzzle',        desc:'Easy, Medium, Hard — clear a stage to unlock the next.'},
-  {key:'race',      icon:'🏁', nm:'Play Together', desc:'Race live or async against someone else.'},
+  {key:'classic',   icon:'🌱', nmKey:'modeClassic',   descKey:'modeClassicDesc'},
+  {key:'anagram',   icon:'🔀', nmKey:'modeAnagram',   descKey:'modeAnagramDesc'},
+  {key:'listening', icon:'🎧', nmKey:'modeListening', descKey:'modeListeningDesc'},
+  {key:'puzzle',    icon:'🧩', nmKey:'modePuzzle',    descKey:'modePuzzleDesc'},
+  {key:'race',      icon:'🏁', nmKey:'modeRace',      descKey:'modeRaceDesc'},
 ];
 const LANGS = [
   {key:'en', nm:'English',  file:'index.html'},
@@ -1931,13 +1971,13 @@ function showModeMenu(){
     const here = m.key==='classic' && menuLang===GAME;
     return `<div class="modecard${here?' here':''}" onclick="goToMode('${menuLang}','${m.key}')">
       <span class="ic">${m.icon}</span>
-      <b>${m.nm}</b>
-      <span>${here?'you are here · ':''}${m.desc}</span>
+      <b>${t(m.nmKey)}</b>
+      <span>${here?t('youAreHere'):''}${t(m.descKey)}</span>
     </div>`;
   }).join('');
-  openPanel(`<div class="phead"><div><h2>Modes</h2>
-      <div class="sub">choose a language and a way to play</div></div>
-      <button onclick="closePanel()">close</button></div>
+  openPanel(`<div class="phead"><div><h2>${t('modes')}</h2>
+      <div class="sub">${t('modesSub')}</div></div>
+      <button onclick="closePanel()">${t('close')}</button></div>
       <div class="langrow">${langRow}</div>
       <div class="modegrid">${cards}</div>`);
 }
@@ -1981,9 +2021,9 @@ function pickPuzzleWord(){
    capped by whatever tray size Classic had already grown to; a stage
    defines its own tray instead, so Hard is reachable from a first visit. */
 const PUZZLE_STAGES = [
-  {key:'easy',   icon:'🌱', nm:'Easy',   band:[3,5],   noise:2, need:8},
-  {key:'medium', icon:'🧭', nm:'Medium', band:[6,9],   noise:4, need:8},
-  {key:'hard',   icon:'🎓', nm:'Hard',   band:[10,15], noise:6, need:8},
+  {key:'easy',   icon:'🌱', nmKey:'stageEasy',   band:[3,5],   noise:2, need:8},
+  {key:'medium', icon:'🧭', nmKey:'stageMedium', band:[6,9],   noise:4, need:12},
+  {key:'hard',   icon:'🎓', nmKey:'stageHard',   band:[10,15], noise:6, need:18},
 ];
 function loadPuzzleProgress(){
   try{ const d=JSON.parse(localStorage.getItem('vocap-puzzle-progress'));
@@ -2009,8 +2049,8 @@ function openPuzzle(kind){
   PZ = {kind, w:null, order:[], used:[], building:[], stage:null};
   $('puzzle').className='show';
   if(kind==='puzzle'){
-    $('pzTitle').textContent='PUZZLE';
-    $('pzSub').textContent='Clear a stage to unlock the next.';
+    $('pzTitle').textContent=t('puzzleTitle');
+    $('pzSub').textContent=t('puzzleSub');
     showPuzzleStages();
   } else {
     $('pzTitle').textContent = kind==='anagram' ? t('anagramTitle') : t('listeningTitle');
@@ -2034,8 +2074,8 @@ function showPuzzleStages(){
     return `<div class="modecard${!unlocked?' locked':''}"
                  ${unlocked?`onclick="startPuzzleStage('${s.key}')"`:''}>
       <span class="ic">${unlocked?s.icon:'🔒'}</span>
-      <b>${s.nm}${cleared?' — cleared':''}</b>
-      <span>${unlocked ? `${solved}/${s.need} solved` : 'clear the stage before this one first'}</span>
+      <b>${t(s.nmKey)}${cleared?t('clearedSuffix'):''}</b>
+      <span>${unlocked ? `${solved}/${s.need} ${t('solved')}` : t('lockedStage')}</span>
     </div>`;
   }).join('');
   el.innerHTML = `<div class="modegrid">${cards}</div>`;
@@ -2063,11 +2103,11 @@ function puzzleNext(){
   PZ.building = [];
   $('pzMsg').textContent=''; $('pzMsg').className='msg';
   $('pzCard').className=''; $('pzCard').innerHTML='';
-  $('pzNext').textContent='⏭ new word'; $('pzNext').classList.remove('primary');
+  $('pzNext').textContent=t('newWord'); $('pzNext').classList.remove('primary');
   if(PZ.kind==='puzzle'){
     const stage = PUZZLE_STAGES.find(s=>s.key===PZ.stage);
     const solved = Math.min(PUZPROG.solved[PZ.stage]||0, stage.need);
-    $('pzSub').textContent = `${stage.nm} · ${solved}/${stage.need} solved`;
+    $('pzSub').textContent = `${t(stage.nmKey)} · ${solved}/${stage.need} ${t('solved')}`;
   }
   renderPuzzle();
   /* This bypasses the sayWords toggle on purpose: for Listening mode audio
@@ -2150,7 +2190,7 @@ function submitPuzzle(){
   PZ.building=[]; PZ.used=PZ.order.map(()=>false);
   renderPuzzle();
 
-  if(answer.length<2){ $('pzMsg').textContent='too short'; $('pzMsg').className='msg bad'; return; }
+  if(answer.length<2){ $('pzMsg').textContent=t('tooShort'); $('pzMsg').className='msg bad'; return; }
   if(answer===PZ.w.spell){ puzzleAward(PZ.w, true); return; }
 
   /* A different real word made from the very same tiles still counts, the
@@ -2163,15 +2203,15 @@ function submitPuzzle(){
     inkTally[answer]=(inkTally[answer]||0)+1;
     if(inked.has(answer)){
       sparks++; save();
-      $('pzMsg').textContent='already inked · +1 ✨';
+      $('pzMsg').textContent=t('alreadyInked');
     } else {
       inked.add(answer); sparks+=2; save(); speakWord(answer); showDictCard(answer);
-      $('pzMsg').textContent='📖 inked in the Dictionary · +2 ✨';
+      $('pzMsg').textContent=t('inkedInDictionary');
     }
     $('pzMsg').className='msg good';
     return;
   }
-  $('pzMsg').textContent='not quite — try again'; $('pzMsg').className='msg bad';
+  $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad';
 }
 /* The main card (cardHTML/#card) is id-based and lives behind this
    overlay, so it stays queued for later rather than shown here - this is
@@ -2198,7 +2238,7 @@ function puzzleAward(w, isTarget){
   const gain = seen.has(w.id) ? 0 : sparksFor(w.letters);
   if(seen.has(w.id)){
     sparks++; save(); speakWord(w.word);
-    $('pzMsg').textContent='already in your collection · +1 ✨';
+    $('pzMsg').textContent=t('alreadyInCollection');
   } else {
     sparks+=gain; seen.add(w.id); save();
     speakWord(w.word); showCard(w,gain); logWord(w); checkGrowth();
@@ -2214,7 +2254,7 @@ function puzzleAward(w, isTarget){
      it read as rushed, especially with the card now actually visible to
      read. */
   if(isTarget){
-    $('pzNext').textContent='▶ next word'; $('pzNext').classList.add('primary');
+    $('pzNext').textContent=t('nextWord'); $('pzNext').classList.add('primary');
   }
   if(isTarget && PZ.kind==='puzzle'){
     const stage = PUZZLE_STAGES.find(s=>s.key===PZ.stage);
@@ -2223,10 +2263,12 @@ function puzzleAward(w, isTarget){
     if(justCleared) PUZPROG.cleared[PZ.stage] = true;
     savePuzzleProgress();
     const solved = Math.min(PUZPROG.solved[PZ.stage], stage.need);
-    $('pzSub').textContent = `${stage.nm} · ${solved}/${stage.need} solved`;
+    $('pzSub').textContent = `${t(stage.nmKey)} · ${solved}/${stage.need} ${t('solved')}`;
     if(justCleared){
       const next = PUZZLE_STAGES[PUZZLE_STAGES.findIndex(s=>s.key===PZ.stage)+1];
-      $('pzMsg').textContent = next ? `🎉 ${stage.nm} cleared — ${next.nm} unlocked!` : `🎉 ${stage.nm} cleared — that's all three stages!`;
+      $('pzMsg').textContent = next
+        ? `🎉 ${t(stage.nmKey)} ${t('stageClearedWord')} — ${t(next.nmKey)} ${t('unlockedWord')}!`
+        : `🎉 ${t(stage.nmKey)} ${t('stageClearedWord')} — ${t('allStagesCleared')}`;
     }
   }
 }
