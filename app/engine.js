@@ -261,10 +261,15 @@ function snoozeUnsolved(){
 }
 
 /* ---------------- cycle control ---------------- */
+/* The tray fills immediately rather than dripping one letter every 5/10/20
+   minutes - that trickle made sense as the whole game, but not as a wait
+   between rounds. The drip machinery (dropLetter/scheduleDrop/INTERVAL_MS)
+   is left in place rather than deleted: it is exactly what an idle-game
+   version of Vocap would want back, sitting in the corner of the screen. */
 function startCycle(){
   cycleNo++; const size=traySize();
   [seeds,]=pickSeeds(size); order=buildOrder(size);
-  pool=[]; dropped=0; repeatPaid=new Set(); building=[]; hintsBought={}; holding=false;
+  pool=[...order]; dropped=order.length; repeatPaid=new Set(); building=[]; hintsBought={}; holding=false;
   checkGrowth();
   renderTray(); renderWordTray(); renderClue(); scheduleDrop();
 }
@@ -386,6 +391,7 @@ function renderWordTray(){
   /* Named `box`, not `t` — `t` is the translation function, and shadowing it
      here made every render throw. */
   const box=$('wordtray'); if(!box) return;
+  const sb=$('submit'); if(sb) sb.disabled = building.length===0;
   const s=building.map(b=>b.ch).join('');
   if(GAME==='th'){
     /* Let the font do the stacking. Laying Thai out as separate tiles put
@@ -871,6 +877,11 @@ const STR = {
 };
 let UI = CFG.game==='th' ? 'th' : 'en';
 function t(k){ return (STR[UI] && STR[UI][k]) || STR.en[k] || k; }
+/* For the mode menu's language pill: previewing a mode card in the other
+   language must not depend on UI, which is pinned to the page (GAME) and
+   deliberately does not follow it - this is the one place text needs to
+   follow whichever language is being previewed instead. */
+function tLang(langKey,k){ return (STR[langKey] && STR[langKey][k]) || STR.en[k] || k; }
 
 function applyUI(){
   syncUILang();
@@ -1901,8 +1912,12 @@ document.addEventListener('keydown',e=>{
     building=[];renderTray();renderWordTray();return}
   if(e.key==='Backspace'){building.pop()}
   else if(e.key===' '){building.push({ch:' ',from:null});e.preventDefault()}   // free space
-  else if(/^[a-zA-Z']$/.test(e.key)){
-    const ch=e.key.toLowerCase();
+  else if(GAME==='th' && FREE_MARKS.has(e.key)){
+    if(building.length) building.push({ch:e.key, from:-1});
+    else return;
+  }
+  else if(GAME==='th' ? /^[฀-๿]$/.test(e.key) : /^[a-zA-Z']$/.test(e.key)){
+    const ch = GAME==='th' ? e.key : e.key.toLowerCase();
     const slot=claimSlot(ch);
     if(slot===null){flash(`no free "${tileGlyph(ch)}" in the tray`,'bad');return}
     speakLetter(ch);
@@ -1986,8 +2001,8 @@ function showModeMenu(){
     const here = m.key==='classic' && menuLang===GAME;
     return `<div class="modecard${here?' here':''}" onclick="goToMode('${menuLang}','${m.key}')">
       <span class="ic">${m.icon}</span>
-      <b>${t(m.nmKey)}</b>
-      <span>${here?t('youAreHere'):''}${t(m.descKey)}</span>
+      <b>${tLang(menuLang,m.nmKey)}</b>
+      <span>${here?tLang(menuLang,'youAreHere'):''}${tLang(menuLang,m.descKey)}</span>
     </div>`;
   }).join('');
   openPanel(`<div class="phead"><div><h2>${t('modes')}</h2>
