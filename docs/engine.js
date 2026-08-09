@@ -1982,14 +1982,19 @@ const LANGS = [
 function renderModesTrigger(){
   const el=$('gamepill'); if(!el) return;
   const here = LANGS.find(l=>l.key===GAME) || LANGS[0];
-  el.innerHTML = `<button onclick="showModeMenu()">☰ ${here.nm}</button>`;
+  el.innerHTML = `<button onclick="openModeMenu()">☰ ${here.nm}</button>`;
 }
 renderModesTrigger();
 
 /* Which language's cards the menu is currently showing - independent of
    GAME, which is fixed by the page. Switching the pill just re-renders the
-   list; only actually picking a mode navigates anywhere. */
+   list; only actually picking a mode navigates anywhere. Reopening the menu
+   from the corner button is a fresh look at it, not a continuation of
+   whatever was being previewed last time - it must not still be showing
+   Thai cards on the English page just because the pill was tapped once,
+   three menu-opens ago. */
 let menuLang = null;
+function openModeMenu(){ menuLang = GAME; showModeMenu(); }
 function switchMenuLang(lang){ menuLang = lang; showModeMenu(); }
 
 function showModeMenu(){
