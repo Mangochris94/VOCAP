@@ -1859,7 +1859,7 @@ document.addEventListener('keydown',e=>{
   renderTray(); renderWordTray();
 });
 for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit',
-                  'pzSubmit','pzClear','pzShuffle','pzNext','pzPlay','pzBack']){
+                  'pzSubmit','pzClear','pzShuffle','pzNext','pzPlay','pzBack','pzStageBack']){
   const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
@@ -1895,38 +1895,16 @@ function syncUILang(){
   UI = GAME==='th' ? 'th' : 'en';
 }
 
-/* Modes and language used to be two separate corner controls (a language
-   pill, and a big PLAY TOGETHER button sitting in the main screen). Both
-   are now one menu, opened from a single front-of-screen trigger - so the
-   next mode this game gets is a new row here, not a new button somewhere
-   in the tray. */
+/* Modes and language both live behind one small trigger in the corner,
+   rather than scattered across the main screen. The next mode this game
+   gets is a new card here, not a new button somewhere in the tray. */
 const MODES = [
   {key:'classic',   icon:'🌱', nm:'Classic',      desc:'Letters drop in on their own while you work.'},
   {key:'anagram',   icon:'🔀', nm:'Anagram',       desc:'The tray starts full and scrambled — rearrange, don\'t mine.'},
   {key:'listening', icon:'🎧', nm:'Listening',     desc:'Hear the word first — no clue until you\'ve guessed.'},
+  {key:'puzzle',    icon:'🧩', nm:'Puzzle',        desc:'Easy, Medium, Hard — clear a stage to unlock the next.'},
   {key:'race',      icon:'🏁', nm:'Play Together', desc:'Race live or async against someone else.'},
 ];
-/* Everyday flavour (default). Explorer/Scholar arrive with the settings
-   screen. Difficulty only changes the letter-length bands pickSeeds() draws
-   from - a wider or tighter band naturally means more or less noise too,
-   since noise is just whatever tray space is left once the seed words are
-   placed. Also biases which word Anagram/Listening pick next. */
-const DIFFS = [
-  {key:'everyday', icon:'🌱', nm:'Everyday', desc:'The default mix — always something short and solvable.', plan:[[3,5],[3,6],[4,7]]},
-  {key:'explorer', icon:'🧭', nm:'Explorer', desc:'Wider bands, more noise — a calmer, more forgiving tray.', plan:[[3,6],[3,7],[4,8]]},
-  {key:'scholar',  icon:'🎓', nm:'Scholar',  desc:'Tighter bands, longer words, noise trimmed to the bone.', plan:[[5,8],[6,10],[7,12]]},
-];
-let DIFF = localStorage.getItem('vocap-difficulty') || 'everyday';
-function applyDifficulty(){
-  const d = DIFFS.find(x=>x.key===DIFF) || DIFFS[0];
-  PLAN.length = 0; PLAN.push(...d.plan);
-}
-applyDifficulty();
-function setDifficulty(key){
-  DIFF = key; localStorage.setItem('vocap-difficulty', key);
-  applyDifficulty();
-  showModeMenu();
-}
 const LANGS = [
   {key:'en', nm:'English',  file:'index.html'},
   {key:'th', nm:'ภาษาไทย',  file:'index-th.html'},
@@ -1938,34 +1916,40 @@ function renderModesTrigger(){
 }
 renderModesTrigger();
 
+/* Which language's cards the menu is currently showing - independent of
+   GAME, which is fixed by the page. Switching the pill just re-renders the
+   list; only actually picking a mode navigates anywhere. */
+let menuLang = null;
+function switchMenuLang(lang){ menuLang = lang; showModeMenu(); }
+
 function showModeMenu(){
-  let rows='';
-  for(const l of LANGS) for(const m of MODES){
-    const here = l.key===GAME && m.key==='classic';
-    rows += `<div class="moderow${here?' here':''}" onclick="goToMode('${l.key}','${m.key}')">
+  if(!menuLang) menuLang = GAME;
+  const langRow = LANGS.map(l=>
+    `<button class="langpill${l.key===menuLang?' on':''}" onclick="switchMenuLang('${l.key}')">${l.nm}</button>`
+  ).join('');
+  const cards = MODES.map(m=>{
+    const here = m.key==='classic' && menuLang===GAME;
+    return `<div class="modecard${here?' here':''}" onclick="goToMode('${menuLang}','${m.key}')">
       <span class="ic">${m.icon}</span>
-      <span class="txt"><b>${m.nm} — ${l.nm}</b><span>${here?'you are here · ':''}${m.desc}</span></span>
+      <b>${m.nm}</b>
+      <span>${here?'you are here · ':''}${m.desc}</span>
     </div>`;
-  }
-  const diffRows = DIFFS.map(d=>`<div class="moderow${d.key===DIFF?' here':''}" onclick="setDifficulty('${d.key}')">
-      <span class="ic">${d.icon}</span>
-      <span class="txt"><b>${d.nm}${d.key===DIFF?' — current':''}</b><span>${d.desc}</span></span>
-    </div>`).join('');
+  }).join('');
   openPanel(`<div class="phead"><div><h2>Modes</h2>
       <div class="sub">choose a language and a way to play</div></div>
-      <button onclick="closePanel()">close</button></div>${rows}
-      <div class="sub-h">difficulty — applies from your next tray</div>
-      ${diffRows}`);
+      <button onclick="closePanel()">close</button></div>
+      <div class="langrow">${langRow}</div>
+      <div class="modegrid">${cards}</div>`);
 }
 function goToMode(lang, mode){
   if(lang===GAME){
     closePanel();
     if(mode==='race') openRace();
-    else if(mode==='anagram' || mode==='listening') openPuzzle(mode);
+    else if(mode==='anagram' || mode==='listening' || mode==='puzzle') openPuzzle(mode);
     return;
   }
   const target = (LANGS.find(l=>l.key===lang)||LANGS[0]).file;
-  const jumpable = ['race','anagram','listening'];
+  const jumpable = ['race','anagram','listening','puzzle'];
   location.href = jumpable.includes(mode) ? (target+'?open='+mode) : target;
 }
 
@@ -1988,24 +1972,103 @@ function pickPuzzleWord(){
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
+/* ═══════════════════ PUZZLE: staged difficulty ═══════════════════
+   Easy/Medium/Hard as their own deliberate mode rather than a setting
+   Classic quietly inherited - clearing a stage's word count unlocks the
+   next one, and each stage has its own letter-length band AND its own
+   noise count (extra decoy tiles among the real ones), reusing the same
+   noiseLetters() the drip already relies on. Difficulty used to also be
+   capped by whatever tray size Classic had already grown to; a stage
+   defines its own tray instead, so Hard is reachable from a first visit. */
+const PUZZLE_STAGES = [
+  {key:'easy',   icon:'🌱', nm:'Easy',   band:[3,5],   noise:2, need:8},
+  {key:'medium', icon:'🧭', nm:'Medium', band:[6,9],   noise:4, need:8},
+  {key:'hard',   icon:'🎓', nm:'Hard',   band:[10,15], noise:6, need:8},
+];
+function loadPuzzleProgress(){
+  try{ const d=JSON.parse(localStorage.getItem('vocap-puzzle-progress'));
+       if(d) return d; }catch(e){}
+  return {solved:{}, cleared:{}};
+}
+let PUZPROG = loadPuzzleProgress();
+function savePuzzleProgress(){ localStorage.setItem('vocap-puzzle-progress', JSON.stringify(PUZPROG)); }
+function stageUnlocked(key){
+  const i = PUZZLE_STAGES.findIndex(s=>s.key===key);
+  return i<=0 || !!PUZPROG.cleared[PUZZLE_STAGES[i-1].key];
+}
+function pickStageWord(stage){
+  const [lo,hi] = stage.band;
+  const fresh  = BANK.filter(w=>!seen.has(w.id) && w.letters>=lo && w.letters<=hi);
+  const banded = BANK.filter(w=>w.letters>=lo && w.letters<=hi);
+  const pool = fresh.length ? fresh : banded.length ? banded : BANK;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
 function openPuzzle(kind){
   closePanel();
-  PZ = {kind, w:null, order:[], used:[], building:[]};
+  PZ = {kind, w:null, order:[], used:[], building:[], stage:null};
   $('puzzle').className='show';
-  $('pzTitle').textContent = kind==='anagram' ? t('anagramTitle') : t('listeningTitle');
-  $('pzSub').textContent   = kind==='anagram' ? t('anagramSub')   : t('listeningSub');
-  puzzleNext();
+  if(kind==='puzzle'){
+    $('pzTitle').textContent='PUZZLE';
+    $('pzSub').textContent='Clear a stage to unlock the next.';
+    showPuzzleStages();
+  } else {
+    $('pzTitle').textContent = kind==='anagram' ? t('anagramTitle') : t('listeningTitle');
+    $('pzSub').textContent   = kind==='anagram' ? t('anagramSub')   : t('listeningSub');
+    $('pzArea').style.display='flex'; $('pzStages').style.display='none';
+    $('pzStageBack').style.display='none';
+    puzzleNext();
+  }
 }
 function closePuzzle(){ $('puzzle').className=''; PZ=null; renderTray(); renderClue(); }
 
+/* the stage picker replaces the play area entirely rather than living
+   alongside it, so there is only ever one thing to look at */
+function showPuzzleStages(){
+  if(PZ) PZ.stage=null;
+  $('pzArea').style.display='none';
+  const el=$('pzStages'); el.style.display='flex';
+  const cards = PUZZLE_STAGES.map(s=>{
+    const unlocked = stageUnlocked(s.key), cleared = !!PUZPROG.cleared[s.key];
+    const solved = Math.min(PUZPROG.solved[s.key]||0, s.need);
+    return `<div class="modecard${!unlocked?' locked':''}"
+                 ${unlocked?`onclick="startPuzzleStage('${s.key}')"`:''}>
+      <span class="ic">${unlocked?s.icon:'🔒'}</span>
+      <b>${s.nm}${cleared?' — cleared':''}</b>
+      <span>${unlocked ? `${solved}/${s.need} solved` : 'clear the stage before this one first'}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="modegrid">${cards}</div>`;
+}
+function startPuzzleStage(key){
+  if(!stageUnlocked(key)) return;
+  PZ.stage = key;
+  $('pzStages').style.display='none';
+  $('pzArea').style.display='flex';
+  $('pzStageBack').style.display='block';
+  puzzleNext();
+}
+
 function puzzleNext(){
-  PZ.w = pickPuzzleWord();
-  PZ.order = [...PZ.w.spell].sort(()=>Math.random()-.5);
+  if(PZ.kind==='puzzle'){
+    const stage = PUZZLE_STAGES.find(s=>s.key===PZ.stage);
+    PZ.w = pickStageWord(stage);
+    const noise = noiseLetters(count(PZ.w.spell), stage.noise);
+    PZ.order = [...PZ.w.spell, ...noise].sort(()=>Math.random()-.5);
+  } else {
+    PZ.w = pickPuzzleWord();
+    PZ.order = [...PZ.w.spell].sort(()=>Math.random()-.5);
+  }
   PZ.used = PZ.order.map(()=>false);
   PZ.building = [];
   $('pzMsg').textContent=''; $('pzMsg').className='msg';
   $('pzCard').className=''; $('pzCard').innerHTML='';
   $('pzNext').textContent='⏭ new word'; $('pzNext').classList.remove('primary');
+  if(PZ.kind==='puzzle'){
+    const stage = PUZZLE_STAGES.find(s=>s.key===PZ.stage);
+    const solved = Math.min(PUZPROG.solved[PZ.stage]||0, stage.need);
+    $('pzSub').textContent = `${stage.nm} · ${solved}/${stage.need} solved`;
+  }
   renderPuzzle();
   /* This bypasses the sayWords toggle on purpose: for Listening mode audio
      IS the clue, not a bonus, so muting word-speech elsewhere must not also
@@ -2070,7 +2133,7 @@ function renderPuzzle(){
   }
 
   const clueEl = $('pzClue');
-  if(PZ.kind==='anagram'){
+  if(PZ.kind==='anagram' || PZ.kind==='puzzle'){
     const th = (GAME!=='th' && lang==='th') ? (w.translations?.th?.definition||'') : '';
     clueEl.style.display='block';
     clueEl.innerHTML = `🔎 ${w.definition}` + (th?`<div class="cl-th2">${th}</div>`:'');
@@ -2152,6 +2215,19 @@ function puzzleAward(w, isTarget){
      read. */
   if(isTarget){
     $('pzNext').textContent='▶ next word'; $('pzNext').classList.add('primary');
+  }
+  if(isTarget && PZ.kind==='puzzle'){
+    const stage = PUZZLE_STAGES.find(s=>s.key===PZ.stage);
+    PUZPROG.solved[PZ.stage] = (PUZPROG.solved[PZ.stage]||0) + 1;
+    const justCleared = PUZPROG.solved[PZ.stage] >= stage.need && !PUZPROG.cleared[PZ.stage];
+    if(justCleared) PUZPROG.cleared[PZ.stage] = true;
+    savePuzzleProgress();
+    const solved = Math.min(PUZPROG.solved[PZ.stage], stage.need);
+    $('pzSub').textContent = `${stage.nm} · ${solved}/${stage.need} solved`;
+    if(justCleared){
+      const next = PUZZLE_STAGES[PUZZLE_STAGES.findIndex(s=>s.key===PZ.stage)+1];
+      $('pzMsg').textContent = next ? `🎉 ${stage.nm} cleared — ${next.nm} unlocked!` : `🎉 ${stage.nm} cleared — that's all three stages!`;
+    }
   }
 }
 
@@ -2265,7 +2341,7 @@ Promise.all([
        instead of showing it and then immediately covering it again. */
     const openParam = new URLSearchParams(location.search).get('open');
     if(openParam==='race') openRace();
-    else if(openParam==='anagram' || openParam==='listening') openPuzzle(openParam);
+    else if(openParam==='anagram' || openParam==='listening' || openParam==='puzzle') openPuzzle(openParam);
     else showModeMenu();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
