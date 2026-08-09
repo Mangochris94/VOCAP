@@ -117,7 +117,15 @@ const $=id=>document.getElementById(id);
    into an opponent's client. */
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SAVEKEY = ()=> GAME==='th' ? 'vocap-th' : 'vocap';
-const save=()=>localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
+/* Every save is a candidate leaderboard update, but a discovery streak can
+   call save() many times a minute - submitClassicScore() throttles itself,
+   this just decides when it's worth asking. */
+let lastLbSubmit=0;
+const save=()=>{
+  localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
+  const now=Date.now();
+  if(now-lastLbSubmit>15000){ lastLbSubmit=now; submitClassicScore(); }
+};
 const load=()=>{try{const d=JSON.parse(localStorage.getItem(SAVEKEY()));
   if(d){seen=new Set(d.seen);sparks=d.sparks;
         inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;
@@ -152,6 +160,12 @@ function speakWord(w){
   speechSynthesis.cancel();
   speak(w,{rate:0.85});                   // clear and unhurried: this is the teaching moment
 }
+/* speak() only knows English pronunciation. On the Thai page a curated
+   entry's own .word is Thai text, which speak() would just mangle - so
+   always resolve to the English side (the translation on the Thai page,
+   the word itself on the English page) before handing it to speak(). */
+function englishOf(w){ return GAME==='th' ? (w.translations?.en?.word||'') : w.word; }
+function speakEntry(w){ const e=englishOf(w); if(e) speakWord(e); }
 
 function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
 function count(s){
@@ -492,14 +506,14 @@ function submit(){
     if(!canSpell(count(w.spell),pc)){flash('letters not in the tray','bad');renderTray();return}
     repeatPaid.add(plain);
     if(seen.has(w.id)){                       // found on an earlier run
-      sparks++; save(); speakWord(w.word);
+      sparks++; save(); speakEntry(w);
       flash('already in your collection · +1 ✨','good');
       renderTray(); renderClue(); return;
     }
     const fresh=1+(order.length-dropped)/8;   // freshness bonus (design 4.4)
     const gain=Math.round(sparksFor(w.letters)*fresh);
     sparks+=gain; seen.add(w.id); save();
-    speakWord(w.word); showCard(w,gain); logWord(w);
+    speakEntry(w); showCard(w,gain); logWord(w);
     flash(`+${gain} ✨`,'good');
     renderTray(); renderClue(); checkGrowth();
     return;
@@ -559,6 +573,7 @@ function cardHTML(w,gain){
     <div id="c-body">
       <div id="c-head">
         <h2 id="c-word">${w.word}</h2>
+        <button id="c-speak" class="speakbtn" title="listen">🔊</button>
         <span id="c-pos">${w.letters} letters</span>
         <span id="c-spark">${gain?`+${gain} ✨`:'in your collection'}</span>
       </div>
@@ -582,6 +597,7 @@ function dictCardHTML(word){
     <div id="c-body">
       <div id="c-head">
         <h2 id="c-word">${word}</h2>
+        <button id="c-speak" class="speakbtn" title="listen">🔊</button>
         <span id="c-pos">${word.length} letters</span>
       </div>
       ${list}
@@ -607,11 +623,13 @@ function showDictCard(word){
   bindCard(null,word);
 }
 
-/* wire the close button and the tap-to-hear-it-again word */
+/* wire the close button and the speaker button. A dictionary word (plainWord)
+   is always plain English already; a curated word goes through englishOf()
+   since w.word is Thai text on the Thai page and speak() only knows English. */
 function bindCard(w,plainWord){
   const c=$('c-close'); if(c) c.onclick=()=>{ $('card').className=''; shownCard=null; };
-  const h=$('c-word');
-  if(h) h.onclick=()=>{ speechSynthesis.cancel(); speak(w?w.word:plainWord,{rate:0.8}); };
+  const s=$('c-speak');
+  if(s) s.onclick=()=>{ speechSynthesis.cancel(); speak(w?englishOf(w):plainWord,{rate:0.8}); };
 }
 
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
@@ -701,18 +719,23 @@ function openPop(html,extraClass){
 function closePop(){ $('popup').className=''; shownPop=null; }
 $('popup') && ($('popup').onclick=e=>{ if(e.target.id==='popup') closePop(); });
 
-/* Opening a word from the collection keeps you inside the collection. */
+/* Opening a word from the collection keeps you inside the collection.
+   Queried scoped to #popcard, not $('c-speak') - #card can already hold a
+   stale copy of the same id from an earlier discovery, and a plain
+   getElementById would silently bind the popup's button to that one. */
 function replay(id){
   const w=BANK_ALL.find(x=>x.id===id); if(!w) return;
   shownPop={w};
   openPop(cardHTML(w,0));
-  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})};
-  speakWord(w.word);
+  const s=document.querySelector('#popcard #c-speak');
+  if(s) s.onclick=()=>{ speechSynthesis.cancel(); speak(englishOf(w),{rate:0.8}); };
+  speakEntry(w);
 }
 function peekDict(word){
   shownPop={word};
   openPop(dictCardHTML(word),'dict');
-  const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(word,{rate:0.8})};
+  const s=document.querySelector('#popcard #c-speak');
+  if(s) s.onclick=()=>{speechSynthesis.cancel();speak(word,{rate:0.8})};
 }
 
 function showDictionary(){
@@ -844,6 +867,57 @@ const STR = {
     tooShort:'too short', notQuite:'not quite — try again',
     alreadyInCollection:'already in your collection · +1 ✨', alreadyInked:'already inked · +1 ✨',
     inkedInDictionary:'📖 inked in the Dictionary · +2 ✨',
+    raceTitle:'RACE', raceIntro:'Same code, same letters, same clues.',
+    yourName:'your name', raceCodeLabel:'race code', newCodeBtn:'new code',
+    howItEnds:'how it ends', opt2min:'2 min', opt3min:'3 min', opt5min:'5 min',
+    optTo300:'to 300', optTo500:'to 500', whoPlaying:'who is playing',
+    kindSolo:'just me', kindDuel:'duel · 2', kindParty:'party · up to 10',
+    noteSolo:'Play alone. Share the code and compare scores afterwards.',
+    noteDuel:'Two players, live scores. You host; they join with your code.',
+    noteParty:'Up to ten players, live scores. You host; they join with your code.',
+    startBtn:'START', joinRoomBtn:'JOIN A ROOM', trophiesBtn:'🏆 trophies &amp; titles',
+    raceBackToGame:'back to the game', raceBack:'back',
+    openingRoom:'opening room…', startLower:'start', raceErrSuffix:' — starting a solo race instead',
+    waitingRoom:'waiting room', lobbyNote:'Nobody starts until you do — ',
+    shareLinkNote:'share this link and they join in one click', copyLinkBtn:'copy link',
+    copiedText:'copied', startTheRaceBtn:'start the race', cancelBtn:'cancel',
+    joinTitle:'JOIN', joinIntro:'Ask the host for their code.',
+    theirRoomCode:'their room code', joinBtn:'JOIN', typeCodeErr:'type the code you were given',
+    connectingBtn:'CONNECTING…', youAreIn:'You are in. The race begins when the host starts it.',
+    waitingHost:'waiting for the host…', leaveBtn:'leave',
+    codeLabel:'code', firstToTimeOut:'first to run out of time',
+    firstToPointsPre:'first to ', firstToPointsPost:' points',
+    pointsLabel:'points', wordsLabelPlain:'words',
+    leaveRaceBtn:'✕ leave the race', reallyLeaveBtn:'✕ really leave? tap again',
+    finalStandings:'final standings', yourWords:'your words', noneThisTime:'none this time',
+    copyResultBtn:'copy result', raceAgainBtn:'race again', laurelsWord:'laurels', totalWord:'total',
+    stillGoing:'still going', copyCodeBtn:'copy code',
+    pasteHint:'Paste this into the other device\'s import box.',
+    noTitleEquipped:'no title equipped', titlesHeader:'titles — tap one to wear it',
+    noneTitleBtn:'none', winTrophyHint:'win a trophy tier to earn one', trophiesHeader:'trophies',
+    moveProfile:'move this profile to another device', exportBtn:'export', importBtn:'import',
+    pasteCodeLabel:'paste a profile code', loadCodeBtn:'load it',
+    codeBadFormat:'that code did not look right',
+    statRaces:'races', statWon:'won', statStreakNow:'streak now', statBestStreak:'best streak',
+    statBestScore:'best score', statWordsN:'words', statLongWords:'long words',
+    statCluesSolved:'clues solved', statSweeps:'sweeps', statOpponents:'opponents',
+    flashFreshLetters:'fresh letters', flashPutLetterDown:'put a letter down first',
+    flashAlreadyFound:'already found', flashNotAWord:'not a word',
+    flashSweep:'every clue on this tray · sweep', flashClueDouble:'clue solved · double points',
+    placesFilledSuffix:' places filled',
+    errMatchmaking:'could not reach the matchmaking service', errStartRoom:'could not start a room',
+    errTimeoutRoom:'timed out starting the room', errConnect:'could not connect',
+    errRoomFull:'that room is full', errAlreadyStarted:'that race has already started',
+    errReachRoom:'could not reach that room',
+    errNoRoom:'no room with that code — check it and try again',
+    errCodeInUse:'that code is already in use',
+    shareBest:'best', shareTime:'time', shareTrays:'trays',
+    readyLabel:'ready', nobodyHereYet:'nobody here yet…',
+    roomCountOf:' of ', roomCountSuffix:' in the room', hostLeftRoom:'the host has left the room',
+    newLettersIn:'new letters in ',
+    leaderboardBtn:'🏆 leaderboard', lbRaceTitle:'Race Leaderboard', lbClassicTitle:'Leaderboard',
+    lbNotSetUp:'The leaderboard isn\'t set up yet.', lbLoading:'loading…',
+    lbEmpty:'No scores yet — be the first!', lbError:'Could not load the leaderboard right now.',
     uiLang:'EN'
   },
   th:{
@@ -872,6 +946,57 @@ const STR = {
     tooShort:'สั้นเกินไป', notQuite:'ยังไม่ถูก ลองอีกครั้ง',
     alreadyInCollection:'มีอยู่ในคลังคำแล้ว · +1 ✨', alreadyInked:'บันทึกไว้แล้ว · +1 ✨',
     inkedInDictionary:'📖 บันทึกลงพจนานุกรม · +2 ✨',
+    raceTitle:'แข่งขัน', raceIntro:'โค้ดเดียวกัน ตัวอักษรเดียวกัน คำใบ้เดียวกัน',
+    yourName:'ชื่อของคุณ', raceCodeLabel:'โค้ดห้องแข่ง', newCodeBtn:'สุ่มโค้ดใหม่',
+    howItEnds:'เงื่อนไขจบเกม', opt2min:'2 นาที', opt3min:'3 นาที', opt5min:'5 นาที',
+    optTo300:'ถึง 300 แต้ม', optTo500:'ถึง 500 แต้ม', whoPlaying:'ใครเล่นบ้าง',
+    kindSolo:'เล่นคนเดียว', kindDuel:'คู่ · 2 คน', kindParty:'ปาร์ตี้ · สูงสุด 10 คน',
+    noteSolo:'เล่นคนเดียว แชร์โค้ดแล้วเทียบคะแนนกันทีหลังได้',
+    noteDuel:'สองผู้เล่น เห็นคะแนนกันสด คุณเป็นเจ้าห้อง อีกฝ่ายเข้าร่วมด้วยโค้ดของคุณ',
+    noteParty:'สูงสุดสิบผู้เล่น เห็นคะแนนกันสด คุณเป็นเจ้าห้อง ทุกคนเข้าร่วมด้วยโค้ดของคุณ',
+    startBtn:'เริ่ม', joinRoomBtn:'เข้าร่วมห้อง', trophiesBtn:'🏆 ถ้วยรางวัลและฉายา',
+    raceBackToGame:'กลับไปเล่นเกม', raceBack:'ย้อนกลับ',
+    openingRoom:'กำลังเปิดห้อง…', startLower:'เริ่ม', raceErrSuffix:' — เริ่มแข่งคนเดียวแทน',
+    waitingRoom:'ห้องรอ', lobbyNote:'ไม่มีใครเริ่มได้จนกว่าคุณจะเริ่ม — ',
+    shareLinkNote:'แชร์ลิงก์นี้ให้เพื่อนกดเข้าร่วมได้เลย', copyLinkBtn:'คัดลอกลิงก์',
+    copiedText:'คัดลอกแล้ว', startTheRaceBtn:'เริ่มการแข่งขัน', cancelBtn:'ยกเลิก',
+    joinTitle:'เข้าร่วม', joinIntro:'ขอโค้ดจากเจ้าของห้อง',
+    theirRoomCode:'โค้ดห้องของเขา', joinBtn:'เข้าร่วม', typeCodeErr:'พิมพ์โค้ดที่ได้รับมา',
+    connectingBtn:'กำลังเชื่อมต่อ…', youAreIn:'เข้าร่วมแล้ว การแข่งจะเริ่มเมื่อเจ้าของห้องเริ่ม',
+    waitingHost:'กำลังรอเจ้าของห้อง…', leaveBtn:'ออกจากห้อง',
+    codeLabel:'โค้ด', firstToTimeOut:'ใครทำคะแนนได้มากที่สุดเมื่อหมดเวลา',
+    firstToPointsPre:'ถึง ', firstToPointsPost:' คะแนนก่อน',
+    pointsLabel:'แต้ม', wordsLabelPlain:'คำ',
+    leaveRaceBtn:'✕ ออกจากการแข่งขัน', reallyLeaveBtn:'✕ ออกจริงเหรอ? แตะอีกครั้ง',
+    finalStandings:'ผลการแข่งขัน', yourWords:'คำของคุณ', noneThisTime:'ไม่มีเลยรอบนี้',
+    copyResultBtn:'คัดลอกผลลัพธ์', raceAgainBtn:'แข่งอีกรอบ', laurelsWord:'ใบเกียรติยศ', totalWord:'รวม',
+    stillGoing:'กำลังเล่นอยู่', copyCodeBtn:'คัดลอกโค้ด',
+    pasteHint:'นำโค้ดนี้ไปวางในช่องนำเข้าของอีกเครื่อง',
+    noTitleEquipped:'ยังไม่ได้สวมฉายา', titlesHeader:'ฉายา — แตะเพื่อสวมใส่',
+    noneTitleBtn:'ไม่มี', winTrophyHint:'ชนะถ้วยรางวัลสักขั้นเพื่อปลดล็อกฉายา', trophiesHeader:'ถ้วยรางวัล',
+    moveProfile:'ย้ายโปรไฟล์นี้ไปเครื่องอื่น', exportBtn:'ส่งออก', importBtn:'นำเข้า',
+    pasteCodeLabel:'วางโค้ดโปรไฟล์', loadCodeBtn:'โหลดเลย',
+    codeBadFormat:'โค้ดนี้ดูไม่ถูกต้อง',
+    statRaces:'แข่งแล้ว', statWon:'ชนะ', statStreakNow:'ชนะรวดตอนนี้', statBestStreak:'ชนะรวดสูงสุด',
+    statBestScore:'คะแนนสูงสุด', statWordsN:'คำ', statLongWords:'คำยาว',
+    statCluesSolved:'คำใบ้ที่ไข', statSweeps:'กวาดเรียบ', statOpponents:'คู่แข่ง',
+    flashFreshLetters:'ตัวอักษรชุดใหม่', flashPutLetterDown:'วางตัวอักษรก่อนสิ',
+    flashAlreadyFound:'เจอคำนี้แล้ว', flashNotAWord:'ไม่ใช่คำ',
+    flashSweep:'ไขคำใบ้ครบทุกข้อในถาดนี้ · กวาดเรียบ', flashClueDouble:'ไขคำใบ้ได้ · คะแนนคูณสอง',
+    placesFilledSuffix:' อันดับเต็มแล้ว',
+    errMatchmaking:'ติดต่อระบบจับคู่ไม่ได้', errStartRoom:'เปิดห้องไม่สำเร็จ',
+    errTimeoutRoom:'เปิดห้องไม่ทันเวลา', errConnect:'เชื่อมต่อไม่ได้',
+    errRoomFull:'ห้องนี้เต็มแล้ว', errAlreadyStarted:'การแข่งขันนี้เริ่มไปแล้ว',
+    errReachRoom:'ติดต่อห้องนี้ไม่ได้',
+    errNoRoom:'ไม่พบห้องที่ใช้โค้ดนี้ — ตรวจสอบแล้วลองอีกครั้ง',
+    errCodeInUse:'โค้ดนี้ถูกใช้งานอยู่แล้ว',
+    shareBest:'ดีที่สุด', shareTime:'เวลา', shareTrays:'ถาด',
+    readyLabel:'พร้อมแล้ว', nobodyHereYet:'ยังไม่มีใครเข้ามา…',
+    roomCountOf:' จาก ', roomCountSuffix:' คนในห้อง', hostLeftRoom:'เจ้าของห้องออกจากห้องแล้ว',
+    newLettersIn:'ตัวอักษรชุดใหม่ในอีก ',
+    leaderboardBtn:'🏆 ตารางอันดับ', lbRaceTitle:'ตารางอันดับการแข่งขัน', lbClassicTitle:'ตารางอันดับ',
+    lbNotSetUp:'ยังไม่ได้ตั้งค่าตารางอันดับ', lbLoading:'กำลังโหลด…',
+    lbEmpty:'ยังไม่มีคะแนน — เป็นคนแรกเลยสิ!', lbError:'โหลดตารางอันดับไม่ได้ตอนนี้',
     uiLang:'ไทย'
   }
 };
@@ -892,6 +1017,12 @@ function applyUI(){
   set('promote', t('topWords'));
   set('reset', t('reset'));
   set('lang', lang==='th' ? '✓ ไทย' : '+ ไทย');
+  const lbb=$('leaderboard');
+  if(lbb){
+    lbb.style.display = leaderboardOn() ? '' : 'none';
+    lbb.textContent = t('leaderboardBtn');
+    lbb.onclick = ()=>showLeaderboard('classic');
+  }
   const say=$('say'), sayl=$('sayl');
   if(say)  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));
   if(sayl) sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off'));
@@ -919,26 +1050,154 @@ function applyUI(){
 
 const TROPHIES = [
   {key:'wordsmith',  name:'Wordsmith',   stat:'long',     desc:'words of 8 letters or more',
-   tiers:[25,150,600,2000],       titles:['Speller','Wordsmith','Lexicographer','Wordwright']},
+   tiers:[25,150,600,2000],       titles:['Speller','Wordsmith','Lexicographer','Wordwright'],
+   th:{name:'นักถ้อยคำ', desc:'คำที่มีแปดตัวอักษรขึ้นไป',
+       titles:['ผู้เริ่มสะกด','นักถ้อยคำ','ปราชญ์คำศัพท์','เจ้าแห่งถ้อยคำ']}},
   {key:'codebreaker',name:'Codebreaker', stat:'clues',    desc:'clues solved',
-   tiers:[25,150,600,2000],       titles:['Curious','Codebreaker','Clue Hunter','Oracle']},
+   tiers:[25,150,600,2000],       titles:['Curious','Codebreaker','Clue Hunter','Oracle'],
+   th:{name:'นักไขปริศนา', desc:'คำใบ้ที่ไขได้',
+       titles:['ผู้ช่างสงสัย','นักไขปริศนา','นักล่าเบาะแส','ผู้หยั่งรู้']}},
   {key:'contender',  name:'Contender',   stat:'races',    desc:'races finished',
-   tiers:[10,50,250,1000],        titles:['Newcomer','Regular','Contender','Veteran']},
+   tiers:[10,50,250,1000],        titles:['Newcomer','Regular','Contender','Veteran'],
+   th:{name:'ผู้ท้าชิง', desc:'การแข่งที่จบแล้ว',
+       titles:['มือใหม่','ขาประจำ','ผู้ท้าชิง','ทหารผ่านศึก']}},
   {key:'victor',     name:'Victor',      stat:'wins',     desc:'races won',
-   tiers:[5,25,100,400],          titles:['First Blood','Winner','Champion','Undefeated']},
+   tiers:[5,25,100,400],          titles:['First Blood','Winner','Champion','Undefeated'],
+   th:{name:'ผู้พิชิต', desc:'การแข่งที่ชนะ',
+       titles:['ชัยชนะแรก','ผู้ชนะ','แชมป์','ไร้พ่าย']}},
   {key:'streak',     name:'Streak',      stat:'beststreak',desc:'wins in a row',
-   tiers:[3,6,12,20],             titles:['On a Roll','Hot Hand','Unstoppable','Dynasty']},
+   tiers:[3,6,12,20],             titles:['On a Roll','Hot Hand','Unstoppable','Dynasty'],
+   th:{name:'สายชนะรวด', desc:'ชนะติดต่อกันกี่ครั้ง',
+       titles:['กำลังมาแรง','มือร้อนแรง','หยุดไม่อยู่','ราชวงศ์']}},
   {key:'sweeper',    name:'Sweeper',     stat:'sweeps',   desc:'trays with every clue solved',
-   tiers:[3,25,100,400],          titles:['Tidy','Sweeper','Clean Slate','Immaculate']},
+   tiers:[3,25,100,400],          titles:['Tidy','Sweeper','Clean Slate','Immaculate'],
+   th:{name:'นักกวาดเรียบ', desc:'ถาดที่ไขคำใบ้ครบทุกข้อ',
+       titles:['เรียบร้อย','นักกวาดเรียบ','ล้างกระดานสะอาด','ไร้ที่ติ']}},
   {key:'prolific',   name:'Prolific',    stat:'words',    desc:'words found in races',
-   tiers:[500,5000,25000,100000], titles:['Busy','Prolific','Machine','Encyclopedia']},
+   tiers:[500,5000,25000,100000], titles:['Busy','Prolific','Machine','Encyclopedia'],
+   th:{name:'นักปั่นคำ', desc:'คำที่พบระหว่างแข่ง',
+       titles:['ขยันขันแข็ง','นักปั่นคำ','เครื่องจักร','สารานุกรมเดินได้']}},
   {key:'highscore',  name:'Highscore',   stat:'best',     desc:'best score in one race',
-   tiers:[300,750,1500,3000],     titles:['Sharp','Brilliant','Peerless','Legendary']},
+   tiers:[300,750,1500,3000],     titles:['Sharp','Brilliant','Peerless','Legendary'],
+   th:{name:'คะแนนสูงสุด', desc:'คะแนนสูงสุดในหนึ่งการแข่ง',
+       titles:['เฉียบคม','เจิดจรัส','ไร้เทียบ','ระดับตำนาน']}},
   {key:'sociable',   name:'Sociable',    stat:'opponents',desc:'different people raced',
-   tiers:[5,20,60,200],           titles:['Friendly','Sociable','Ringleader','Host of Hosts']},
+   tiers:[5,20,60,200],           titles:['Friendly','Sociable','Ringleader','Host of Hosts'],
+   th:{name:'นักเข้าสังคม', desc:'จำนวนคนต่างกันที่เคยแข่งด้วย',
+       titles:['เป็นมิตร','เข้าสังคมเก่ง','หัวหน้าแก๊ง','เจ้าภาพระดับปรมาจารย์']}},
 ];
+/* TIER_NAME stays the English slugs on purpose - the CSS (.lit.silver,
+   .tro.gold, etc.) keys off them as class names, in both languages.
+   TIER_LABEL is the separate, translatable text shown to the player. */
 const TIER_NAME  = ['bronze','silver','gold','platinum'];
+const TIER_LABEL = {en:['bronze','silver','gold','platinum'], th:['ทองแดง','เงิน','ทอง','แพลทินัม']};
 const TIER_LAUREL= [25, 75, 200, 500];    // paid out when a tier unlocks
+function trophyName(t){ return GAME==='th' ? t.th.name : t.name; }
+function trophyDesc(t){ return GAME==='th' ? t.th.desc : t.desc; }
+function trophyTitle(t,i){ return GAME==='th' ? t.th.titles[i] : t.titles[i]; }
+function tierLabel(i){ return TIER_LABEL[GAME==='th'?'th':'en'][i]; }
+
+/* ═══════════════════ LEADERBOARD (off until configured) ═══════════════════
+   Needs CFG.supabaseUrl/supabaseKey filled in (see the config block in the
+   HTML). Until then every function here is a quiet no-op - nothing else in
+   the game may ever assume a leaderboard exists.
+
+   There is no login yet. Each browser gets a random id the first time it
+   submits a score, and that id is what ties a player's rows together - not
+   their chosen name, which they can change any time. Swapping this for a
+   real account later is a matter of writing a different id here; nothing
+   downstream needs to change. */
+let SB=null;
+function sbClient(){
+  if(SB!==null) return SB;
+  if(!CFG.supabaseUrl || !CFG.supabaseKey || typeof supabase==='undefined'){ SB=false; return SB; }
+  try{ SB=supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey); }catch(e){ SB=false; }
+  return SB;
+}
+function leaderboardOn(){ return !!sbClient(); }
+
+function playerId(){
+  let id=localStorage.getItem('vocap-player-id');
+  if(!id){
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+       : 'p-'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+    localStorage.setItem('vocap-player-id', id);
+  }
+  return id;
+}
+
+/* A network hiccup here must never interrupt the result screen it was
+   called from - it already rendered by the time this runs. */
+async function submitRaceScore(score, words){
+  const cl=sbClient(); if(!cl) return;
+  try{
+    await cl.from('vocap_race_scores').insert({
+      player_id:playerId(), name:netName(), score, words, lang:GAME
+    });
+  }catch(e){}
+}
+
+/* The longest curated word in the collection so far - computed on demand
+   from `seen` rather than tracked as its own piece of save state, since it
+   only has to exist at the moment a leaderboard row is written. */
+function longestSeenWord(){
+  let word=null, len=0;
+  for(const id of seen){
+    const w=BANK_ALL.find(x=>x.id===id);
+    if(w && w.letters>len){ len=w.letters; word=w.word; }
+  }
+  return {word, len};
+}
+
+async function submitClassicScore(){
+  const cl=sbClient(); if(!cl) return;
+  const {word,len}=longestSeenWord();
+  try{
+    await cl.from('vocap_classic_scores').upsert({
+      player_id:playerId(), lang:GAME, name:netName(),
+      words_found:seen.size, sparks, longest_word:word, longest_len:len,
+      updated_at:new Date().toISOString()
+    }, {onConflict:'player_id,lang'});
+  }catch(e){}
+}
+
+/* Two different homes depending on where this was opened from: the classic
+   toolbar has no overlay open yet, so the generic panel is free to use. The
+   race version is opened from inside #race, which sits above #panel in the
+   stacking order - rendering into #panel there would draw the board behind
+   the still-open race screen instead of over it. */
+function lbRender(html){
+  if($('race') && $('race').className==='show') $('race').innerHTML = html;
+  else openPanel(html);
+}
+async function showLeaderboard(kind){
+  if(kind!=='race') closePanel();
+  const title = kind==='race' ? t('lbRaceTitle') : t('lbClassicTitle');
+  const backBtn = kind==='race'
+    ? `<button onclick="raceSetup()">${t('raceBack')}</button>`
+    : `<button onclick="closePanel()">${t('close')}</button>`;
+  const head = `<div class="sheet"><div class="phead"><div><h2>${title}</h2></div>${backBtn}</div>`;
+  const foot = '</div>';
+  const cl=sbClient();
+  if(!cl){ lbRender(`${head}<div class="sub">${t('lbNotSetUp')}</div>${foot}`); return; }
+  lbRender(`${head}<div class="sub">${t('lbLoading')}</div>${foot}`);
+  try{
+    const table = kind==='race' ? 'vocap_race_scores' : 'vocap_classic_scores';
+    const orderCol = kind==='race' ? 'score' : 'words_found';
+    const {data,error} = await cl.from(table).select('*')
+        .eq('lang', GAME).order(orderCol,{ascending:false}).limit(20);
+    if(error) throw error;
+    const rows=data||[];
+    const body = rows.length ? `<div class="lbboard">${rows.map((r,i)=>
+        kind==='race'
+          ? `<div class="lbrow"><span class="lbpos">${i+1}</span><span class="lbname">${esc(r.name)}</span><span class="lbval">${r.score} ✨ · ${r.words} ${t('wordsLabelPlain')}</span></div>`
+          : `<div class="lbrow"><span class="lbpos">${i+1}</span><span class="lbname">${esc(r.name)}</span><span class="lbval">${r.words_found} ${t('wordsLabelPlain')}${r.longest_word?` · ${esc(r.longest_word)}`:''}</span></div>`
+      ).join('')}</div>` : `<div class="sub">${t('lbEmpty')}</div>`;
+    lbRender(`${head}${body}${foot}`);
+  }catch(e){
+    lbRender(`${head}<div class="sub">${t('lbError')}</div>${foot}`);
+  }
+}
 
 const BLANK_PROFILE = {
   name:'player', laurels:0, title:'',
@@ -950,10 +1209,18 @@ const BLANK_PROFILE = {
 };
 
 let PROF = null;
+/* Trophies and titles are per-language now - what you earned racing in
+   English has nothing to do with the Thai game, and shouldn't already
+   show as unlocked there. The two used to share one key; on English's
+   first load under the new key we hand it the old shared data rather
+   than erase it, and Thai starts clean. */
+const RACE_PROFILE_KEY = 'vocap-race-profile-'+GAME;
 
 function profLoad(){
   try{
-    PROF = JSON.parse(localStorage.getItem('vocap-race-profile')) || null;
+    let raw = localStorage.getItem(RACE_PROFILE_KEY);
+    if(raw==null && GAME==='en') raw = localStorage.getItem('vocap-race-profile');
+    PROF = JSON.parse(raw) || null;
   }catch(e){ PROF=null; }
   if(!PROF) PROF = JSON.parse(JSON.stringify(BLANK_PROFILE));
   // fill in anything a newer version added
@@ -962,7 +1229,7 @@ function profLoad(){
   return PROF;
 }
 function profSave(){
-  try{ localStorage.setItem('vocap-race-profile', JSON.stringify(PROF)); }catch(e){}
+  try{ localStorage.setItem(RACE_PROFILE_KEY, JSON.stringify(PROF)); }catch(e){}
 }
 
 function tierOf(t){
@@ -991,14 +1258,14 @@ function profRecord(result){
   s.opponents = PROF.met.length;
 
   const unlocked=[];
-  for(const t of TROPHIES){
-    const now = tierOf(t), was = (t.key in PROF.tiers) ? PROF.tiers[t.key] : -1;
+  for(const tr of TROPHIES){
+    const now = tierOf(tr), was = (tr.key in PROF.tiers) ? PROF.tiers[tr.key] : -1;
     if(now > was){
       for(let k=was+1;k<=now;k++){
         PROF.laurels += TIER_LAUREL[k];
-        unlocked.push({t, k});
+        unlocked.push({t:tr, k});
       }
-      PROF.tiers[t.key]=now;
+      PROF.tiers[tr.key]=now;
     }
   }
   PROF.laurels += result.won ? 30 : 10;      // showing up pays, winning pays more
@@ -1013,9 +1280,9 @@ function profRecord(result){
 function profTitles(){
   profLoad();
   const out=[];
-  for(const t of TROPHIES){
-    const i = (t.key in PROF.tiers) ? PROF.tiers[t.key] : -1;
-    for(let k=0;k<=i;k++) out.push({key:t.key+':'+k, label:t.titles[k], tier:k, cat:t.name});
+  for(const tr of TROPHIES){
+    const i = (tr.key in PROF.tiers) ? PROF.tiers[tr.key] : -1;
+    for(let k=0;k<=i;k++) out.push({key:tr.key+':'+k, label:trophyTitle(tr,k), tier:k, cat:trophyName(tr)});
   }
   return out;
 }
@@ -1133,18 +1400,18 @@ function renderRoster(){
     `<div class="rrow${r.id===NET.myId?' me':''}">
        <span>${racing?(i+1)+'. ':'· '}${esc(r.label)}${r.title?`<em>${esc(r.title)}</em>`:''}</span>
        ${racing ? `<span><b>${r.score}</b> · ${r.words}w ${r.done?'✔':''}</span>`
-                : `<span class="sub" style="font-size:11px">ready</span>`}
-     </div>`).join('') || '<div class="sub">nobody here yet…</div>';
+                : `<span class="sub" style="font-size:11px">${t('readyLabel')}</span>`}
+     </div>`).join('') || `<div class="sub">${t('nobodyHereYet')}</div>`;
   const c=$('rcount');
-  if(c) c.textContent = `${NET.roster.length} of ${NET.cap} in the room`;
+  if(c) c.textContent = `${NET.roster.length}${t('roomCountOf')}${NET.cap}${t('roomCountSuffix')}`;
 }
 
 async function netHost(code, cap){
   const ok=await loadPeerJS();
-  if(!ok) return {error:'could not reach the matchmaking service'};
+  if(!ok) return {error:t('errMatchmaking')};
   return new Promise(res=>{
     let peer;
-    try{ peer = new Peer('vocap-'+code); }catch(e){ return res({error:'could not start a room'}); }
+    try{ peer = new Peer('vocap-'+code); }catch(e){ return res({error:t('errStartRoom')}); }
     peer.on('open', id=>{
       NET={peer, conns:[], isHost:true, roster:[], code, cap, myId:id,
            locked:false, podium:[]};
@@ -1172,20 +1439,20 @@ async function netHost(code, cap){
       res({ok:true});
     });
     peer.on('error', e=>{
-      res({error: String(e).includes('taken') ? 'that code is already in use'
-                                              : 'could not start a room'});
+      res({error: String(e).includes('taken') ? t('errCodeInUse')
+                                              : t('errStartRoom')});
     });
-    setTimeout(()=>res({error:'timed out starting the room'}), 20000);
+    setTimeout(()=>res({error:t('errTimeoutRoom')}), 20000);
   });
 }
 
 async function netJoin(code){
   const ok=await loadPeerJS();
-  if(!ok) return {error:'could not reach the matchmaking service'};
+  if(!ok) return {error:t('errMatchmaking')};
   return new Promise(res=>{
     let peer, settled=false;
     const done=v=>{ if(!settled){ settled=true; res(v); } };
-    try{ peer = new Peer(); }catch(e){ return done({error:'could not connect'}); }
+    try{ peer = new Peer(); }catch(e){ return done({error:t('errConnect')}); }
     peer.on('open', myId=>{
       const c=peer.connect('vocap-'+code, {reliable:true});
       c.on('open', ()=>{
@@ -1198,24 +1465,24 @@ async function netJoin(code){
         if(m.t==='start'){ raceStart(m.mode, true); }
         if(m.t==='podium'){ if(NET) NET.podium=m.podium; racePodiumNote(); }
         if(m.t==='raceover'){ if(NET) NET.podium=m.podium; raceEnd(); }
-        if(m.t==='full'){ done({error:'that room is full'}); }
-        if(m.t==='started'){ done({error:'that race has already started'}); }
+        if(m.t==='full'){ done({error:t('errRoomFull')}); }
+        if(m.t==='started'){ done({error:t('errAlreadyStarted')}); }
         if(m.t==='hostleft'){ raceHostGone(); }
       });
       c.on('close', ()=>{ if(NET && !NET.isHost) raceHostGone(); });
-      c.on('error', ()=>done({error:'could not reach that room'}));
+      c.on('error', ()=>done({error:t('errReachRoom')}));
       /* Phones on mobile data routinely take longer than nine seconds to
          negotiate a peer connection, which was reported as "cannot join". */
-      setTimeout(()=>done({error:'no room with that code — check it and try again'}), 25000);
+      setTimeout(()=>done({error:t('errNoRoom')}), 25000);
     });
-    peer.on('error', ()=>done({error:'could not connect'}));
+    peer.on('error', ()=>done({error:t('errConnect')}));
   });
 }
 
 function raceHostGone(){
   const el=$('rroster');
   if(el) el.insertAdjacentHTML('beforebegin',
-    '<div class="sub" style="color:var(--bad)">the host has left the room</div>');
+    `<div class="sub" style="color:var(--bad)">${t('hostLeftRoom')}</div>`);
 }
 
 /* Announce departure so the roster does not keep a ghost. The host also
@@ -1321,51 +1588,52 @@ function raceSetup(){
   netLeave();
   $('race').innerHTML = `
     <div class="sheet">
-      <h2>RACE</h2>
-      <div class="sub">Same code, same letters, same clues.</div>
+      <h2>${t('raceTitle')}</h2>
+      <div class="sub">${t('raceIntro')}</div>
 
       <div class="field">
-        <label>your name</label>
+        <label>${t('yourName')}</label>
         <input id="rname" value="${esc(netName())}" maxlength="14" style="letter-spacing:1px">
       </div>
 
       <div class="field">
-        <label>race code</label>
+        <label>${t('raceCodeLabel')}</label>
         <input id="rcode" value="${code}" maxlength="8">
-        <div style="margin-top:8px"><button onclick="$('rcode').value=newCode()">new code</button></div>
+        <div style="margin-top:8px"><button onclick="$('rcode').value=newCode()">${t('newCodeBtn')}</button></div>
       </div>
 
       <div class="field">
-        <label>how it ends</label>
+        <label>${t('howItEnds')}</label>
         <div class="opts" id="rmode">
-          <button data-m="t120" class="on">2 min</button>
-          <button data-m="t180">3 min</button>
-          <button data-m="t300">5 min</button>
-          <button data-m="p300">to 300</button>
-          <button data-m="p500">to 500</button>
+          <button data-m="t120" class="on">${t('opt2min')}</button>
+          <button data-m="t180">${t('opt3min')}</button>
+          <button data-m="t300">${t('opt5min')}</button>
+          <button data-m="p300">${t('optTo300')}</button>
+          <button data-m="p500">${t('optTo500')}</button>
         </div>
       </div>
 
       <div class="field">
-        <label>who is playing</label>
+        <label>${t('whoPlaying')}</label>
         <div class="opts" id="rkind">
-          <button data-k="solo" class="on">just me</button>
-          <button data-k="duel">duel · 2</button>
-          <button data-k="party">party · up to 10</button>
+          <button data-k="solo" class="on">${t('kindSolo')}</button>
+          <button data-k="duel">${t('kindDuel')}</button>
+          <button data-k="party">${t('kindParty')}</button>
         </div>
         <div class="sub" id="rkindnote" style="margin-top:8px">
-          Play alone. Share the code and compare scores afterwards.
+          ${t('noteSolo')}
         </div>
       </div>
 
       <div class="gorow">
-        <button class="go" id="rgo" onclick="raceGo()">START</button>
-        <button class="go alt" id="rjoin" onclick="raceJoinScreen()">JOIN A ROOM</button>
+        <button class="go" id="rgo" onclick="raceGo()">${t('startBtn')}</button>
+        <button class="go alt" id="rjoin" onclick="raceJoinScreen()">${t('joinRoomBtn')}</button>
       </div>
       <div class="sub" id="rerr" style="color:var(--bad);margin-top:10px"></div>
       <div style="margin-top:16px">
-        <button onclick="raceProfile()">🏆 trophies &amp; titles</button>
-        <button onclick="closeRace()">back to the game</button>
+        <button onclick="raceProfile()">${t('trophiesBtn')}</button>
+        ${leaderboardOn() ? `<button onclick="showLeaderboard('race')">${t('leaderboardBtn')}</button>` : ''}
+        <button onclick="closeRace()">${t('raceBackToGame')}</button>
       </div>
     </div>`;
 
@@ -1377,9 +1645,9 @@ function raceSetup(){
       if(id==='rkind'){
         const k=e.target.dataset.k;
         $('rkindnote').textContent =
-          k==='solo'  ? 'Play alone. Share the code and compare scores afterwards.' :
-          k==='duel'  ? 'Two players, live scores. You host; they join with your code.' :
-                        'Up to ten players, live scores. You host; they join with your code.';
+          k==='solo'  ? t('noteSolo') :
+          k==='duel'  ? t('noteDuel') :
+                        t('noteParty');
       }
     };
   }
@@ -1400,34 +1668,34 @@ function raceProfile(){
   $('race').innerHTML=`
     <div class="sheet">
       <h2>${esc(PROF.name)}</h2>
-      <div class="sub">${PROF.title ? esc(PROF.title) : 'no title equipped'} · <b style="color:var(--glow)">${PROF.laurels}</b> laurels</div>
+      <div class="sub">${PROF.title ? esc(PROF.title) : t('noTitleEquipped')} · <b style="color:var(--glow)">${PROF.laurels}</b> ${t('laurelsWord')}</div>
 
       <div class="statgrid">
-        ${[['races','races'],['wins','won'],['streak','streak now'],['beststreak','best streak'],
-           ['best','best score'],['words','words'],['long','long words'],['clues','clues solved'],
-           ['sweeps','sweeps'],['opponents','opponents']]
+        ${[['races',t('statRaces')],['wins',t('statWon')],['streak',t('statStreakNow')],['beststreak',t('statBestStreak')],
+           ['best',t('statBestScore')],['words',t('statWordsN')],['long',t('statLongWords')],['clues',t('statCluesSolved')],
+           ['sweeps',t('statSweeps')],['opponents',t('statOpponents')]]
           .map(([k,l])=>`<div><b>${s[k]||0}</b><small>${l}</small></div>`).join('')}
       </div>
 
-      <div class="sub" style="margin-top:18px">titles — tap one to wear it</div>
+      <div class="sub" style="margin-top:18px">${t('titlesHeader')}</div>
       <div class="titles">
-        <button class="tsel${PROF.title===''?' on':''}" onclick="profSetTitle('')">none</button>
-        ${titles.map(t=>`<button class="tsel${PROF.title===t.label?' on':''}"
-             onclick="profSetTitle('${t.label}')">${t.label}</button>`).join('')
-          || '<span class="sub">win a trophy tier to earn one</span>'}
+        <button class="tsel${PROF.title===''?' on':''}" onclick="profSetTitle('')">${t('noneTitleBtn')}</button>
+        ${titles.map(tt=>`<button class="tsel${PROF.title===tt.label?' on':''}"
+             onclick="profSetTitle('${tt.label}')">${tt.label}</button>`).join('')
+          || `<span class="sub">${t('winTrophyHint')}</span>`}
       </div>
 
-      <div class="sub" style="margin-top:18px">trophies</div>
+      <div class="sub" style="margin-top:18px">${t('trophiesHeader')}</div>
       <div class="trophies">
-        ${TROPHIES.map(t=>{
-          const have=tierOf(t), v=s[t.stat]||0;
-          const next=t.tiers[have+1];
+        ${TROPHIES.map(tr=>{
+          const have=tierOf(tr), v=s[tr.stat]||0;
+          const next=tr.tiers[have+1];
           const pct = next ? Math.min(100, Math.round(v/next*100)) : 100;
           return `<div class="trow">
             <div class="thead">
-              <span><b>${t.name}</b> <small>${t.desc}</small></span>
-              <span class="pips">${t.tiers.map((n,i)=>
-                `<i class="${i<=have?'lit '+TIER_NAME[i]:''}" title="${t.titles[i]} · ${n}"></i>`).join('')}</span>
+              <span><b>${trophyName(tr)}</b> <small>${trophyDesc(tr)}</small></span>
+              <span class="pips">${tr.tiers.map((n,i)=>
+                `<i class="${i<=have?'lit '+TIER_NAME[i]:''}" title="${trophyTitle(tr,i)} · ${n}"></i>`).join('')}</span>
             </div>
             <div class="bar"><i style="width:${pct}%"></i></div>
             <div class="tfoot">${next ? `${v} / ${next}` : `${v} · complete`}</div>
@@ -1435,33 +1703,33 @@ function raceProfile(){
         }).join('')}
       </div>
 
-      <div class="sub" style="margin-top:20px">move this profile to another device</div>
+      <div class="sub" style="margin-top:20px">${t('moveProfile')}</div>
       <div class="gorow">
-        <button onclick="profShowCode()">export</button>
-        <button onclick="profAskCode()">import</button>
+        <button onclick="profShowCode()">${t('exportBtn')}</button>
+        <button onclick="profAskCode()">${t('importBtn')}</button>
       </div>
       <div id="pcode"></div>
 
-      <div style="margin-top:20px"><button onclick="raceSetup()">back</button></div>
+      <div style="margin-top:20px"><button onclick="raceSetup()">${t('raceBack')}</button></div>
     </div>`;
 }
 
-function profSetTitle(t){ profLoad(); PROF.title=t; profSave(); raceProfile(); }
+function profSetTitle(title){ profLoad(); PROF.title=title; profSave(); raceProfile(); }
 
 function profShowCode(){
   $('pcode').innerHTML=`<div class="share" id="pex">${profExport()}</div>
-    <button onclick="navigator.clipboard.writeText($('pex').textContent);this.textContent='copied'">copy code</button>
-    <div class="sub">Paste this into the other device's import box.</div>`;
+    <button onclick="navigator.clipboard.writeText($('pex').textContent);this.textContent='${t('copiedText')}'">${t('copyCodeBtn')}</button>
+    <div class="sub">${t('pasteHint')}</div>`;
 }
 function profAskCode(){
-  $('pcode').innerHTML=`<div class="field"><label>paste a profile code</label>
+  $('pcode').innerHTML=`<div class="field"><label>${t('pasteCodeLabel')}</label>
     <input id="pin" style="width:88%;letter-spacing:0;font-size:12px"></div>
-    <button onclick="profDoImport()">load it</button>
+    <button onclick="profDoImport()">${t('loadCodeBtn')}</button>
     <div class="sub" style="color:var(--bad)" id="pinerr"></div>`;
 }
 function profDoImport(){
   if(profImport($('pin').value)){ raceProfile(); }
-  else $('pinerr').textContent='that code did not look right';
+  else $('pinerr').textContent=t('codeBadFormat');
 }
 
 function raceKind(){ return [...$('rkind').children].find(b=>b.className==='on').dataset.k; }
@@ -1472,34 +1740,34 @@ async function raceGo(){
   const kind=raceKind(), code=($('rcode').value||'').trim().toUpperCase() || newCode();
   if(kind==='solo') return raceStart(raceMode());
 
-  const btn=$('rgo'); btn.textContent='opening room…'; btn.disabled=true;
+  const btn=$('rgo'); btn.textContent=t('openingRoom'); btn.disabled=true;
   const r=await netHost(code, kind==='duel'?MAX_DUEL:MAX_PARTY);
-  btn.disabled=false; btn.textContent='start';
+  btn.disabled=false; btn.textContent=t('startLower');
   if(r.error){
-    $('rerr').textContent = r.error + ' — starting a solo race instead';
+    $('rerr').textContent = r.error + t('raceErrSuffix');
     return setTimeout(()=>raceStart(raceMode()), 1400);
   }
   raceLobby(code, raceMode());
 }
 
 function raceLobby(code, mode){
-  const label = {t120:'2 min',t180:'3 min',t300:'5 min',p300:'to 300',p500:'to 500'}[mode];
+  const label = {t120:t('opt2min'),t180:t('opt3min'),t300:t('opt5min'),p300:t('optTo300'),p500:t('optTo500')}[mode];
   $('race').innerHTML=`
     <div class="sheet">
-      <div class="sub">waiting room</div>
+      <div class="sub">${t('waitingRoom')}</div>
       <h2>${code}</h2>
-      <div class="sub">Nobody starts until you do — ${label}.</div>
+      <div class="sub">${t('lobbyNote')}${label}.</div>
       <div class="linkbox">
-        <div class="sub" style="margin:0 0 5px">share this link and they join in one click</div>
+        <div class="sub" style="margin:0 0 5px">${t('shareLinkNote')}</div>
         <code id="rlink">${raceLink(code)}</code>
         <div style="margin-top:7px">
-          <button onclick="navigator.clipboard.writeText($('rlink').textContent);this.textContent='copied'">copy link</button>
+          <button onclick="navigator.clipboard.writeText($('rlink').textContent);this.textContent='${t('copiedText')}'">${t('copyLinkBtn')}</button>
         </div>
       </div>
       <div id="rroster" class="roster"></div>
       <div class="sub" id="rcount"></div>
-      <button class="go" onclick="raceHostStart('${mode}')">start the race</button>
-      <div style="margin-top:14px"><button onclick="netLeave();raceSetup()">cancel</button></div>
+      <button class="go" onclick="raceHostStart('${mode}')">${t('startTheRaceBtn')}</button>
+      <div style="margin-top:14px"><button onclick="netLeave();raceSetup()">${t('cancelBtn')}</button></div>
     </div>`;
   renderRoster();
 }
@@ -1532,24 +1800,24 @@ function raceJoinScreen(prefill){
   netLeave();
   $('race').innerHTML=`
     <div class="sheet">
-      <h2>JOIN</h2>
-      <div class="sub">Ask the host for their code.</div>
+      <h2>${t('joinTitle')}</h2>
+      <div class="sub">${t('joinIntro')}</div>
 
       <div class="field">
-        <label>your name</label>
+        <label>${t('yourName')}</label>
         <input id="jname" value="${esc(netName())}" maxlength="14" style="letter-spacing:1px">
       </div>
 
       <div class="field">
-        <label>their room code</label>
+        <label>${t('theirRoomCode')}</label>
         <input id="jcode" value="${prefill||''}" maxlength="8" placeholder="ABC12">
       </div>
 
       <div class="gorow">
-        <button class="go" id="jgo" onclick="raceJoinGo()">JOIN</button>
+        <button class="go" id="jgo" onclick="raceJoinGo()">${t('joinBtn')}</button>
       </div>
       <div class="sub" id="jerr" style="color:var(--bad);margin-top:10px"></div>
-      <div style="margin-top:16px"><button onclick="raceSetup()">back</button></div>
+      <div style="margin-top:16px"><button onclick="raceSetup()">${t('raceBack')}</button></div>
     </div>`;
   const f=$('jcode'); if(f && !prefill) f.focus();
   if(f) f.onkeydown=e=>{ if(e.key==='Enter') raceJoinGo(); };
@@ -1557,22 +1825,22 @@ function raceJoinScreen(prefill){
 
 async function raceJoinGo(){
   const code=($('jcode').value||'').trim().toUpperCase();
-  if(!code) { $('jerr').textContent='type the code you were given'; return; }
-  const jb=$('jgo'); jb.textContent='CONNECTING…'; jb.disabled=true;
+  if(!code) { $('jerr').textContent=t('typeCodeErr'); return; }
+  const jb=$('jgo'); jb.textContent=t('connectingBtn'); jb.disabled=true;
   localStorage.setItem('vocap-name', ($('jname').value||'player').trim() || 'player');
   $('jerr').textContent='';
   const r=await netJoin(code);
-  jb.textContent='JOIN'; jb.disabled=false;
+  jb.textContent=t('joinBtn'); jb.disabled=false;
   if(r.error){ $('jerr').textContent=r.error; return; }
   $('race').innerHTML=`
     <div class="sheet">
-      <div class="sub">waiting room</div>
+      <div class="sub">${t('waitingRoom')}</div>
       <h2>${code}</h2>
-      <div class="sub">You are in. The race begins when the host starts it.</div>
+      <div class="sub">${t('youAreIn')}</div>
       <div id="rroster" class="roster"></div>
       <div class="sub" id="rcount"></div>
-      <div class="waitdot">waiting for the host…</div>
-      <div style="margin-top:14px"><button onclick="netLeave();raceJoinScreen()">leave</button></div>
+      <div class="waitdot">${t('waitingHost')}</div>
+      <div style="margin-top:14px"><button onclick="netLeave();raceJoinScreen()">${t('leaveBtn')}</button></div>
     </div>`;
   renderRoster();
 }
@@ -1608,11 +1876,11 @@ function raceTick(){
     R.roundClues = 0;
     R.building = [];
     raceTray(); raceClueBar();
-    raceFlash('fresh letters');
+    raceFlash(t('flashFreshLetters'));
   }
   const nextIn = RACE_ROUND - (elapsed % RACE_ROUND);
   const nx=$('rnext');
-  if(nx) nx.textContent = `new letters in ${Math.floor(nextIn/60)}:${String(nextIn%60).padStart(2,'0')}`;
+  if(nx) nx.textContent = `${t('newLettersIn')}${Math.floor(nextIn/60)}:${String(nextIn%60).padStart(2,'0')}`;
 
   if(R.limit){
     const left=Math.max(0, R.limit-Math.floor((Date.now()-R.started)/1000));
@@ -1628,12 +1896,12 @@ function raceTick(){
 }
 
 function raceRender(){
-  const goal = R.limit ? `first to run out of time` : `first to ${R.target} points`;
+  const goal = R.limit ? t('firstToTimeOut') : `${t('firstToPointsPre')}${R.target}${t('firstToPointsPost')}`;
   $('race').innerHTML=`
     <div class="sheet">
-      <div class="sub">code <b>${R.code}</b> · ${goal}</div>
+      <div class="sub">${t('codeLabel')} <b>${R.code}</b> · ${goal}</div>
       <div id="rclock" class="clock">–</div>
-      <div class="tally"><b id="rscore">${R.score}</b> points · <b>${R.found.length}</b> words</div>
+      <div class="tally"><b id="rscore">${R.score}</b> ${t('pointsLabel')} · <b>${R.found.length}</b> ${t('wordsLabelPlain')}</div>
       <div class="tally" id="rnext" style="font-size:12px"></div>
       <div id="rroster" class="roster"></div>
       <div class="trayrow">
@@ -1643,11 +1911,11 @@ function raceRender(){
       <div id="rclues"></div>
       <div id="rword" class="wordtray"></div>
       <div class="playrow">
-        <button class="psubmit" onclick="raceSubmit()">Submit</button>
-        <button onclick="R.building=[];raceTray()">Clear</button>
+        <button class="psubmit" onclick="raceSubmit()">${t('submit')}</button>
+        <button onclick="R.building=[];raceTray()">${t('clear')}</button>
       </div>
       <div class="quitrow">
-        <button class="quit" onclick="raceQuitAsk()">✕ leave the race</button>
+        <button class="quit" onclick="raceQuitAsk()">${t('leaveRaceBtn')}</button>
       </div>
       <div id="rfound" class="found"></div>
     </div>`;
@@ -1665,11 +1933,11 @@ function raceClueBar(){
     /* In the Thai game the clue is already Thai and the answer is Thai, so
        there is no second language to show. */
     const th  = GAME==='th' ? '' : (w.translations?.th?.definition || '');
-    if(got) return `<div class="clueline done">✔ <b>${w.word}</b> — solved</div>`;
+    if(got) return `<div class="clueline done">✔ <b>${w.word}</b> — ${t('solved')}</div>`;
     return `<div class="clueline">🔎 ${w.definition}`
          + `<span class="x2">×2</span>`
          + (th?`<div class="cl-th">${th}</div>`:'')
-         + `<div class="cl-n">${w.letters} letters</div></div>`;
+         + `<div class="cl-n">${w.letters} ${t('lettersN')}</div></div>`;
   }).join('');
 }
 
@@ -1706,7 +1974,7 @@ function raceTray(){
 
 function raceAddMark(m){
   if(!R || R.over) return;
-  if(!R.building.length){ raceFlash('put a letter down first'); return; }
+  if(!R.building.length){ raceFlash(t('flashPutLetterDown')); return; }
   R.building.push({ch:m, from:-1});
   raceTray();
 }
@@ -1723,15 +1991,15 @@ function raceSubmit(){
                            : R.building.map(b=>b.ch).join('').toLowerCase();
   R.building=[];
   if(word.length<3) return raceTray();
-  if(R.used.has(word)) { raceFlash('already found'); return raceTray(); }
+  if(R.used.has(word)) { raceFlash(t('flashAlreadyFound')); return raceTray(); }
   const known = BANK_ALL.some(w=>w.spell===word) || (DEFS && word in DEFS);
-  if(!known) { raceFlash('not a word'); return raceTray(); }
+  if(!known) { raceFlash(t('flashNotAWord')); return raceTray(); }
   R.used.add(word);
   const isClue = R.clues.some(c=>c.spell===word);
   if(word.length>=8) R.nLong++;
   if(isClue){
     R.nClues++; R.roundClues++;
-    if(R.roundClues===R.clues.length){ R.nSweeps++; raceFlash('every clue on this tray · sweep'); }
+    if(R.roundClues===R.clues.length){ R.nSweeps++; raceFlash(t('flashSweep')); }
   }
   const pts = sparksFor(word.length) * (isClue?2:1);
   R.score+=pts; R.found.push({word,pts});
@@ -1739,7 +2007,7 @@ function raceSubmit(){
   $('rfound').innerHTML=R.found.slice().reverse()
       .map(f=>`<span>${f.word} <b style="color:var(--glow)">+${f.pts}</b></span>`).join('');
   raceTray(); raceClueBar(); netSendScore();
-  if(isClue) raceFlash('clue solved · double points');
+  if(isClue) raceFlash(t('flashClueDouble'));
   if(R.target && R.score>=R.target) raceEnd();
 }
 
@@ -1750,7 +2018,7 @@ function racePodiumNote(){
   if(!p.length) return;
   const need=Math.min(3, Math.max(1, NET.roster.length));
   el.innerHTML = p.map(x=>`${['🥇','🥈','🥉'][x.place-1]||''} ${esc(x.name)}`).join(' · ')
-               + ` <span style="opacity:.6">— ${p.length}/${need} places filled</span>`;
+               + ` <span style="opacity:.6">— ${p.length}/${need}${t('placesFilledSuffix')}</span>`;
 }
 
 function raceQuitAsk(){
@@ -1758,10 +2026,10 @@ function raceQuitAsk(){
   if(!b) return;
   if(b.dataset.armed){ raceEnd(); return; }
   b.dataset.armed='1';
-  b.textContent='✕ really leave? tap again';
+  b.textContent=t('reallyLeaveBtn');
   b.style.opacity='1'; b.style.color='var(--bad)';
   setTimeout(()=>{ if(!b.isConnected) return;
-    delete b.dataset.armed; b.textContent='✕ leave the race';
+    delete b.dataset.armed; b.textContent=t('leaveRaceBtn');
     b.style.opacity=''; b.style.color=''; }, 4000);
 }
 
@@ -1786,34 +2054,35 @@ function raceEnd(){
     sweeps:R.nSweeps, won, ranked: !!(NET && rows.length>1),
     opponents: rows.filter(r=>r.id!==(NET&&NET.myId)).map(r=>r.name)
   });
+  submitRaceScore(R.score, R.found.length);
   const secs=Math.floor((Date.now()-R.started)/1000);
   const best=R.found.slice().sort((a,b)=>b.pts-a.pts)[0];
-  const share=`VOCAP RACE · ${R.code}\n${R.score} points · ${R.found.length} words`
-            + `\nbest: ${best?best.word.toUpperCase()+' +'+best.pts:'—'}`
-            + `\ntime: ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`
-            + `\ntrays: ${R.round+1}`;
+  const share=`VOCAP ${t('raceTitle')} · ${R.code}\n${R.score} ${t('pointsLabel')} · ${R.found.length} ${t('wordsLabelPlain')}`
+            + `\n${t('shareBest')}: ${best?best.word.toUpperCase()+' +'+best.pts:'—'}`
+            + `\n${t('shareTime')}: ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`
+            + `\n${t('shareTrays')}: ${R.round+1}`;
   $('race').innerHTML=`
     <div class="sheet">
-      ${NET ? '<div class="sub">final standings</div><div id="rboard" class="board"></div>'
-            : `<h2>${R.score}</h2><div class="sub">${R.found.length} words · code ${R.code}</div>`}
+      ${NET ? `<div class="sub">${t('finalStandings')}</div><div id="rboard" class="board"></div>`
+            : `<h2>${R.score}</h2><div class="sub">${R.found.length} ${t('wordsLabelPlain')} · ${t('codeLabel')} ${R.code}</div>`}
 
-      <div class="sub" style="margin-top:14px">your words</div>
+      <div class="sub" style="margin-top:14px">${t('yourWords')}</div>
       <div class="found">${R.found.slice().sort((a,b)=>b.pts-a.pts)
           .map(f=>`<span>${f.word} <b style="color:var(--glow)">+${f.pts}</b></span>`).join('')
-          || '<span style="opacity:.5">none this time</span>'}</div>
+          || `<span style="opacity:.5">${t('noneThisTime')}</span>`}</div>
 
       ${unlocked.length ? `<div class="unlocks">${unlocked.map(u=>
           `<div class="unlock"><span class="tro ${TIER_NAME[u.k]}">🏆</span>
-             <span><b>${u.t.titles[u.k]}</b><small>${u.t.name} · ${TIER_NAME[u.k]}
-             · +${TIER_LAUREL[u.k]} laurels</small></span></div>`).join('')}</div>` : ''}
-      <div class="laurelrow">+${(NET&&rows.length>1&&rows[0]&&rows[0].id===NET.myId)?30:10} laurels
-        <span>· ${PROF.laurels} total</span></div>
+             <span><b>${trophyTitle(u.t,u.k)}</b><small>${trophyName(u.t)} · ${tierLabel(u.k)}
+             · +${TIER_LAUREL[u.k]} ${t('laurelsWord')}</small></span></div>`).join('')}</div>` : ''}
+      <div class="laurelrow">+${(NET&&rows.length>1&&rows[0]&&rows[0].id===NET.myId)?30:10} ${t('laurelsWord')}
+        <span>· ${PROF.laurels} ${t('totalWord')}</span></div>
       <div class="share">${share}</div>
-      <button onclick="navigator.clipboard.writeText(${JSON.stringify(share)});this.textContent='copied'">copy result</button>
+      <button onclick="navigator.clipboard.writeText(${JSON.stringify(share)});this.textContent='${t('copiedText')}'">${t('copyResultBtn')}</button>
 
       <div style="margin-top:18px">
-        <button onclick="raceSetup()">race again</button>
-        <button onclick="closeRace()">back to the game</button>
+        <button onclick="raceSetup()">${t('raceAgainBtn')}</button>
+        <button onclick="closeRace()">${t('raceBackToGame')}</button>
       </div>
     </div>`;
   renderBoard();
@@ -1832,7 +2101,7 @@ function renderBoard(){
     const gap = i===0 ? '' : `−${top-r.score}`;
     return `<div class="brow${r.name===netName()?' me':''}">
       <span class="pos">${medal[i]||(i+1)+'.'}</span>
-      <span class="nm">${esc(r.name)}${r.title?`<em>${esc(r.title)}</em>`:''}${r.done?'':' <i>still going</i>'}</span>
+      <span class="nm">${esc(r.name)}${r.title?`<em>${esc(r.title)}</em>`:''}${r.done?'':` <i>${t('stillGoing')}</i>`}</span>
       <span class="pts"><b>${r.score}</b><small>${r.words}w ${gap}</small></span>
     </div>`;
   }).join('');
@@ -1929,7 +2198,6 @@ for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','prom
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
 $('c-close').onclick=()=>{$('card').className='';};
-$('c-word').onclick=()=>{speechSynthesis.cancel();speak($('c-word').textContent,{rate:0.8})};
 $('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
 $('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};
 $('submit').onclick=()=>submit();
@@ -2235,10 +2503,17 @@ function puzzleCardHTML(w,gain){
                          : (lang==='th' ? (w.translations?.th||{}) : {});
   const tags=[w.topic,w.topic2].filter(Boolean)
       .map(t=>`<span>${TOPIC_ICON[t]||'✦'} ${t}</span>`).join('');
+  /* speechSynthesis only knows English pronunciation - on the Thai page
+     w.word is the Thai spelling, so the speaker plays the English side
+     (englishOf) instead of trying, and failing, to say the Thai word. */
+  const speakText = englishOf(w).replace(/'/g,"\\'");
+  const speakBtn = speakText
+    ? `<button class="speakbtn" onclick="speechSynthesis.cancel();speak('${speakText}',{rate:0.8})" title="listen">🔊</button>`
+    : '';
   return `
     <div class="art">${TOPIC_ICON[w.topic]||'✦'}</div>
     <div class="body">
-      <h3 onclick="speechSynthesis.cancel();speak('${w.word}',{rate:0.8})">${w.word}
+      <h3>${w.word} ${speakBtn}
         <span class="spark">${gain?`+${gain} ✨`:'in your collection'}</span></h3>
       <div class="th">${th.word||''}</div>
       <p>${w.definition}</p>
@@ -2250,11 +2525,11 @@ function puzzleCardHTML(w,gain){
 function puzzleAward(w, isTarget){
   const gain = seen.has(w.id) ? 0 : sparksFor(w.letters);
   if(seen.has(w.id)){
-    sparks++; save(); speakWord(w.word);
+    sparks++; save(); speakEntry(w);
     $('pzMsg').textContent=t('alreadyInCollection');
   } else {
     sparks+=gain; seen.add(w.id); save();
-    speakWord(w.word); showCard(w,gain); logWord(w); checkGrowth();
+    speakEntry(w); showCard(w,gain); logWord(w); checkGrowth();
     $('pzMsg').textContent=`+${gain} ✨`;
   }
   $('pzMsg').className='msg good';
@@ -2305,7 +2580,8 @@ function redrawOpenCards(){
   }
   if(shownPop){
     if(shownPop.w){ const w=shownPop.w; openPop(cardHTML(w,0));
-      const h=$('c-word'); if(h) h.onclick=()=>{speechSynthesis.cancel();speak(w.word,{rate:0.8})}; }
+      const s=document.querySelector('#popcard #c-speak');
+      if(s) s.onclick=()=>{speechSynthesis.cancel();speak(englishOf(w),{rate:0.8})}; }
     else openPop(dictCardHTML(shownPop.word),'dict');
   }
 }
