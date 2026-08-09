@@ -117,7 +117,15 @@ const $=id=>document.getElementById(id);
    into an opponent's client. */
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SAVEKEY = ()=> GAME==='th' ? 'vocap-th' : 'vocap';
-const save=()=>localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
+/* Every save is a candidate leaderboard update, but a discovery streak can
+   call save() many times a minute - submitClassicScore() throttles itself,
+   this just decides when it's worth asking. */
+let lastLbSubmit=0;
+const save=()=>{
+  localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
+  const now=Date.now();
+  if(now-lastLbSubmit>15000){ lastLbSubmit=now; submitClassicScore(); }
+};
 const load=()=>{try{const d=JSON.parse(localStorage.getItem(SAVEKEY()));
   if(d){seen=new Set(d.seen);sparks=d.sparks;
         inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;
@@ -907,6 +915,9 @@ const STR = {
     readyLabel:'ready', nobodyHereYet:'nobody here yet…',
     roomCountOf:' of ', roomCountSuffix:' in the room', hostLeftRoom:'the host has left the room',
     newLettersIn:'new letters in ',
+    leaderboardBtn:'🏆 leaderboard', lbRaceTitle:'Race Leaderboard', lbClassicTitle:'Leaderboard',
+    lbNotSetUp:'The leaderboard isn\'t set up yet.', lbLoading:'loading…',
+    lbEmpty:'No scores yet — be the first!', lbError:'Could not load the leaderboard right now.',
     uiLang:'EN'
   },
   th:{
@@ -983,6 +994,9 @@ const STR = {
     readyLabel:'พร้อมแล้ว', nobodyHereYet:'ยังไม่มีใครเข้ามา…',
     roomCountOf:' จาก ', roomCountSuffix:' คนในห้อง', hostLeftRoom:'เจ้าของห้องออกจากห้องแล้ว',
     newLettersIn:'ตัวอักษรชุดใหม่ในอีก ',
+    leaderboardBtn:'🏆 ตารางอันดับ', lbRaceTitle:'ตารางอันดับการแข่งขัน', lbClassicTitle:'ตารางอันดับ',
+    lbNotSetUp:'ยังไม่ได้ตั้งค่าตารางอันดับ', lbLoading:'กำลังโหลด…',
+    lbEmpty:'ยังไม่มีคะแนน — เป็นคนแรกเลยสิ!', lbError:'โหลดตารางอันดับไม่ได้ตอนนี้',
     uiLang:'ไทย'
   }
 };
@@ -1003,6 +1017,12 @@ function applyUI(){
   set('promote', t('topWords'));
   set('reset', t('reset'));
   set('lang', lang==='th' ? '✓ ไทย' : '+ ไทย');
+  const lbb=$('leaderboard');
+  if(lbb){
+    lbb.style.display = leaderboardOn() ? '' : 'none';
+    lbb.textContent = t('leaderboardBtn');
+    lbb.onclick = ()=>showLeaderboard('classic');
+  }
   const say=$('say'), sayl=$('sayl');
   if(say)  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));
   if(sayl) sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off'));
@@ -1076,6 +1096,108 @@ function trophyName(t){ return GAME==='th' ? t.th.name : t.name; }
 function trophyDesc(t){ return GAME==='th' ? t.th.desc : t.desc; }
 function trophyTitle(t,i){ return GAME==='th' ? t.th.titles[i] : t.titles[i]; }
 function tierLabel(i){ return TIER_LABEL[GAME==='th'?'th':'en'][i]; }
+
+/* ═══════════════════ LEADERBOARD (off until configured) ═══════════════════
+   Needs CFG.supabaseUrl/supabaseKey filled in (see the config block in the
+   HTML). Until then every function here is a quiet no-op - nothing else in
+   the game may ever assume a leaderboard exists.
+
+   There is no login yet. Each browser gets a random id the first time it
+   submits a score, and that id is what ties a player's rows together - not
+   their chosen name, which they can change any time. Swapping this for a
+   real account later is a matter of writing a different id here; nothing
+   downstream needs to change. */
+let SB=null;
+function sbClient(){
+  if(SB!==null) return SB;
+  if(!CFG.supabaseUrl || !CFG.supabaseKey || typeof supabase==='undefined'){ SB=false; return SB; }
+  try{ SB=supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey); }catch(e){ SB=false; }
+  return SB;
+}
+function leaderboardOn(){ return !!sbClient(); }
+
+function playerId(){
+  let id=localStorage.getItem('vocap-player-id');
+  if(!id){
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+       : 'p-'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+    localStorage.setItem('vocap-player-id', id);
+  }
+  return id;
+}
+
+/* A network hiccup here must never interrupt the result screen it was
+   called from - it already rendered by the time this runs. */
+async function submitRaceScore(score, words){
+  const cl=sbClient(); if(!cl) return;
+  try{
+    await cl.from('vocap_race_scores').insert({
+      player_id:playerId(), name:netName(), score, words, lang:GAME
+    });
+  }catch(e){}
+}
+
+/* The longest curated word in the collection so far - computed on demand
+   from `seen` rather than tracked as its own piece of save state, since it
+   only has to exist at the moment a leaderboard row is written. */
+function longestSeenWord(){
+  let word=null, len=0;
+  for(const id of seen){
+    const w=BANK_ALL.find(x=>x.id===id);
+    if(w && w.letters>len){ len=w.letters; word=w.word; }
+  }
+  return {word, len};
+}
+
+async function submitClassicScore(){
+  const cl=sbClient(); if(!cl) return;
+  const {word,len}=longestSeenWord();
+  try{
+    await cl.from('vocap_classic_scores').upsert({
+      player_id:playerId(), lang:GAME, name:netName(),
+      words_found:seen.size, sparks, longest_word:word, longest_len:len,
+      updated_at:new Date().toISOString()
+    }, {onConflict:'player_id,lang'});
+  }catch(e){}
+}
+
+/* Two different homes depending on where this was opened from: the classic
+   toolbar has no overlay open yet, so the generic panel is free to use. The
+   race version is opened from inside #race, which sits above #panel in the
+   stacking order - rendering into #panel there would draw the board behind
+   the still-open race screen instead of over it. */
+function lbRender(html){
+  if($('race') && $('race').className==='show') $('race').innerHTML = html;
+  else openPanel(html);
+}
+async function showLeaderboard(kind){
+  if(kind!=='race') closePanel();
+  const title = kind==='race' ? t('lbRaceTitle') : t('lbClassicTitle');
+  const backBtn = kind==='race'
+    ? `<button onclick="raceSetup()">${t('raceBack')}</button>`
+    : `<button onclick="closePanel()">${t('close')}</button>`;
+  const head = `<div class="sheet"><div class="phead"><div><h2>${title}</h2></div>${backBtn}</div>`;
+  const foot = '</div>';
+  const cl=sbClient();
+  if(!cl){ lbRender(`${head}<div class="sub">${t('lbNotSetUp')}</div>${foot}`); return; }
+  lbRender(`${head}<div class="sub">${t('lbLoading')}</div>${foot}`);
+  try{
+    const table = kind==='race' ? 'vocap_race_scores' : 'vocap_classic_scores';
+    const orderCol = kind==='race' ? 'score' : 'words_found';
+    const {data,error} = await cl.from(table).select('*')
+        .eq('lang', GAME).order(orderCol,{ascending:false}).limit(20);
+    if(error) throw error;
+    const rows=data||[];
+    const body = rows.length ? `<div class="lbboard">${rows.map((r,i)=>
+        kind==='race'
+          ? `<div class="lbrow"><span class="lbpos">${i+1}</span><span class="lbname">${esc(r.name)}</span><span class="lbval">${r.score} ✨ · ${r.words} ${t('wordsLabelPlain')}</span></div>`
+          : `<div class="lbrow"><span class="lbpos">${i+1}</span><span class="lbname">${esc(r.name)}</span><span class="lbval">${r.words_found} ${t('wordsLabelPlain')}${r.longest_word?` · ${esc(r.longest_word)}`:''}</span></div>`
+      ).join('')}</div>` : `<div class="sub">${t('lbEmpty')}</div>`;
+    lbRender(`${head}${body}${foot}`);
+  }catch(e){
+    lbRender(`${head}<div class="sub">${t('lbError')}</div>${foot}`);
+  }
+}
 
 const BLANK_PROFILE = {
   name:'player', laurels:0, title:'',
@@ -1510,6 +1632,7 @@ function raceSetup(){
       <div class="sub" id="rerr" style="color:var(--bad);margin-top:10px"></div>
       <div style="margin-top:16px">
         <button onclick="raceProfile()">${t('trophiesBtn')}</button>
+        ${leaderboardOn() ? `<button onclick="showLeaderboard('race')">${t('leaderboardBtn')}</button>` : ''}
         <button onclick="closeRace()">${t('raceBackToGame')}</button>
       </div>
     </div>`;
@@ -1931,6 +2054,7 @@ function raceEnd(){
     sweeps:R.nSweeps, won, ranked: !!(NET && rows.length>1),
     opponents: rows.filter(r=>r.id!==(NET&&NET.myId)).map(r=>r.name)
   });
+  submitRaceScore(R.score, R.found.length);
   const secs=Math.floor((Date.now()-R.started)/1000);
   const best=R.found.slice().sort((a,b)=>b.pts-a.pts)[0];
   const share=`VOCAP ${t('raceTitle')} · ${R.code}\n${R.score} ${t('pointsLabel')} · ${R.found.length} ${t('wordsLabelPlain')}`

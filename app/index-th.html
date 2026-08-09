@@ -313,6 +313,12 @@
   #race .bar{height:5px;background:rgba(0,0,0,.28);border-radius:3px;margin:7px 0 4px;overflow:hidden}
   #race .bar i{display:block;height:100%;background:var(--glow)}
   #race .tfoot{color:var(--dim);font-size:11px}
+  .lbboard{max-width:480px;margin:8px auto;text-align:left}
+  .lbrow{display:flex;align-items:center;gap:10px;background:var(--panel);
+         border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-bottom:6px}
+  .lbpos{flex:0 0 22px;text-align:center;color:var(--dim);font-size:12px;font-weight:700}
+  .lbname{flex:1;font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lbval{color:var(--dim);font-size:12px;white-space:nowrap}
   #race .unlocks{max-width:420px;margin:14px auto 6px}
   #race .unlock{display:flex;gap:11px;align-items:center;text-align:left;
                 background:var(--panel);border:1px solid var(--glow);
@@ -510,6 +516,7 @@
   <button id="book" title="your collection">📚 collection</button>
   <button id="dictbtn" title="dictionary">📖 dictionary</button>
   <button id="promote" title="most-formed dictionary words">📈 top words</button>
+  <button id="leaderboard" title="see how you rank" style="display:none">🏆 leaderboard</button>
   <button id="reset" title="wipe progress">reset</button>
 </div></div>
 
@@ -592,9 +599,15 @@ window.VOCAP_CONFIG = {
   data:      'words-th.json',
   dict:      null,                // no Thai dictionary yet; curated words only
   trayStart: 12,                  // Thai draws from 61 tile characters, not 26
-  trayMax:   18
+  trayMax:   18,
+  // Fill these in from Supabase (Project Settings > API) to turn the
+  // leaderboard on. Leave blank and the game runs exactly as before -
+  // no leaderboard buttons appear, nothing is sent anywhere.
+  supabaseUrl: '',
+  supabaseKey: ''
 };
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="engine.js"></script>
 
 </body>
