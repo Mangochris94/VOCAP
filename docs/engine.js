@@ -2224,9 +2224,14 @@ Promise.all([
     load(); startCycle();
     if(GAME==='en') starterGift();
     applyUI(); renderMarks();
+    /* The menu is the front door now, every time - not just a corner
+       button you might not notice. A deep link (?open=race etc.) is an
+       explicit choice already made, so it skips straight past the menu
+       instead of showing it and then immediately covering it again. */
     const openParam = new URLSearchParams(location.search).get('open');
     if(openParam==='race') openRace();
     else if(openParam==='anagram' || openParam==='listening') openPuzzle(openParam);
+    else showModeMenu();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
        be reported as one. */
