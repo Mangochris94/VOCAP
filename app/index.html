@@ -399,11 +399,8 @@
   .trow.done .nm:after{content:' ✓';color:var(--good)}
 
   /* mode-menu rows: a language paired with a way to play, one list */
-  .langrow{display:flex;gap:8px;justify-content:center;margin-bottom:18px}
-  .langpill{padding:9px 22px;border-radius:20px;border:1px solid var(--line);
-            background:transparent;color:var(--dim);font-size:13px;font-weight:600;cursor:pointer}
-  .langpill.on{background:var(--tile);color:var(--tile-ink);border-color:var(--tile)}
-  .langpill:hover{border-color:var(--glow)}
+  .langcard{text-align:center;padding:34px 20px}
+  .langcard b{font-size:19px;margin:0}
 
   .modegrid{display:grid;grid-template-columns:1fr;gap:8px}
   @media (min-width:520px){ .modegrid{grid-template-columns:1fr 1fr} }

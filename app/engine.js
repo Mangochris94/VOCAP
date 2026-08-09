@@ -877,11 +877,6 @@ const STR = {
 };
 let UI = CFG.game==='th' ? 'th' : 'en';
 function t(k){ return (STR[UI] && STR[UI][k]) || STR.en[k] || k; }
-/* For the mode menu's language pill: previewing a mode card in the other
-   language must not depend on UI, which is pinned to the page (GAME) and
-   deliberately does not follow it - this is the one place text needs to
-   follow whichever language is being previewed instead. */
-function tLang(langKey,k){ return (STR[langKey] && STR[langKey][k]) || STR.en[k] || k; }
 
 function applyUI(){
   syncUILang();
@@ -1982,50 +1977,45 @@ const LANGS = [
 function renderModesTrigger(){
   const el=$('gamepill'); if(!el) return;
   const here = LANGS.find(l=>l.key===GAME) || LANGS[0];
-  el.innerHTML = `<button onclick="openModeMenu()">☰ ${here.nm}</button>`;
+  el.innerHTML = `<button onclick="showLanguageSplash()">☰ ${here.nm}</button>`;
 }
 renderModesTrigger();
 
-/* Which language's cards the menu is currently showing - independent of
-   GAME, which is fixed by the page. Switching the pill just re-renders the
-   list; only actually picking a mode navigates anywhere. Reopening the menu
-   from the corner button is a fresh look at it, not a continuation of
-   whatever was being previewed last time - it must not still be showing
-   Thai cards on the English page just because the pill was tapped once,
-   three menu-opens ago. */
-let menuLang = null;
-function openModeMenu(){ menuLang = GAME; showModeMenu(); }
-function switchMenuLang(lang){ menuLang = lang; showModeMenu(); }
+/* The language choice happens once, up front, on its own screen - not as a
+   pill living inside the modes menu. Each language then gets its own modes
+   menu with nothing in it to switch mid-browse; the corner button is the
+   one way back to the language choice if a player wants the other game. */
+function showLanguageSplash(){
+  const cards = LANGS.map(l=>
+    `<div class="modecard langcard" onclick="chooseLanguage('${l.key}')"><b>${l.nm}</b></div>`
+  ).join('');
+  openPanel(`<div class="phead"><div><h2>Choose a language · เลือกภาษา</h2></div></div>
+      <div class="modegrid">${cards}</div>`);
+}
+function chooseLanguage(lang){
+  if(lang===GAME){ showModeMenu(); return; }
+  const target = (LANGS.find(l=>l.key===lang)||LANGS[0]).file;
+  location.href = target+'?open=modes';
+}
 
 function showModeMenu(){
-  if(!menuLang) menuLang = GAME;
-  const langRow = LANGS.map(l=>
-    `<button class="langpill${l.key===menuLang?' on':''}" onclick="switchMenuLang('${l.key}')">${l.nm}</button>`
-  ).join('');
   const cards = MODES.map(m=>{
-    const here = m.key==='classic' && menuLang===GAME;
-    return `<div class="modecard${here?' here':''}" onclick="goToMode('${menuLang}','${m.key}')">
+    const here = m.key==='classic';
+    return `<div class="modecard${here?' here':''}" onclick="goToMode('${m.key}')">
       <span class="ic">${m.icon}</span>
-      <b>${tLang(menuLang,m.nmKey)}</b>
-      <span>${here?tLang(menuLang,'youAreHere'):''}${tLang(menuLang,m.descKey)}</span>
+      <b>${t(m.nmKey)}</b>
+      <span>${here?t('youAreHere'):''}${t(m.descKey)}</span>
     </div>`;
   }).join('');
   openPanel(`<div class="phead"><div><h2>${t('modes')}</h2>
       <div class="sub">${t('modesSub')}</div></div>
       <button onclick="closePanel()">${t('close')}</button></div>
-      <div class="langrow">${langRow}</div>
       <div class="modegrid">${cards}</div>`);
 }
-function goToMode(lang, mode){
-  if(lang===GAME){
-    closePanel();
-    if(mode==='race') openRace();
-    else if(mode==='anagram' || mode==='listening' || mode==='puzzle') openPuzzle(mode);
-    return;
-  }
-  const target = (LANGS.find(l=>l.key===lang)||LANGS[0]).file;
-  const jumpable = ['race','anagram','listening','puzzle'];
-  location.href = jumpable.includes(mode) ? (target+'?open='+mode) : target;
+function goToMode(mode){
+  closePanel();
+  if(mode==='race') openRace();
+  else if(mode==='anagram' || mode==='listening' || mode==='puzzle') openPuzzle(mode);
 }
 
 /* ═══════════════════ PUZZLE MODES (Anagram / Listening) ═══════════════════
@@ -2400,14 +2390,17 @@ Promise.all([
     load(); startCycle();
     if(GAME==='en') starterGift();
     applyUI(); renderMarks();
-    /* The menu is the front door now, every time - not just a corner
-       button you might not notice. A deep link (?open=race etc.) is an
-       explicit choice already made, so it skips straight past the menu
-       instead of showing it and then immediately covering it again. */
+    /* The language choice is the front door now, every time - not just a
+       corner button you might not notice. A deep link (?open=race etc.) is
+       an explicit choice already made, so it skips straight past both the
+       language screen and the modes menu. ?open=modes is the one link that
+       skips only the language screen: it is how chooseLanguage() lands on
+       the other page already past the question it just answered. */
     const openParam = new URLSearchParams(location.search).get('open');
     if(openParam==='race') openRace();
     else if(openParam==='anagram' || openParam==='listening' || openParam==='puzzle') openPuzzle(openParam);
-    else showModeMenu();
+    else if(openParam==='modes') showModeMenu();
+    else showLanguageSplash();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
        be reported as one. */
