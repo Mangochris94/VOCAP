@@ -15,23 +15,28 @@
   /* Paper on a desk: a cream page, dark walnut letter tiles with the letter
      printed in warm white, and terracotta for anything worth noticing. */
   :root{
-    --bg:#332920;          /* dark walnut desk                          */
-    --panel:#3e3226;       /* a slightly lighter surface for panels     */
-    --box:#453729;         /* an empty slot in the tray                 */
-    --box-lit:#544332;
-    --tile:#f0e7d6;        /* cream letter tile                         */
-    --tile-ink:#3a2e24;    /* the letter printed on it                  */
-    --glow:#d9825a;        /* terracotta, lifted to read on dark        */
-    --glow-soft:#b5613c;
-    --text:#f0e7d6;        /* cream text                                */
-    --dim:#b09a80;         /* faded taupe                               */
+    --bg:#2a231e;           /* refined walnut desk - a touch darker and cooler   */
+    --panel:#332a23;        /* a slightly lighter surface for panels             */
+    --box:#3a2f27;          /* an empty slot in the tray                         */
+    --box-lit:#443830;
+    --tile:#efe6d8;         /* cream letter tile                                 */
+    --tile-ink:#33291f;     /* the letter printed on it                          */
+    --glow:#dd8f65;         /* terracotta, softened                              */
+    --glow-soft:#c17a52;
+    --text:#f1e9db;         /* cream text                                        */
+    --dim:#a89880;          /* faded taupe                                       */
+    --faint:#8c7d68;        /* one step past dim - for the quietest text on screen */
     --good:#8fae6f; --bad:#d9825a;
+    --line:#4a3d30;         /* the one hairline-border colour, used everywhere -
+                                three near-identical greys (#5a4835/#55442f/#4a4d55)
+                                used to do this job separately */
+    --serif:'Palatino Linotype',Palatino,Georgia,serif;
   }
   *{box-sizing:border-box}
   /* Sit the whole thing in the middle of the window. `safe center` keeps the
      top reachable when the content is taller than the window, which plain
      centring would clip. */
-  body{background:radial-gradient(130% 100% at 50% 40%, #3d3026 0%, var(--bg) 70%);
+  body{background:radial-gradient(120% 100% at 50% 20%, #372e26 0%, var(--bg) 68%);
        background-attachment:fixed;
        color:var(--text);font-family:system-ui,'Noto Sans Thai',sans-serif;
        margin:0;min-height:100vh;box-sizing:border-box;
@@ -39,22 +44,21 @@
        justify-content:safe center;
        padding:16px 12px;gap:12px;
        max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
-  h1{letter-spacing:9px;color:var(--text);font-weight:900;font-size:34px;
-     margin:0 0 4px;text-indent:9px}
+  h1{letter-spacing:5px;color:var(--text);font-weight:500;font-size:27px;
+     margin:0 0 4px;text-indent:5px;font-family:var(--serif)}
 
   /* --- the tray: one gray box per letter slot --- */
   #tray,.tray{display:flex;gap:8px;min-height:64px;align-items:center;flex-wrap:wrap;
         justify-content:center;max-width:100%}
-  .slot{width:52px;height:60px;border-radius:8px;background:var(--panel);
+  .slot{width:52px;height:60px;border-radius:9px;background:var(--panel);
         display:flex;align-items:center;justify-content:center;font-size:26px;
-        font-weight:700;border:2px solid transparent;text-transform:uppercase}
+        font-weight:700;border:1px solid transparent;text-transform:uppercase}
   .slot.filled{background:var(--tile);color:var(--tile-ink);
-               border-color:#d8c9ae;font-weight:600;
-               box-shadow:0 2px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.55)}
+               border-color:#e9ddc9;font-weight:600;
+               box-shadow:0 1px 0 rgba(255,255,255,.35)}
   .slot.typed{background:var(--tile);color:var(--tile-ink);
-              border-color:var(--glow);box-shadow:0 0 0 2px rgba(217,130,90,.5),
-              0 2px 3px rgba(0,0,0,.35)}   /* highlighted while typing */
-  .slot.empty{opacity:.35}
+              border-color:var(--glow);box-shadow:0 0 0 2px rgba(221,143,101,.35)}   /* highlighted while typing */
+  .slot.empty{opacity:.6;border-color:var(--line)}
 
   /* --- the clue line: the learning mechanic, front and centre --- */
   #clue{font-size:16px;line-height:1.6;
@@ -65,7 +69,7 @@
   .cl-th2{color:var(--glow);font-size:14px;margin-top:2px}
   .cl-n2{color:var(--dim);font-size:11px;margin-top:2px}
   .hintbar{display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle}
-  .hintbar button{border-color:#5a4835;
+  .hintbar button{border-color:var(--line);
   font-size:11px;padding:3px 8px;border-radius:5px;opacity:.75}
   .hintbar button:hover:not(:disabled){opacity:1}
   .hintbar button:disabled{opacity:.3;cursor:default}
@@ -73,11 +77,7 @@
   .reveal{font-family:monospace;letter-spacing:4px;font-size:17px;color:var(--text)}                 /* the "glow" from §3.6 */
 
   .slot.used{background:var(--box);color:var(--dim);
-             border-color:var(--glow);box-shadow:none;
-             opacity:1;position:relative}
-  .slot.used:after{content:'';position:absolute;inset:0;border-radius:inherit;
-             background:repeating-linear-gradient(45deg,
-               rgba(217,130,90,.16) 0 4px, transparent 4px 8px)}  /* in use below */
+             border-color:var(--glow);box-shadow:none;opacity:.55}
   .slot.filled{cursor:pointer}
   .slot.filled:hover{border-color:var(--glow)}
 
@@ -92,22 +92,22 @@
   #marks{display:none;gap:6px;justify-content:center;margin:4px 0}
   #marks .slot.mark{width:38px;height:42px;font-size:20px;opacity:.9}
   #marks .slot.mark:hover{border-color:var(--glow)}
-  #wordtray,.wordtray{background:rgba(0,0,0,.18);border-radius:10px;
+  #wordtray,.wordtray{background:rgba(0,0,0,.14);border-radius:9px;
   display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
-            background:rgba(0,0,0,.18);border-radius:10px;padding:10px 14px;
-            width:min(560px,100%);flex-wrap:wrap;border:2px dashed #4a4d55}
+            padding:10px 14px;
+            width:min(560px,100%);flex-wrap:wrap;border:1px solid var(--line)}
   #wordtray.ready{border-color:var(--good);border-style:solid}
-  #wordtray .wslot{width:44px;height:50px;border-radius:6px;background:var(--box-lit);
+  #wordtray .wslot{width:44px;height:50px;border-radius:7px;background:var(--box-lit);
         display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;
-        text-transform:uppercase;cursor:pointer;border:2px solid var(--glow)}
-  #wordtray .wslot.space{background:transparent;border:2px dashed #666;width:22px}
+        text-transform:uppercase;cursor:pointer;border:1px solid var(--glow)}
+  #wordtray .wslot.space{background:transparent;border:1px dashed var(--line);width:22px}
   #wordtray .hint{color:var(--dim);font-size:13px}
 
   /* --- submit / clear buttons (essential on touch: no keyboard, no Enter key) --- */
   #actions{display:flex;gap:10px}
-  #actions button{padding:11px 26px;font-size:15px;font-weight:600;border-radius:8px}
-  #submit{background:var(--good);color:#123;border-color:var(--good)}
-  #submit:disabled{background:var(--panel);color:var(--dim);border-color:#555;font-weight:400}
+  #actions button{padding:11px 26px;font-size:15px;font-weight:600;border-radius:9px}
+  #submit{background:var(--good);color:#16210f;border-color:var(--good)}
+  #submit:disabled{background:var(--panel);color:var(--dim);border-color:var(--line);font-weight:400}
   /* bigger touch targets on small screens */
   @media (max-width:700px){
     /* tiles scale with the screen so a full 15-slot tray always fits */
@@ -122,8 +122,8 @@
      cost the player the ability to see, at a glance, what language the clues
      are in - which is the setting they most need to know. */
   #controls{display:inline-flex;gap:1px;flex-wrap:wrap;justify-content:center;
-            margin:8px auto 0;border:1px solid #5a4835;border-radius:10px;
-            overflow:hidden;background:#5a4835;max-width:560px}
+            margin:8px auto 0;border:1px solid var(--line);border-radius:10px;
+            overflow:hidden;background:var(--line);max-width:560px}
   #controls button{font-size:12px;padding:7px 11px;border:none;border-radius:0;
                    background:var(--tile);color:var(--tile-ink);flex:1 1 auto;
                    white-space:nowrap}
@@ -134,7 +134,7 @@
   #bar{letter-spacing:.2px;
   gap:12px;font-size:12px}
     #bar button{padding:8px 12px}
-    h1{font-size:26px;letter-spacing:6px;text-indent:6px}
+    h1{font-size:22px;letter-spacing:3px;text-indent:3px}
     #clue{font-size:14px}
     #card{padding:14px 16px}
     #card h2{font-size:22px}
@@ -155,8 +155,8 @@
 
   #bar{display:flex;gap:22px;color:var(--dim);font-size:13px;align-items:center;flex-wrap:wrap;justify-content:center}
   #bar b{color:var(--text)}
-  button{background:var(--panel);color:var(--text);border:1px solid #5a4835;border-radius:6px;
-         padding:5px 12px;cursor:pointer;font-size:13px}
+  button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;
+         padding:6px 13px;cursor:pointer;font-size:13px;transition:border-color .15s ease}
   button:hover{border-color:var(--glow)}
 
   /* --- discovery card ---------------------------------------------
@@ -164,40 +164,42 @@
      in proportion to the word. Short words get a quiet entrance; long ones
      get a longer glow and a slower reveal. */
   #card{display:none;position:relative;background:var(--panel);border-radius:14px;
-        padding:18px 46px 16px 18px;width:min(620px,100%);border:1px solid #55442f;
+        padding:18px 46px 16px 18px;width:min(620px,100%);border:1px solid var(--line);
         gap:16px;align-items:flex-start}
   #card.show{display:flex;animation:cardIn .45s cubic-bezier(.2,.9,.3,1)}
   @keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.985)}
                     to{opacity:1;transform:none}}
 
-  /* celebration scales with word length */
-  #card.tier1{box-shadow:0 0 0 1px rgba(181,97,60,.14)}
-  #card.tier2{box-shadow:0 0 18px -4px rgba(181,97,60,.24);border-color:#c98f70}
-  #card.tier3{box-shadow:0 0 30px -4px rgba(181,97,60,.38);border-color:var(--glow)}
-  #card.tier4{box-shadow:0 0 46px -2px rgba(181,97,60,.5);border-color:var(--glow);
+  /* celebration scales with word length, quietly - the border warms up
+     tier by tier, and only the longest words earn an actual glow */
+  #card.tier1{border-color:var(--line)}
+  #card.tier2{border-color:var(--glow-soft)}
+  #card.tier3{border-color:var(--glow)}
+  #card.tier4{border-color:var(--glow);box-shadow:0 0 24px -8px rgba(221,143,101,.35);
               animation:cardIn .45s cubic-bezier(.2,.9,.3,1), bigPulse 1.6s ease-out}
-  @keyframes bigPulse{0%{box-shadow:0 0 0 0 rgba(181,97,60,.35)}
-                      100%{box-shadow:0 0 46px -2px rgba(181,97,60,.5)}}
+  @keyframes bigPulse{0%{box-shadow:0 0 0 0 rgba(221,143,101,.25)}
+                      100%{box-shadow:0 0 24px -8px rgba(221,143,101,.35)}}
 
   /* reserved art slot — a real illustration drops in here later */
-  #c-art{flex:0 0 84px;height:84px;border-radius:10px;background:rgba(0,0,0,.18);
+  #c-art{flex:0 0 84px;height:84px;border-radius:10px;background:rgba(0,0,0,.14);
          display:flex;align-items:center;justify-content:center;font-size:30px;
-         border:1px dashed #5a4835;color:#7d6a55}
+         border:1px solid var(--line);color:var(--faint)}
   #c-body{flex:1;min-width:0}
 
   #c-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px}
-  #card h2{margin:0;font-size:27px;line-height:1.1;cursor:pointer;user-select:none}
+  #card h2{margin:0;font-size:25px;line-height:1.15;cursor:pointer;user-select:none;
+           font-family:var(--serif);font-weight:600}
   #card h2:after{content:' 🔊';font-size:15px;opacity:.45}
   #c-pos{font-size:12px;color:var(--dim);font-style:italic}
   #c-spark{margin-left:auto;font-size:13px;color:var(--glow);white-space:nowrap}
   #card .th{color:var(--glow);font-size:17px;margin-bottom:6px}
   #card p{margin:5px 0;font-size:14px;line-height:1.55}
-  #c-thdef{color:#dcd0bd}
-  #c-factbox{border-left:2px solid #55442f;padding-left:11px;margin:10px 0}
-  #c-factbox p{margin:3px 0;font-size:13px;color:#cfc0aa}
+  #c-thdef{color:var(--faint)}
+  #c-factbox{border-left:2px solid var(--line);padding-left:11px;margin:10px 0}
+  #c-factbox p{margin:3px 0;font-size:13px;color:var(--faint)}
   #c-sent{font-style:italic;color:var(--dim);font-size:13px}
   #c-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-  #c-tags span{font-size:11px;background:rgba(0,0,0,.20);border:1px solid #55442f;
+  #c-tags span{font-size:11px;background:rgba(0,0,0,.16);border:1px solid var(--line);
                border-radius:20px;padding:3px 10px;color:var(--dim)}
   #c-close{position:absolute;top:8px;right:10px;background:none;border:none;
            color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
@@ -211,7 +213,7 @@
 
   #lookup{display:none;margin-top:10px}
   #card.dict #lookup{display:block}
-  #lookup a{color:var(--glow);font-size:12px;text-decoration:none;border:1px solid #5a4835;
+  #lookup a{color:var(--glow);font-size:12px;text-decoration:none;border:1px solid var(--line);
             border-radius:6px;padding:5px 11px;display:inline-block}
   #lookup a:hover{border-color:var(--glow)}
 
@@ -220,18 +222,6 @@
     #c-art{flex:0 0 auto;width:64px;height:64px;font-size:26px}
     #card h2{font-size:23px}
   }
-
-  #startup{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
-           justify-content:center;padding:20px;
-           background:radial-gradient(130% 100% at 50% 35%, #3d3026 0%, var(--bg) 70%)}
-  #startup .ssheet{max-width:420px;width:100%;text-align:center}
-  #startup .ssub{color:var(--dim);font-size:13px;margin-bottom:26px}
-  #startup .pick{display:block;width:100%;text-align:left;margin-bottom:12px;
-                 padding:16px 18px;border-radius:12px;background:var(--tile);
-                 color:var(--tile-ink);border:1px solid #5a4835}
-  #startup .pick:hover{background:#fffaf0;border-color:var(--glow)}
-  #startup .pick b{display:block;font-size:19px;letter-spacing:1px}
-  #startup .pick small{display:block;margin-top:4px;font-size:12px;opacity:.75;line-height:1.45}
 
   /* --- race mode -------------------------------------------------
      A separate mode you enter deliberately. Two people type the same code,
@@ -242,17 +232,17 @@
         padding:22px 14px}
   #race.show{display:block}
   #race .sheet{max-width:620px;margin:0 auto;text-align:center}
-  #race h2{font-size:26px;letter-spacing:5px;margin:6px 0 2px;font-weight:900}
+  #race h2{font-size:23px;letter-spacing:3px;margin:6px 0 2px;font-weight:600;font-family:var(--serif)}
   #race .sub{color:var(--dim);font-size:13px;margin-bottom:18px}
   #race .field{margin:14px 0}
   #race label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px;
               letter-spacing:1px;text-transform:uppercase}
-  #race input{background:var(--panel);border:1px solid #5a4835;color:var(--text);
+  #race input{background:var(--panel);border:1px solid var(--line);color:var(--text);
               border-radius:8px;padding:10px 14px;font-size:19px;text-align:center;
               letter-spacing:4px;font-family:monospace;width:210px;text-transform:uppercase}
-  #race .opts{display:inline-flex;border:1px solid #5a4835;border-radius:9px;overflow:hidden}
+  #race .opts{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
   #race .opts button{border:none;border-radius:0;background:var(--panel);
-                     border-right:1px solid #5a4835;font-size:12px;padding:8px 13px}
+                     border-right:1px solid var(--line);font-size:12px;padding:8px 13px}
   #race .opts button:last-child{border-right:none}
   #race .opts button.on{background:var(--glow);color:#fff}
   /* Hosting and joining are equally normal things to do, so they get equal
@@ -261,9 +251,9 @@
   #race .gorow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
   #race .go{font-size:15px;font-weight:700;letter-spacing:2px;padding:12px 26px;
             border-radius:10px;background:var(--glow);color:#fff;border-color:var(--glow)}
-  #race .go:hover{background:#e59468;border-color:#e59468}
+  #race .go:hover{background:#e9a173;border-color:#e9a173}
   #race .go.alt{background:transparent;color:var(--glow);border:2px solid var(--glow)}
-  #race .go.alt:hover{background:rgba(217,130,90,.14)}
+  #race .go.alt:hover{background:rgba(221,143,101,.14)}
   #race .clock{font-size:44px;font-weight:900;letter-spacing:2px;margin:6px 0}
   #race .clock.low{color:var(--bad)}
   #race .tally{color:var(--dim);font-size:14px;margin-bottom:10px}
@@ -271,7 +261,7 @@
   #race .roster{max-width:320px;margin:10px auto;text-align:left}
   #race .rrow{display:flex;justify-content:space-between;gap:10px;
               padding:6px 11px;border-radius:7px;font-size:13px;
-              background:var(--panel);border:1px solid #5a4835;margin-bottom:4px}
+              background:var(--panel);border:1px solid var(--line);margin-bottom:4px}
   #race .rrow.me{border-color:var(--glow)}
   #race .rrow em, #race .brow em{display:block;font-style:normal;font-size:10px;
        color:var(--glow);letter-spacing:1px;text-transform:uppercase}
@@ -282,7 +272,7 @@
      a big button in the middle of the tray; now it is one row inside this
      menu, same as any mode that comes after it. */
   #gamepill{position:fixed;top:10px;right:12px;z-index:40}
-  #gamepill button{border:1px solid #5a4835;border-radius:8px;background:var(--panel);
+  #gamepill button{border:1px solid var(--line);border-radius:8px;background:var(--panel);
             color:var(--text);font-size:11px;letter-spacing:1px;padding:6px 12px;cursor:pointer}
   #gamepill button:hover{border-color:var(--glow)}
 
@@ -290,7 +280,7 @@
      away and styled as a warning, because people were quitting by accident. */
   #race .statgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
                   max-width:480px;margin:14px auto}
-  #race .statgrid div{background:var(--panel);border:1px solid #5a4835;
+  #race .statgrid div{background:var(--panel);border:1px solid var(--line);
                       border-radius:8px;padding:8px 4px}
   #race .statgrid b{display:block;font-size:17px;color:var(--glow)}
   #race .statgrid small{color:var(--dim);font-size:10px}
@@ -298,7 +288,7 @@
   #race .tsel{font-size:11px;padding:5px 11px}
   #race .tsel.on{background:var(--glow);color:#fff;border-color:var(--glow)}
   #race .trophies{max-width:480px;margin:8px auto;text-align:left}
-  #race .trow{background:var(--panel);border:1px solid #5a4835;border-radius:9px;
+  #race .trow{background:var(--panel);border:1px solid var(--line);border-radius:9px;
               padding:9px 12px;margin-bottom:6px}
   #race .thead{display:flex;justify-content:space-between;align-items:center;gap:8px}
   #race .thead small{color:var(--dim);font-size:11px}
@@ -335,11 +325,11 @@
   @media (max-width:520px){ .racetray .slot{width:min(34px,7.6vw);height:min(40px,9vw);font-size:16px} }
   #race .board{max-width:400px;margin:12px auto;text-align:left}
   #race .linkbox{max-width:420px;margin:14px auto;padding:11px;border-radius:9px;
-                 background:var(--panel);border:1px solid #5a4835}
+                 background:var(--panel);border:1px solid var(--line)}
   #race .linkbox code{font-size:12px;color:var(--glow);word-break:break-all}
   #race .brow{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:5px;
-              background:var(--panel);border:1px solid #5a4835;border-radius:9px}
-  #race .brow.me{border-color:var(--glow);background:rgba(217,130,90,.10)}
+              background:var(--panel);border:1px solid var(--line);border-radius:9px}
+  #race .brow.me{border-color:var(--glow);background:rgba(221,143,101,.10)}
   #race .brow .pos{width:26px;font-size:15px}
   #race .brow .nm{flex:1;font-size:14px}
   #race .brow .nm i{color:var(--dim);font-size:11px;font-style:normal}
@@ -351,15 +341,15 @@
   @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
   #race .rrow b{color:var(--glow)}
   #race #rclues{margin:10px auto 6px;font-size:14px;line-height:1.45;max-width:460px}
-  #race #rclues .clueline{background:var(--panel);border:1px solid #5a4835;
+  #race #rclues .clueline{background:var(--panel);border:1px solid var(--line);
        border-radius:9px;padding:8px 11px;margin:5px 0;text-align:left}
   #race #rclues .clueline.done{opacity:.4;text-align:center}
   #race #rclues .cl-th{color:var(--glow);font-size:13px;margin-top:3px}
   #race #rclues .cl-n{color:var(--dim);font-size:11px;margin-top:3px}
   #race #rclues .x2{color:var(--glow);font-weight:700;margin-left:6px;font-size:12px}
-  #race .found span{background:var(--panel);border:1px solid #5a4835;border-radius:7px;
+  #race .found span{background:var(--panel);border:1px solid var(--line);border-radius:7px;
                     padding:4px 9px;font-size:13px}
-  #race .share{background:var(--panel);border:1px solid #5a4835;border-radius:8px;
+  #race .share{background:var(--panel);border:1px solid var(--line);border-radius:8px;
                padding:12px;font-family:monospace;font-size:13px;white-space:pre-wrap;
                margin:14px 0;text-align:left}
 
@@ -376,16 +366,16 @@
            border-radius:14px;max-width:620px;margin:6vh auto 0;padding:18px 46px 16px 18px;
            display:flex;gap:16px;align-items:flex-start;
            animation:cardIn .3s cubic-bezier(.2,.9,.3,1)}
-  #popcard.dict{border-color:#4a4d55;border-style:dashed}
+  #popcard.dict{border-color:var(--line);border-style:dashed}
   #popcard #c-close{position:absolute;top:8px;right:10px;background:none;border:none;
            color:var(--dim);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer}
   #popcard #c-close:hover{color:var(--text)}
   @media (max-width:700px){ #popcard{flex-direction:column;padding:16px 40px 14px 16px} }
-  #panel{background:var(--bg);border:1px solid #5a4835;border-radius:14px;max-width:820px;
+  #panel{background:var(--bg);border:1px solid var(--line);border-radius:14px;max-width:820px;
          margin:0 auto;padding:20px 22px 28px}
   #panel h2{margin:0;font-size:20px}
   .phead{display:flex;justify-content:space-between;align-items:center;gap:12px;
-         border-bottom:1px solid #55442f;padding-bottom:12px;margin-bottom:16px}
+         border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px}
   .phead .sub{color:var(--dim);font-size:13px;margin-top:3px}
   #panel .back{background:none;border:none;color:var(--glow);cursor:pointer;font-size:14px;
                padding:0;margin-bottom:12px}
@@ -393,7 +383,7 @@
   /* topic rows */
   .trow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;
         cursor:pointer;border:1px solid transparent}
-  .trow:hover{background:var(--panel);border-color:#555}
+  .trow:hover{background:var(--panel);border-color:var(--line)}
   .trow .nm{flex:1;font-size:15px}
   .trow .ct{color:var(--dim);font-size:13px;white-space:nowrap}
   .bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;width:120px}
@@ -403,7 +393,7 @@
   /* mode-menu rows: a language paired with a way to play, one list */
   .moderow{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:8px;
            cursor:pointer;border:1px solid transparent}
-  .moderow:hover{background:var(--panel);border-color:#555}
+  .moderow:hover{background:var(--panel);border-color:var(--line)}
   .moderow.here{border-color:var(--glow)}
   .moderow .ic{font-size:19px;flex:0 0 auto}
   .moderow .txt{flex:1;min-width:0}
@@ -414,16 +404,16 @@
   .sub-h{color:var(--dim);font-size:12px;letter-spacing:2px;margin:18px 0 8px;
          text-transform:uppercase}
   .wgrid{display:flex;flex-wrap:wrap;gap:7px}
-  .wchip{background:var(--panel);border:1px solid #55442f;border-radius:7px;padding:7px 11px;
+  .wchip{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 11px;
          font-size:14px;cursor:pointer}
   .wchip:hover{border-color:var(--glow)}
-  .wchip.hidden{background:transparent;border-style:dashed;color:#7d6a55;cursor:default;
+  .wchip.hidden{background:transparent;border-style:dashed;color:var(--faint);cursor:default;
                 letter-spacing:3px;font-family:monospace}
-  .wchip.hidden:hover{border-color:#4a4d55}
+  .wchip.hidden:hover{border-color:var(--line)}
 
   /* dictionary shelves */
   .shelf{display:flex;flex-wrap:wrap;gap:6px}
-  .letter{width:52px;height:52px;border-radius:8px;background:var(--panel);border:1px solid #55442f;
+  .letter{width:52px;height:52px;border-radius:8px;background:var(--panel);border:1px solid var(--line);
           display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
   .letter b{font-size:18px;text-transform:uppercase}
   .letter span{font-size:10px;color:var(--dim)}
@@ -443,7 +433,7 @@
           padding:22px 14px}
   #puzzle.show{display:block}
   #puzzle .sheet{max-width:560px;margin:0 auto;text-align:center}
-  #puzzle h2{font-size:24px;letter-spacing:3px;margin:6px 0 4px;font-weight:900}
+  #puzzle h2{font-size:23px;letter-spacing:3px;margin:6px 0 4px;font-weight:600;font-family:var(--serif)}
   #puzzle .sub{color:var(--dim);font-size:13px;margin-bottom:16px}
   #puzzle .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0}
   #puzzle .quitrow{margin-top:22px;padding-top:14px;border-top:1px solid rgba(90,72,53,.5)}
@@ -456,21 +446,22 @@
 
   #pzCard{display:none;position:relative;background:var(--panel);
           border-radius:14px;padding:16px 20px 14px;margin:16px 0 0;text-align:left;
-          border:1px solid #55442f;gap:14px}
+          border:1px solid var(--line);gap:14px}
   #pzCard.show{display:flex;animation:cardIn .4s cubic-bezier(.2,.9,.3,1)}
   #pzCard .art{flex:0 0 56px;height:56px;border-radius:9px;background:rgba(0,0,0,.18);
                display:flex;align-items:center;justify-content:center;font-size:22px}
   #pzCard .body{flex:1;min-width:0}
-  #pzCard h3{margin:0;font-size:21px;line-height:1.2;cursor:pointer;user-select:none}
+  #pzCard h3{margin:0;font-size:20px;line-height:1.2;cursor:pointer;user-select:none;
+               font-family:var(--serif);font-weight:600}
   #pzCard h3 .spark{font-size:12.5px;color:var(--glow);font-weight:400;margin-left:8px;
                      white-space:nowrap}
   #pzCard .th{color:var(--glow);font-size:16px;margin:3px 0 6px}
   #pzCard p{margin:4px 0;font-size:13.5px;line-height:1.55;color:var(--text)}
-  #pzCard .thdef{color:#dcd0bd}
-  #pzCard .fact{border-left:2px solid #55442f;padding-left:10px;margin:8px 0}
-  #pzCard .fact p{font-size:12.5px;color:#cfc0aa}
+  #pzCard .thdef{color:var(--faint)}
+  #pzCard .fact{border-left:2px solid var(--line);padding-left:10px;margin:8px 0}
+  #pzCard .fact p{font-size:12.5px;color:var(--faint)}
   #pzCard .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-  #pzCard .tags span{font-size:11px;background:rgba(0,0,0,.20);border:1px solid #55442f;
+  #pzCard .tags span{font-size:11px;background:rgba(0,0,0,.20);border:1px solid var(--line);
                       border-radius:20px;padding:3px 10px;color:var(--dim)}
 </style>
 </head>
