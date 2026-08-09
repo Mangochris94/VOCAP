@@ -2208,8 +2208,8 @@ for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','prom
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick=Math.min(lastTick,Date.now()); });
 $('c-close').onclick=()=>{$('card').className='';};
-$('say').onclick=()=>{sayWords=!sayWords;$('say').textContent='🔊 words: '+(sayWords?'ON':'OFF')};
-$('sayl').onclick=()=>{sayLetters=!sayLetters;$('sayl').textContent='🔤 letters: '+(sayLetters?'ON':'OFF')};
+$('say').onclick=()=>{ sayWords=!sayWords; applyUI(); };
+$('sayl').onclick=()=>{ sayLetters=!sayLetters; applyUI(); };
 $('submit').onclick=()=>submit();
 $('clear').onclick=()=>{building=[];renderTray();renderWordTray()};
 /* 5 / 10 / 20 minutes: some players want a slow ambient trickle, others a
