@@ -2700,7 +2700,25 @@ function skinSprout(wrong,maxWrong){
       </g>`;
     return `<g transform="translate(100 ${y})">${leaf(angL)}${leaf(angR)}</g>`;
   }).join('');
-  const budDroop = Math.min(1, p*3);
+  /* A five-petal flower loses one petal per wrong guess instead of just
+     drooping in place - each fallen petal lands and stays on the pot
+     rim, so the wrong-guess count is visible at a glance as much from
+     what's missing above as what's piled up below. */
+  const petalCount = 5, petalFill='#e8b4d8', petalEdge='#c4749f';
+  const onFlower = [];
+  for(let i=0;i<petalCount;i++){
+    if(i<wrong) continue;
+    const ang = i*(360/petalCount);
+    onFlower.push(`<g transform="translate(100 58) rotate(${ang})">
+      <ellipse cx="0" cy="-11" rx="6" ry="10" fill="${petalFill}" stroke="${petalEdge}" stroke-width="1"/>
+    </g>`);
+  }
+  const flowerCenter = wrong<petalCount
+    ? `<circle cx="100" cy="58" r="5" fill="#f2c94c" stroke="#c99a2e" stroke-width="1"/>` : '';
+  const fallenPetals = Array.from({length:Math.min(petalCount,wrong)},(_,i)=>{
+    const fx = 74+i*14, fy = 176+(i%2)*7, rot = 30+i*35;
+    return `<ellipse cx="${fx}" cy="${fy}" rx="6" ry="9" fill="${petalFill}" stroke="${petalEdge}" stroke-width="1" opacity="0.85" transform="rotate(${rot} ${fx} ${fy})"/>`;
+  }).join('');
   return `<svg viewBox="0 0 200 200" width="180" height="180">
     <ellipse cx="100" cy="188" rx="58" ry="7" fill="#000" opacity="0.15"/>
     <path d="M56 188 L144 188 L130 142 L70 142 Z" fill="#b5713f"/>
@@ -2708,7 +2726,9 @@ function skinSprout(wrong,maxWrong){
     <path d="M56 188 L70 142 M144 188 L130 142" stroke="#8a5530" stroke-width="2" fill="none"/>
     <path d="M100 142 Q${100+stemBend} 92 100 60" fill="none" stroke="#3f6b34" stroke-width="6" stroke-linecap="round"/>
     ${leaves}
-    <circle cx="100" cy="58" r="8" fill="${budDroop<0.5?'#e8b4d8':'#8a7a5a'}" stroke="${budDroop<0.5?'#c4749f':'#5f5340'}" stroke-width="1.5" transform="rotate(${budDroop*50} 100 62)"/>
+    ${onFlower.join('')}
+    ${flowerCenter}
+    ${fallenPetals}
   </svg>`;
 }
 function skinKite(wrong,maxWrong){
@@ -2735,7 +2755,7 @@ function skinKite(wrong,maxWrong){
   </svg>`;
 }
 function skinLantern(wrong,maxWrong){
-  const p = wrong/maxWrong, flameH = Math.max(2,28*(1-p)), out = wrong>=maxWrong;
+  const p = wrong/maxWrong, flameH = Math.max(2,36*(1-p)), out = wrong>=maxWrong;
   const drops = Array.from({length:Math.floor(p*7)},(_,i)=>
     `<line x1="${26+i*20}" y1="${8+(i*17)%26}" x2="${19+i*20}" y2="${30+(i*17)%26}" stroke="#7fa6c9" stroke-width="2.5" stroke-linecap="round" opacity="${0.4+0.08*i}"/>`).join('');
   return `<svg viewBox="0 0 200 200" width="180" height="180">
@@ -2746,11 +2766,11 @@ function skinLantern(wrong,maxWrong){
     <rect x="68" y="112" width="64" height="66" rx="10" fill="#7a5637"/>
     <rect x="68" y="112" width="64" height="10" rx="5" fill="#6b4a2f"/>
     <rect x="68" y="168" width="64" height="10" rx="5" fill="#6b4a2f"/>
-    <rect x="76" y="124" width="48" height="46" rx="6" fill="#241a12"/>
+    <rect x="74" y="120" width="52" height="44" rx="6" fill="#241a12"/>
     ${out ? '' : `
-      <circle cx="100" cy="150" r="${18*(1-p*0.3)}" fill="#f2a44a" opacity="0.18"/>
-      <path d="M100 ${152-flameH} Q110 ${152-flameH*0.5} 100 152 Q90 ${152-flameH*0.5} 100 ${152-flameH}" fill="#f2a44a"/>
-      <path d="M100 ${152-flameH*0.55} Q104 ${152-flameH*0.3} 100 152 Q96 ${152-flameH*0.3} 100 ${152-flameH*0.55}" fill="#ffd58a"/>
+      <circle cx="100" cy="158" r="${22*(1-p*0.25)}" fill="#f2a44a" opacity="0.2"/>
+      <path d="M100 ${160-flameH} Q113 ${160-flameH*0.5} 100 160 Q87 ${160-flameH*0.5} 100 ${160-flameH}" fill="#f2a44a"/>
+      <path d="M100 ${160-flameH*0.55} Q106 ${160-flameH*0.3} 100 160 Q94 ${160-flameH*0.3} 100 ${160-flameH*0.55}" fill="#ffd58a"/>
     `}
   </svg>`;
 }
