@@ -158,7 +158,12 @@ function hasThaiVoice(){ if(!voiceTH && 'speechSynthesis' in window) pickVoice()
 function speak(text,{rate=0.85,pitch=1,lang='en'}={}){
   if(!('speechSynthesis' in window)) return;
   const u=new SpeechSynthesisUtterance(text);
-  if(lang==='th' && voiceTH){ u.lang='th-TH'; u.voice=voiceTH; }
+  /* Tagging the utterance th-TH even with no matching voice object still
+     lets the browser reach for its own closest/default voice for that
+     language, rather than always falling back to reading Thai text in
+     the English voice - which is the actual mangled-audio bug this is
+     here to avoid. */
+  if(lang==='th'){ u.lang='th-TH'; if(voiceTH) u.voice=voiceTH; }
   else { u.lang='en-GB'; if(voiceEN) u.voice=voiceEN; }
   u.rate=rate; u.pitch=pitch; u.volume=1;
   speechSynthesis.speak(u);
@@ -181,10 +186,12 @@ function englishOf(w){ return GAME==='th' ? (w.translations?.en?.word||'') : w.w
 function speakEntry(w){ const e=englishOf(w); if(e) speakWord(e); }
 /* Listening mode's whole mechanic is "hear the target word, then spell
    it" - playing the English translation there would defeat the point, so
-   this is the one place that actually speaks Thai text, and only when the
-   device has a Thai voice to speak it with. */
-function speakThaiWord(w){
-  if(!hasThaiVoice()) return;
+   this is the one place that actually speaks Thai text. Normally that
+   only happens with a real Thai voice available; force:true is the
+   player's own "play anyway" choice on a device with none, made
+   explicitly rather than assumed for them. */
+function speakThaiWord(w, force){
+  if(!hasThaiVoice() && !force) return;
   speechSynthesis.cancel();
   speak(w,{rate:0.78,lang:'th'});
 }
@@ -944,8 +951,9 @@ const STR = {
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
     youWon:'you got it!', youLost:'out of guesses — the word was',
-    skinSprout:'Sprout', skinKite:'Kite', skinLantern:'Lantern',
-    noThaiVoice:'This device doesn\'t have a Thai voice installed, so Listening mode can\'t play the word aloud here. Try a phone or a different browser, or play one of the other modes instead.',
+    skinClassic:'Classic', skinSprout:'Sprout', skinKite:'Kite', skinLantern:'Lantern',
+    noThaiVoice:'This device doesn\'t have a Thai voice installed, so the pronunciation may not be right.',
+    playAnyway:'🔊 play anyway',
     uiLang:'EN'
   },
   th:{
@@ -1029,8 +1037,9 @@ const STR = {
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
     youWon:'ทายถูก!', youLost:'หมดโอกาสแล้ว — คำนั้นคือ',
-    skinSprout:'ต้นอ่อน', skinKite:'ว่าว', skinLantern:'โคมไฟ',
-    noThaiVoice:'อุปกรณ์นี้ไม่มีเสียงพูดภาษาไทยติดตั้งไว้ โหมดฟังคำจึงเล่นเสียงคำไม่ได้ในตอนนี้ ลองใช้โทรศัพท์หรือเบราว์เซอร์อื่น หรือเล่นโหมดอื่นไปก่อน',
+    skinClassic:'คลาสสิก', skinSprout:'ต้นอ่อน', skinKite:'ว่าว', skinLantern:'โคมไฟ',
+    noThaiVoice:'อุปกรณ์นี้ไม่มีเสียงพูดภาษาไทยติดตั้งไว้ การออกเสียงอาจไม่ถูกต้องนัก',
+    playAnyway:'🔊 เล่นต่อเลย',
     uiLang:'ไทย'
   }
 };
@@ -2375,17 +2384,17 @@ function pickStageWord(stage){
 
 function openPuzzle(kind){
   closePanel();
-  PZ = {kind, w:null, order:[], used:[], building:[], stage:null};
+  PZ = {kind, w:null, order:[], used:[], building:[], stage:null, thaiBestEffort:false};
   $('puzzle').className='show';
   if(kind==='puzzle'){
     $('pzTitle').textContent=t('puzzleTitle');
     $('pzSub').textContent=t('puzzleSub');
     showPuzzleStages();
   } else if(kind==='listening' && GAME==='th' && !hasThaiVoice()){
-    /* Listening's whole mechanic is audio-only until solved - with no
-       Thai voice on this device there is nothing to hear, so it would
-       just be a silent, unplayable puzzle. Saying so plainly beats
-       leaving the player wondering why nothing happens. */
+    /* No Thai voice means the pronunciation may come out wrong rather
+       than not at all - a "play anyway" choice belongs to the player,
+       not a decision made for them, so this offers it rather than
+       blocking the mode outright. */
     $('pzTitle').textContent = t('listeningTitle');
     $('pzSub').textContent   = t('listeningSub');
     showListeningUnavailable();
@@ -2402,7 +2411,17 @@ function showListeningUnavailable(){
   $('pzStageBack').style.display='none';
   const el=$('pzStages'); el.style.display='flex';
   el.innerHTML = `<div class="msg bad">${t('noThaiVoice')}</div>
-    <div class="row"><button onclick="closePuzzle()">${t('backToGame')}</button></div>`;
+    <div class="row">
+      <button class="primary" onclick="listeningPlayAnyway()">${t('playAnyway')}</button>
+      <button onclick="closePuzzle()">${t('backToGame')}</button>
+    </div>`;
+}
+function listeningPlayAnyway(){
+  if(!PZ) return;
+  PZ.thaiBestEffort = true;
+  $('pzArea').style.display='flex'; $('pzStages').style.display='none';
+  $('pzStageBack').style.display='none';
+  puzzleNext();
 }
 function closePuzzle(){ $('puzzle').className=''; PZ=null; renderTray(); renderClue(); }
 
@@ -2458,7 +2477,7 @@ function puzzleNext(){
      IS the clue, not a bonus, so muting word-speech elsewhere must not also
      silence the one mode where silence means "no clue at all". */
   if(PZ.kind==='listening'){
-    if(GAME==='th') speakThaiWord(PZ.w.word);
+    if(GAME==='th') speakThaiWord(PZ.w.word, PZ.thaiBestEffort);
     else speak(PZ.w.word,{rate:0.8});
   }
 }
@@ -2519,7 +2538,7 @@ function renderPuzzle(){
 
 function puzzlePlayAgain(){
   if(!PZ || PZ.kind!=='listening') return;
-  if(GAME==='th') speakThaiWord(PZ.w.word);
+  if(GAME==='th') speakThaiWord(PZ.w.word, PZ.thaiBestEffort);
   else speak(PZ.w.word,{rate:0.8});
 }
 
@@ -2630,58 +2649,109 @@ function puzzleAward(w, isTarget){
    guessable unit of their own. */
 const HANGMAN_MAX_WRONG = 6;
 const HANGMAN_SKINS = [
+  {id:'classic', icon:'🎩', nameKey:'skinClassic', draw:skinClassic},
   {id:'sprout',  icon:'🌱', nameKey:'skinSprout',  draw:skinSprout},
   {id:'kite',    icon:'🪁', nameKey:'skinKite',    draw:skinKite},
   {id:'lantern', icon:'🏮', nameKey:'skinLantern', draw:skinLantern},
 ];
+/* The traditional gallows-and-figure, for players who just want the
+   familiar version - kept light and rounded rather than grim, and in the
+   app's own terracotta rather than stark black, so it still feels like
+   part of the same game as the other three. Six body parts line up
+   exactly with HANGMAN_MAX_WRONG, one per wrong guess. */
+function skinClassic(wrong,maxWrong){
+  const ink='#dd8f65', wood='#8a6b4a', woodDark='#6b5136';
+  const parts = [
+    wrong>=1 ? `<circle cx="140" cy="66" r="15" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>` : '',
+    wrong>=2 ? `<path d="M140 81 L140 128" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>` : '',
+    wrong>=3 ? `<path d="M140 94 L114 112" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>` : '',
+    wrong>=4 ? `<path d="M140 94 L166 112" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>` : '',
+    wrong>=5 ? `<path d="M140 128 L118 164" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>` : '',
+    wrong>=6 ? `<path d="M140 128 L162 164" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>` : '',
+  ].join('');
+  return `<svg viewBox="0 0 200 200" width="180" height="180">
+    <ellipse cx="100" cy="192" rx="70" ry="6" fill="#000" opacity="0.12"/>
+    <path d="M40 190 L165 190" stroke="${wood}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M70 190 L70 24" stroke="${wood}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M68 24 L142 24" stroke="${wood}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M70 40 L92 24" stroke="${woodDark}" stroke-width="5" stroke-linecap="round"/>
+    <path d="M140 24 L140 50" stroke="${woodDark}" stroke-width="4" stroke-linecap="round"/>
+    ${parts}
+  </svg>`;
+}
 function skinSprout(wrong,maxWrong){
   const p = wrong/maxWrong;
   const stemBend = p*35;
+  /* Each leaf is drawn off-center from its own pivot point (cx=17, not 0)
+     so rotating it sweeps the blade outward from the stem like a real
+     leaf, rather than just spinning a shape in place. Tiers start at
+     different base angles so a fully healthy plant reads as layered
+     leaf pairs, not one overlapping blob. */
   const leaves = [0,1,2].map(i=>{
     const d = Math.min(1, Math.max(0, p*3 - i));
-    const y = 130 - i*28;
-    const col = `hsl(${100-70*d},${55-25*d}%,${42-14*d}%)`;
-    return `<g transform="translate(100 ${y})">
-      <ellipse cx="0" cy="0" rx="22" ry="10" fill="${col}" transform="rotate(${-40-d*70})"/>
-      <ellipse cx="0" cy="0" rx="22" ry="10" fill="${col}" transform="rotate(${40+d*70})"/>
-    </g>`;
+    const y = 126 - i*34;
+    const base = 55 + i*10;
+    const fill = `hsl(${102-72*d},${58-28*d}%,${40-12*d}%)`;
+    const edge = `hsl(${102-72*d},${50-20*d}%,${25-8*d}%)`;
+    const angL = -base-d*55, angR = base+d*55;
+    const leaf = (ang)=>`<g transform="rotate(${ang})">
+        <ellipse cx="16" cy="0" rx="17" ry="7" fill="${fill}" stroke="${edge}" stroke-width="1.5"/>
+        <path d="M1 0 L31 0" stroke="${edge}" stroke-width="1" opacity="0.5"/>
+      </g>`;
+    return `<g transform="translate(100 ${y})">${leaf(angL)}${leaf(angR)}</g>`;
   }).join('');
   const budDroop = Math.min(1, p*3);
   return `<svg viewBox="0 0 200 200" width="180" height="180">
-    <path d="M60 190 L140 190 L128 150 L72 150 Z" fill="#a5643a"/>
-    <path d="M100 150 Q${100+stemBend} 100 100 74" fill="none" stroke="#3f6b34" stroke-width="6" stroke-linecap="round"/>
+    <ellipse cx="100" cy="188" rx="58" ry="7" fill="#000" opacity="0.15"/>
+    <path d="M56 188 L144 188 L130 142 L70 142 Z" fill="#b5713f"/>
+    <path d="M62 150 L138 150" stroke="#8a5530" stroke-width="2" opacity="0.5"/>
+    <path d="M56 188 L70 142 M144 188 L130 142" stroke="#8a5530" stroke-width="2" fill="none"/>
+    <path d="M100 142 Q${100+stemBend} 92 100 60" fill="none" stroke="#3f6b34" stroke-width="6" stroke-linecap="round"/>
     ${leaves}
-    <circle cx="100" cy="70" r="7" fill="${budDroop<0.5?'#e8b4d8':'#8a7a5a'}" transform="rotate(${budDroop*50} 100 74)"/>
+    <circle cx="100" cy="58" r="8" fill="${budDroop<0.5?'#e8b4d8':'#8a7a5a'}" stroke="${budDroop<0.5?'#c4749f':'#5f5340'}" stroke-width="1.5" transform="rotate(${budDroop*50} 100 62)"/>
   </svg>`;
 }
 function skinKite(wrong,maxWrong){
   const p = wrong/maxWrong;
   const tilt = p*35, drift = p*40, snapped = wrong>=maxWrong;
   const wind = Array.from({length:Math.floor(p*4)},(_,i)=>
-    `<path d="M${20+i*10} ${40+i*15} q10 -6 20 0" stroke="#9db3c8" stroke-width="2" fill="none" opacity="${0.4+0.15*i}"/>`).join('');
+    `<path d="M${16+i*11} ${36+i*16} q12 -7 24 0" stroke="#9db3c8" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="${0.35+0.15*i}"/>`).join('');
   const string = snapped
-    ? `<path d="M100 90 L100 130" stroke="#7a6a52" stroke-width="2" stroke-dasharray="4 6"/>`
-    : `<path d="M${100+drift*0.3} ${90+drift*0.3} L100 170" stroke="#7a6a52" stroke-width="2" stroke-dasharray="${Math.max(1,6-p*5)} ${p*10}"/>`;
+    ? `<path d="M100 88 L100 128" stroke="#7a6a52" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 7"/>`
+    : `<path d="M${100+drift*0.3} ${88+drift*0.3} L100 168" stroke="#7a6a52" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="${Math.max(1,7-p*6)} ${p*11}"/>`;
   return `<svg viewBox="0 0 200 200" width="180" height="180">
-    <rect x="90" y="172" width="20" height="10" rx="2" fill="#8a6b4a"/>
+    <circle cx="34" cy="34" r="16" fill="#e8c060" opacity="0.85"/>
+    <ellipse cx="100" cy="188" rx="20" ry="5" fill="#000" opacity="0.12"/>
+    <path d="M86 172 Q100 160 114 172 L114 182 Q100 190 86 182 Z" fill="#8a6b4a"/>
+    <circle cx="100" cy="176" r="10" fill="none" stroke="#6b5136" stroke-width="2"/>
     ${wind}${string}
-    <g transform="translate(${100+drift} ${90-drift}) rotate(${tilt})">
-      <path d="M0 -30 L20 0 L0 30 L-20 0 Z" fill="#d9765a" stroke="#a4472f" stroke-width="2"/>
-      <path d="M0 -30 L0 30 M-20 0 L20 0" stroke="#a4472f" stroke-width="1.5"/>
-      <path d="M0 30 q-4 10 -10 12 M0 30 q4 10 10 12" stroke="#a4472f" stroke-width="2" fill="none"/>
+    <g transform="translate(${100+drift} ${88-drift}) rotate(${tilt})">
+      <path d="M0 -32 L22 0 L0 32 L-22 0 Z" fill="#e08165" stroke="#a4472f" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M0 -32 L11 0 L0 32 L-11 0 Z" fill="#f2a58a" opacity="0.7"/>
+      <path d="M0 -32 L0 32 M-22 0 L22 0" stroke="#a4472f" stroke-width="1.5"/>
+      <path d="M0 32 q-5 11 -12 13 M0 32 q5 11 12 13" stroke="#a4472f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <circle cx="-6" cy="45" r="2.5" fill="#a4472f"/><circle cx="6" cy="45" r="2.5" fill="#a4472f"/>
     </g>
   </svg>`;
 }
 function skinLantern(wrong,maxWrong){
-  const p = wrong/maxWrong, flameH = Math.max(2,26*(1-p)), out = wrong>=maxWrong;
-  const drops = Array.from({length:Math.floor(p*6)},(_,i)=>
-    `<line x1="${30+i*22}" y1="${10+(i*13)%20}" x2="${24+i*22}" y2="${30+(i*13)%20}" stroke="#7fa6c9" stroke-width="2" opacity="0.6"/>`).join('');
+  const p = wrong/maxWrong, flameH = Math.max(2,28*(1-p)), out = wrong>=maxWrong;
+  const drops = Array.from({length:Math.floor(p*7)},(_,i)=>
+    `<line x1="${26+i*20}" y1="${8+(i*17)%26}" x2="${19+i*20}" y2="${30+(i*17)%26}" stroke="#7fa6c9" stroke-width="2.5" stroke-linecap="round" opacity="${0.4+0.08*i}"/>`).join('');
   return `<svg viewBox="0 0 200 200" width="180" height="180">
+    <ellipse cx="100" cy="192" rx="34" ry="6" fill="#000" opacity="0.12"/>
     ${drops}
-    <rect x="70" y="120" width="60" height="60" rx="8" fill="#6b4a2f"/>
-    <rect x="78" y="128" width="44" height="44" rx="5" fill="#2a2018"/>
-    ${out?'':`<path d="M100 ${150-flameH} Q108 ${150-flameH*0.5} 100 150 Q92 ${150-flameH*0.5} 100 ${150-flameH}" fill="#f2a44a"/>`}
-    <rect x="94" y="105" width="12" height="18" fill="#4a3a2a"/>
+    <path d="M100 96 L100 112" stroke="#4a3a2a" stroke-width="2.5"/>
+    <circle cx="100" cy="94" r="4" fill="none" stroke="#4a3a2a" stroke-width="2.5"/>
+    <rect x="68" y="112" width="64" height="66" rx="10" fill="#7a5637"/>
+    <rect x="68" y="112" width="64" height="10" rx="5" fill="#6b4a2f"/>
+    <rect x="68" y="168" width="64" height="10" rx="5" fill="#6b4a2f"/>
+    <rect x="76" y="124" width="48" height="46" rx="6" fill="#241a12"/>
+    ${out ? '' : `
+      <circle cx="100" cy="150" r="${18*(1-p*0.3)}" fill="#f2a44a" opacity="0.18"/>
+      <path d="M100 ${152-flameH} Q110 ${152-flameH*0.5} 100 152 Q90 ${152-flameH*0.5} 100 ${152-flameH}" fill="#f2a44a"/>
+      <path d="M100 ${152-flameH*0.55} Q104 ${152-flameH*0.3} 100 152 Q96 ${152-flameH*0.3} 100 ${152-flameH*0.55}" fill="#ffd58a"/>
+    `}
   </svg>`;
 }
 function loadHangmanSkin(){
