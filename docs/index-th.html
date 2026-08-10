@@ -88,14 +88,6 @@
   .thword{font-size:40px;line-height:1.5;letter-spacing:1px;
           font-family:'Noto Sans Thai','Leelawadee UI',system-ui,sans-serif}
   .hintline{color:var(--dim);font-size:13px}
-  .marksrow{display:none;flex-direction:column;gap:6px;justify-content:center;
-             margin:0;padding-left:14px;border-left:1px solid var(--line);flex:0 0 auto}
-  .marksrow .slot.mark{width:38px;height:42px;font-size:20px;opacity:.9}
-  .marksrow .slot.mark:hover{border-color:var(--glow)}
-  #marks{display:none;flex-direction:column;gap:6px;justify-content:center;
-         margin:0;padding-left:14px;border-left:1px solid var(--line);flex:0 0 auto}
-  #marks .slot.mark{width:38px;height:42px;font-size:20px;opacity:.9}
-  #marks .slot.mark:hover{border-color:var(--glow)}
   #wordtray,.wordtray{background:rgba(0,0,0,.14);border-radius:9px;
   display:flex;gap:6px;min-height:56px;align-items:center;justify-content:center;
             padding:10px 14px;
@@ -117,10 +109,7 @@
     /* tiles scale with the screen so a full 15-slot tray always fits */
     .slot{width:min(46px,10.5vw);height:min(54px,13vw);font-size:min(22px,5.4vw);border-radius:6px}
     #tray{gap:5px;min-height:auto}
-    /* no room for a side column on a phone screen - marks drop below as a row */
     .trayrow{flex-direction:column;align-items:center}
-    #marks,.marksrow{flex-direction:row;border-left:none;border-top:1px solid var(--line);
-                      padding-left:0;padding-top:8px}
     #wordtray .wslot{width:min(40px,9.5vw);height:min(48px,12vw);font-size:min(20px,5vw)}
     #wordtray{gap:4px;padding:8px 10px}
     #actions button{padding:14px 32px;font-size:16px}
@@ -575,7 +564,6 @@
 <div id="clue"></div>
 <div class="trayrow">
   <div id="tray"></div>
-  <div id="marks"></div>
 </div>
 <div id="wordtray"></div>
 <div id="actions">
