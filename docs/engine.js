@@ -136,36 +136,58 @@ const load=()=>{try{const d=JSON.parse(localStorage.getItem(SAVEKEY()));
    Pronunciation is the one thing a text game can't teach, so discovered
    words are spoken by default. Letter-by-letter is opt-in: useful when
    learning, grating in fast mode. */
-let sayWords=true, sayLetters=false, voiceEN=null;
+let sayWords=true, sayLetters=false, voiceEN=null, voiceTH=null;
+/* Voice quality varies wildly by device - this just picks the best of
+   whatever the browser happens to offer. "Online"/"natural"/"neural" names
+   are the higher-quality cloud/neural voices modern browsers expose
+   alongside the older, flatter-sounding local ones. */
 function pickVoice(){
   const vs=speechSynthesis.getVoices();
-  voiceEN = vs.find(v=>/^en-(GB|US)/.test(v.lang)&&/natural|google|samantha|daniel/i.test(v.name))
+  voiceEN = vs.find(v=>/^en-(GB|US)/.test(v.lang)&&/natural|neural|online|premium|enhanced|google|samantha|daniel/i.test(v.name))
          || vs.find(v=>v.lang.startsWith('en')) || null;
+  /* Thai voices are far less universal than English ones - many desktop
+     browsers simply have none installed. hasThaiVoice() lets the Listening
+     mode notice that and say so, rather than play mangled audio. */
+  voiceTH = vs.find(v=>v.lang.startsWith('th')) || null;
 }
 if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
-function speak(text,{rate=0.95,pitch=1}={}){
+/* getVoices() can still be empty this early if the browser hasn't fired
+   voiceschanged yet - a cheap re-check here closes most of that race
+   without needing a retry loop. */
+function hasThaiVoice(){ if(!voiceTH && 'speechSynthesis' in window) pickVoice(); return !!voiceTH; }
+function speak(text,{rate=0.85,pitch=1,lang='en'}={}){
   if(!('speechSynthesis' in window)) return;
   const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-GB'; u.rate=rate; u.pitch=pitch; u.volume=1;
-  if(voiceEN) u.voice=voiceEN;
+  if(lang==='th' && voiceTH){ u.lang='th-TH'; u.voice=voiceTH; }
+  else { u.lang='en-GB'; if(voiceEN) u.voice=voiceEN; }
+  u.rate=rate; u.pitch=pitch; u.volume=1;
   speechSynthesis.speak(u);
 }
 function speakLetter(ch){
   if(!sayLetters||ch===' ') return;
   speechSynthesis.cancel();               // keep up with fast tapping
-  speak(ch.toUpperCase(),{rate:0.85});
+  speak(ch.toUpperCase(),{rate:0.8});
 }
 function speakWord(w){
   if(!sayWords) return;
   speechSynthesis.cancel();
-  speak(w,{rate:0.85});                   // clear and unhurried: this is the teaching moment
+  speak(w,{rate:0.8});                    // clear and unhurried: this is the teaching moment
 }
-/* speak() only knows English pronunciation. On the Thai page a curated
-   entry's own .word is Thai text, which speak() would just mangle - so
-   always resolve to the English side (the translation on the Thai page,
-   the word itself on the English page) before handing it to speak(). */
+/* speak() defaults to English. On the Thai page a curated entry's own
+   .word is Thai text, which needs the Thai voice (see speakThaiWord) - so
+   this always resolves to the English side (the translation on the Thai
+   page, the word itself on the English page) before handing it to speak(). */
 function englishOf(w){ return GAME==='th' ? (w.translations?.en?.word||'') : w.word; }
 function speakEntry(w){ const e=englishOf(w); if(e) speakWord(e); }
+/* Listening mode's whole mechanic is "hear the target word, then spell
+   it" - playing the English translation there would defeat the point, so
+   this is the one place that actually speaks Thai text, and only when the
+   device has a Thai voice to speak it with. */
+function speakThaiWord(w){
+  if(!hasThaiVoice()) return;
+  speechSynthesis.cancel();
+  speak(w,{rate:0.78,lang:'th'});
+}
 
 function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
 function count(s){
@@ -923,6 +945,7 @@ const STR = {
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
     youWon:'you got it!', youLost:'out of guesses — the word was',
     skinSprout:'Sprout', skinKite:'Kite', skinLantern:'Lantern',
+    noThaiVoice:'This device doesn\'t have a Thai voice installed, so Listening mode can\'t play the word aloud here. Try a phone or a different browser, or play one of the other modes instead.',
     uiLang:'EN'
   },
   th:{
@@ -1007,6 +1030,7 @@ const STR = {
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
     youWon:'ทายถูก!', youLost:'หมดโอกาสแล้ว — คำนั้นคือ',
     skinSprout:'ต้นอ่อน', skinKite:'ว่าว', skinLantern:'โคมไฟ',
+    noThaiVoice:'อุปกรณ์นี้ไม่มีเสียงพูดภาษาไทยติดตั้งไว้ โหมดฟังคำจึงเล่นเสียงคำไม่ได้ในตอนนี้ ลองใช้โทรศัพท์หรือเบราว์เซอร์อื่น หรือเล่นโหมดอื่นไปก่อน',
     uiLang:'ไทย'
   }
 };
@@ -2357,6 +2381,14 @@ function openPuzzle(kind){
     $('pzTitle').textContent=t('puzzleTitle');
     $('pzSub').textContent=t('puzzleSub');
     showPuzzleStages();
+  } else if(kind==='listening' && GAME==='th' && !hasThaiVoice()){
+    /* Listening's whole mechanic is audio-only until solved - with no
+       Thai voice on this device there is nothing to hear, so it would
+       just be a silent, unplayable puzzle. Saying so plainly beats
+       leaving the player wondering why nothing happens. */
+    $('pzTitle').textContent = t('listeningTitle');
+    $('pzSub').textContent   = t('listeningSub');
+    showListeningUnavailable();
   } else {
     $('pzTitle').textContent = kind==='anagram' ? t('anagramTitle') : t('listeningTitle');
     $('pzSub').textContent   = kind==='anagram' ? t('anagramSub')   : t('listeningSub');
@@ -2364,6 +2396,13 @@ function openPuzzle(kind){
     $('pzStageBack').style.display='none';
     puzzleNext();
   }
+}
+function showListeningUnavailable(){
+  $('pzArea').style.display='none';
+  $('pzStageBack').style.display='none';
+  const el=$('pzStages'); el.style.display='flex';
+  el.innerHTML = `<div class="msg bad">${t('noThaiVoice')}</div>
+    <div class="row"><button onclick="closePuzzle()">${t('backToGame')}</button></div>`;
 }
 function closePuzzle(){ $('puzzle').className=''; PZ=null; renderTray(); renderClue(); }
 
@@ -2418,7 +2457,10 @@ function puzzleNext(){
   /* This bypasses the sayWords toggle on purpose: for Listening mode audio
      IS the clue, not a bonus, so muting word-speech elsewhere must not also
      silence the one mode where silence means "no clue at all". */
-  if(PZ.kind==='listening') speak(PZ.w.word,{rate:0.85});
+  if(PZ.kind==='listening'){
+    if(GAME==='th') speakThaiWord(PZ.w.word);
+    else speak(PZ.w.word,{rate:0.8});
+  }
 }
 
 function puzzlePick(i){
@@ -2475,7 +2517,11 @@ function renderPuzzle(){
   $('pzListenRow').style.display = PZ.kind==='listening' ? 'flex' : 'none';
 }
 
-function puzzlePlayAgain(){ if(PZ && PZ.kind==='listening') speak(PZ.w.word,{rate:0.85}); }
+function puzzlePlayAgain(){
+  if(!PZ || PZ.kind!=='listening') return;
+  if(GAME==='th') speakThaiWord(PZ.w.word);
+  else speak(PZ.w.word,{rate:0.8});
+}
 
 function submitPuzzle(){
   if(!PZ) return;
