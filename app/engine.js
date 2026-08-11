@@ -48,7 +48,7 @@ c:3.3,u:2.8,m:2.5,f:2.4,p:2.1,g:1.9,w:1.7,y:1.6,b:1.5,v:1.0,k:0.6,x:0.2,j:0.1,q:
 function deriveFreq(bank){
   const f={};
   for(const w of bank) for(const ch of w.spell){
-    if(ch===' ' || FREE_MARKS.has(ch)) continue;
+    if(ch===' ') continue;
     f[ch]=(f[ch]||0)+1;
   }
   const tot=Object.values(f).reduce((a,b)=>a+b,0)||1;
@@ -198,11 +198,11 @@ function speakThaiWord(w, force){
 
 function sparksFor(n){return n<=5?10:n<=8?25:n<=12?60:150}
 function count(s){
-  /* Thai tone marks are free: they are written above a letter and are not
-     letters themselves, so they never have to be in the tray. */
+  /* Tone marks now count the same as any other letter - they have to
+     turn up in the tray and get tapped/typed in like everything else. */
   const c={};
   for(const ch of s){
-    if(ch===' ' || FREE_MARKS.has(ch)) continue;
+    if(ch===' ') continue;
     c[ch]=(c[ch]||0)+1;
   }
   return c;
@@ -404,22 +404,6 @@ function claimSlot(ch){
   return null;
 }
 
-/* draw the word tray */
-/* The free marks sit in their own small row. They are always available, so
-   they are not part of the tray and never run out. */
-function renderMarks(){
-  const el=$('marks'); if(!el) return;
-  if(GAME!=='th'){ el.style.display='none'; return; }
-  el.style.display='flex';
-  el.title='tone marks — always free, tap after a letter';
-  el.innerHTML=[...FREE_MARKS].map(m=>
-    `<div class="slot filled mark" onclick="addMark('${m}')">${'\u25CC'+m}</div>`).join('');
-}
-function addMark(m){
-  if(!building.length) { flash('put a letter down first',''); return; }
-  building.push({ch:m, from:-1});
-  renderTray(); renderWordTray();
-}
 
 /* Thai marks that attach to a letter: vowels written above or below, and the
    tone marks. Shown on a tile they need a carrier, and the dotted circle is
@@ -481,7 +465,6 @@ function buyHint(id){
 }
 
 function renderClue(){
-  renderMarks();
   const active=seeds.filter(w=>!seen.has(w.id));
   const el=$('clue');
   if(!active.length){el.textContent='';return}
@@ -830,40 +813,20 @@ const THAI_VOWELS = new Set([
 const FREE_MARKS = new Set(['\u0E47','\u0E48','\u0E49','\u0E4A','\u0E4B','\u0E4C']);
 const GAME = CFG.game;   // fixed by the page that loaded the engine
 
-/* For puzzle-style trays (anagram/listening/puzzle) tone marks ride on the
-   tile of the letter they follow instead of scrambling in as their own
-   piece - there is no separate free-marks row to hunt for them in, so a
-   floating tone mark with nothing to attach to would be unsolvable. */
+/* One tile per character, tone marks included - they are found and
+   tapped/typed in like any other letter now, the same as every other
+   mode. A lone tone-mark tile still needs a carrier to render legibly;
+   tileGlyph() gives it a dotted circle to sit on, the standard Thai
+   keyboard/dictionary convention for a combining mark shown on its own. */
 function clusterSpell(s){
   const out=[];
-  for(const ch of s){
-    if(FREE_MARKS.has(ch) && out.length) out[out.length-1]+=ch;
-    else out.push(ch);
-  }
+  for(const ch of s) out.push(ch);
   return out;
-}
-
-const THAI_FREQ_CACHE = {};
-function thaiFreq(bank){
-  if(THAI_FREQ_CACHE.f) return THAI_FREQ_CACHE.f;
-  const f={};
-  for(const w of bank) for(const c of w.spell) if(!FREE_MARKS.has(c)) f[c]=(f[c]||0)+1;
-  THAI_FREQ_CACHE.f=f;
-  return f;
 }
 
 /* Build the Thai bank from the same words.json: the Thai word is the answer,
    the Thai definition is the clue, and the English word becomes the
    translation shown on the card. */
-
-/* Only tiles count towards what the tray must hold. */
-function countTiles(s){
-  const m={};
-  for(const c of s) if(!FREE_MARKS.has(c)) m[c]=(m[c]||0)+1;
-  return m;
-}
-
-
 
 /* ═══════════════════ INTERFACE LANGUAGE ═══════════════════
    Separate from the clue language on purpose. A Thai speaker learning English
@@ -1949,7 +1912,6 @@ function raceRender(){
       <div id="rroster" class="roster"></div>
       <div class="trayrow">
         <div id="rtray" class="tray racetray"></div>
-        <div id="rmarks" class="marksrow"></div>
       </div>
       <div id="rclues"></div>
       <div id="rword" class="wordtray"></div>
@@ -2005,21 +1967,6 @@ function raceTray(){
       : `<span class="hintline">${t('tapAbove')}</span>`;
   }
 
-  const mk=$('rmarks');
-  if(mk){
-    if(GAME==='th'){
-      mk.style.display='flex';
-      mk.innerHTML=[...FREE_MARKS].map(m=>
-        `<div class="slot filled mark" onclick="raceAddMark('${m}')">${'\u25CC'+m}</div>`).join('');
-    }else mk.style.display='none';
-  }
-}
-
-function raceAddMark(m){
-  if(!R || R.over) return;
-  if(!R.building.length){ raceFlash(t('flashPutLetterDown')); return; }
-  R.building.push({ch:m, from:-1});
-  raceTray();
 }
 
 function racePick(i){
@@ -2172,11 +2119,6 @@ document.addEventListener('keydown',e=>{
   const ch = GAME==='th' ? e.key : e.key.toLowerCase();
   const okKey = GAME==='th' ? /^[\u0E00-\u0E7F]$/.test(ch) : /^[a-z]$/.test(ch);
   if(!okKey) return;
-  if(GAME==='th' && FREE_MARKS.has(ch)){
-    // tone marks are free and belong to the race word, not the tray
-    if(R.building.length){ R.building.push({ch, from:-1}); raceTray(); }
-    return;
-  }
   const i=R.letters.findIndex((L,idx)=>L===ch && !R.building.some(b=>b.from===idx));
   if(i>=0){ R.building.push({ch,from:i}); raceTray(); }
 }, true);
@@ -2196,10 +2138,6 @@ document.addEventListener('keydown',e=>{
   const ch = GAME==='th' ? e.key : e.key.toLowerCase();
   const okKey = GAME==='th' ? /^[\u0E00-\u0E7F]$/.test(ch) : /^[a-z]$/.test(ch);
   if(!okKey) return;
-  if(GAME==='th' && FREE_MARKS.has(ch)){
-    if(PZ.building.length){ PZ.building.push({ch, from:-1}); renderPuzzle(); }
-    return;
-  }
   const i = puzzleClaimSlot(ch);
   if(i!==null) puzzlePick(i);
 }, true);
@@ -2219,10 +2157,6 @@ document.addEventListener('keydown',e=>{
     building=[];renderTray();renderWordTray();return}
   if(e.key==='Backspace'){building.pop()}
   else if(e.key===' '){building.push({ch:' ',from:null});e.preventDefault()}   // free space
-  else if(GAME==='th' && FREE_MARKS.has(e.key)){
-    if(building.length) building.push({ch:e.key, from:-1});
-    else return;
-  }
   else if(GAME==='th' ? /^[฀-๿]$/.test(e.key) : /^[a-zA-Z']$/.test(e.key)){
     const ch = GAME==='th' ? e.key : e.key.toLowerCase();
     const slot=claimSlot(ch);
@@ -2794,7 +2728,7 @@ function hangmanAlphabet(){
   if(HM_ALPHABET_CACHE) return HM_ALPHABET_CACHE;
   if(GAME!=='th'){ HM_ALPHABET_CACHE = 'abcdefghijklmnopqrstuvwxyz'.split(''); return HM_ALPHABET_CACHE; }
   const set = new Set();
-  for(const w of BANK) for(const ch of w.spell) if(ch!==' ' && !FREE_MARKS.has(ch)) set.add(ch);
+  for(const w of BANK) for(const ch of w.spell) if(ch!==' ') set.add(ch);
   HM_ALPHABET_CACHE = [...set].sort((a,b)=>a.localeCompare(b,'th'));
   return HM_ALPHABET_CACHE;
 }
@@ -2809,9 +2743,14 @@ function openHangman(){
   hangmanNext();
 }
 function closeHangman(){ $('hangman').className=''; HM=null; renderTray(); renderClue(); }
+/* One unit per character - tone marks included - guessed and typed in
+   exactly like Anagram/Puzzle/Classic now do. Display still groups a
+   revealed tone mark with whatever glyph is standing in its preceding
+   slot (see hangmanBoxes/renderHangman), since a combining mark with
+   nothing adjacent to sit above still won't render legibly on its own. */
 function hangmanNext(){
   const w = pickHangmanWord();
-  const units = [...w.spell].map(ch=>({ch, guessable: ch!==' ' && !FREE_MARKS.has(ch), revealed:false}));
+  const units = clusterSpell(w.spell).map(ch=>({ch, guessable: ch!==' ', revealed:false}));
   HM = {w, units, guessed:new Set(), wrong:0, done:null, skin:loadHangmanSkin(), showSkins:false, gain:0, cardHtml:''};
   renderHangman();
 }
@@ -2827,6 +2766,17 @@ function hangmanGuess(ch){
   }
   checkHangmanEnd();
   renderHangman();
+}
+/* Groups each letter with any combining marks immediately following it
+   into one visual box - purely structural, based on the word's own
+   composition, independent of what's been guessed yet. */
+function hangmanBoxes(units){
+  const boxes=[];
+  for(const u of units){
+    if(COMBINING.has(u.ch) && boxes.length) boxes[boxes.length-1].marks.push(u);
+    else boxes.push({base:u, marks:[]});
+  }
+  return boxes;
 }
 function checkHangmanEnd(){
   if(!HM || HM.done) return;
@@ -2858,9 +2808,19 @@ function renderHangman(){
     return;
   }
 
-  const blanks = HM.units.map(u=>{
-    if(!u.guessable) return u.ch===' ' ? `<span class="hmgap"></span>` : `<span class="hmfree">${u.ch}</span>`;
-    return u.revealed ? `<span class="hmslot filled">${u.ch}</span>` : `<span class="hmslot"></span>`;
+  /* Each box shows nothing until something in it has been guessed - not
+     even a hint that a tone mark is waiting there - and once it has,
+     the revealed glyphs share one span so a tone mark actually sits
+     above its letter instead of floating in a span of its own. If the
+     mark comes in before its letter does, a dotted-circle placeholder
+     (tileGlyph()'s own trick for a lone combining mark) stands in for
+     the letter so the mark still has something to render against. */
+  const blanks = hangmanBoxes(HM.units).map(box=>{
+    if(!box.base.guessable) return `<span class="hmgap"></span>`;
+    const baseTxt = box.base.revealed ? box.base.ch : '';
+    const markTxt = box.marks.filter(m=>m.revealed).map(m=>m.ch).join('');
+    if(!baseTxt && !markTxt) return `<span class="hmslot"></span>`;
+    return `<span class="hmslot filled">${baseTxt || '◌'}${markTxt}</span>`;
   }).join('');
 
   const keys = hangmanAlphabet().map(ch=>{
@@ -2995,7 +2955,7 @@ Promise.all([
     $('total').textContent = BANK.length;
     load(); startCycle();
     if(GAME==='en') starterGift();
-    applyUI(); renderMarks();
+    applyUI();
     /* The language choice is the front door now, every time - not just a
        corner button you might not notice. A deep link (?open=race etc.) is
        an explicit choice already made, so it skips straight past both the
