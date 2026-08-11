@@ -920,6 +920,8 @@ const STR = {
     authMissingFields:'enter an email and password', authWorking:'working…',
     authCheckEmail:'Check your email to confirm your account, then sign in.',
     authSignOutBtn:'sign out',
+    gateTitle:'CuppaThai members only',
+    gateSub:'Sign in with your CuppaThai account to play. Not a member? The free version is always open at the GitHub link.',
     modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
@@ -1016,6 +1018,8 @@ const STR = {
     authMissingFields:'กรอกอีเมลและรหัสผ่าน', authWorking:'กำลังดำเนินการ…',
     authCheckEmail:'ตรวจอีเมลเพื่อยืนยันบัญชี แล้วเข้าสู่ระบบอีกครั้ง',
     authSignOutBtn:'ออกจากระบบ',
+    gateTitle:'สำหรับสมาชิก CuppaThai เท่านั้น',
+    gateSub:'เข้าสู่ระบบด้วยบัญชี CuppaThai เพื่อเล่น ยังไม่ได้เป็นสมาชิก? เวอร์ชันฟรีเปิดให้เล่นได้เสมอที่ลิงก์ GitHub',
     modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
@@ -1311,6 +1315,40 @@ async function authSubmit(mode){
   if(result.error){ msgEl.textContent=result.error; msgEl.className='msg bad'; return; }
   if(result.needsConfirm){ msgEl.textContent=t('authCheckEmail'); msgEl.className='msg good'; return; }
   showLeaderboard(LB_RETURN_KIND);
+}
+
+/* The CuppaThai-hosted copy only: CFG.requireAuth blocks play until a real
+   account is signed in. #authgate is a separate element from #overlay/#panel
+   on purpose - it has no close button and doesn't answer to Escape or an
+   outside click, so it can't be dismissed the way every other panel can. */
+function renderAuthGate(mode){
+  mode = mode==='signup' ? 'signup' : 'signin';
+  const isUp = mode==='signup';
+  const toggle = isUp
+    ? `${t('authHaveAccount')} <a href="#" onclick="renderAuthGate('signin');return false;">${t('authSignInBtn')}</a>`
+    : `${t('authNoAccount')} <a href="#" onclick="renderAuthGate('signup');return false;">${t('authSignUpBtn')}</a>`;
+  $('authgatePanel').innerHTML = `
+      <h2>${t('gateTitle')}</h2>
+      <div class="sub">${t('gateSub')}</div>
+      <div class="sub" style="margin-top:14px"><b>${isUp?t('authSignUpTitle'):t('authSignInTitle')}</b></div>
+      <input id="gateEmail" type="email" placeholder="${t('authEmailPlaceholder')}" autocomplete="email">
+      <input id="gatePassword" type="password" placeholder="${t('authPasswordPlaceholder')}"
+             autocomplete="${isUp?'new-password':'current-password'}">
+      <div class="msg" id="gateMsg"></div>
+      <div class="row"><button class="primary" onclick="authGateSubmit('${mode}')">${isUp?t('authSignUpBtn'):t('authSignInBtn')}</button></div>
+      <div class="sub" style="margin-top:10px">${toggle}</div>`;
+  $('authgate').className = 'show';
+}
+async function authGateSubmit(mode){
+  const email=($('gateEmail').value||'').trim(), password=$('gatePassword').value||'';
+  const msgEl=$('gateMsg');
+  if(!email || !password){ msgEl.textContent=t('authMissingFields'); msgEl.className='msg bad'; return; }
+  msgEl.textContent=t('authWorking'); msgEl.className='msg';
+  const result = mode==='signup' ? await authSignUp(email,password) : await authSignIn(email,password);
+  if(result.error){ msgEl.textContent=result.error; msgEl.className='msg bad'; return; }
+  if(result.needsConfirm){ msgEl.textContent=t('authCheckEmail'); msgEl.className='msg good'; return; }
+  $('authgate').className = '';
+  enterGame();
 }
 
 const BLANK_PROFILE = {
@@ -3047,7 +3085,7 @@ Promise.all([
   $('msg').textContent = 'Could not load ' + CFG.data + ' — it must sit beside this page';
   $('msg').className = 'bad';
   throw err;
-}).then(([d, dict])=>{
+}).then(async ([d, dict])=>{
   try{
     BANK_ALL = d.words;
     BANK = d.words.filter(w=>!w.starter);
@@ -3064,19 +3102,11 @@ Promise.all([
     load(); startCycle();
     if(GAME==='en') starterGift();
     applyUI();
-    authInit();
-    /* The language choice is the front door now, every time - not just a
-       corner button you might not notice. A deep link (?open=race etc.) is
-       an explicit choice already made, so it skips straight past both the
-       language screen and the modes menu. ?open=modes is the one link that
-       skips only the language screen: it is how chooseLanguage() lands on
-       the other page already past the question it just answered. */
-    const openParam = new URLSearchParams(location.search).get('open');
-    if(openParam==='race') openRace();
-    else if(openParam==='anagram' || openParam==='listening' || openParam==='puzzle') openPuzzle(openParam);
-    else if(openParam==='hangman') openHangman();
-    else if(openParam==='modes') showModeMenu();
-    else showLanguageSplash();
+    await authInit();
+    /* CuppaThai's copy sets requireAuth in VOCAP_CONFIG; the open GitHub
+       Pages copy never does, so this is a no-op there. */
+    if(CFG.requireAuth && !AUTH_USER){ renderAuthGate('signin'); return; }
+    enterGame();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
        be reported as one. */
@@ -3085,3 +3115,18 @@ Promise.all([
     console.error(err);
   }
 }).catch(()=>{});
+
+/* The language choice is the front door now, every time - not just a
+   corner button you might not notice. A deep link (?open=race etc.) is
+   an explicit choice already made, so it skips straight past both the
+   language screen and the modes menu. ?open=modes is the one link that
+   skips only the language screen: it is how chooseLanguage() lands on
+   the other page already past the question it just answered. */
+function enterGame(){
+  const openParam = new URLSearchParams(location.search).get('open');
+  if(openParam==='race') openRace();
+  else if(openParam==='anagram' || openParam==='listening' || openParam==='puzzle') openPuzzle(openParam);
+  else if(openParam==='hangman') openHangman();
+  else if(openParam==='modes') showModeMenu();
+  else showLanguageSplash();
+}
