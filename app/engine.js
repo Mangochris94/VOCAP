@@ -910,6 +910,16 @@ const STR = {
     leaderboardBtn:'🏆 leaderboard', lbRaceTitle:'Race Leaderboard', lbClassicTitle:'Leaderboard',
     lbNotSetUp:'The leaderboard isn\'t set up yet.', lbLoading:'loading…',
     lbEmpty:'No scores yet — be the first!', lbError:'Could not load the leaderboard right now.',
+    lbSignedInAs:'signed in as', lbSignInPrompt:'Sign in to add your name to the leaderboard.',
+    lbSaveNameBtn:'save name', lbNameSaved:'name saved',
+    authSignInTitle:'SIGN IN', authSignUpTitle:'CREATE ACCOUNT',
+    authSub:'Same account as CuppaThai — sign in or create one to put your name on the leaderboard.',
+    authEmailPlaceholder:'email', authPasswordPlaceholder:'password',
+    authSignInBtn:'Sign in', authSignUpBtn:'Create account',
+    authHaveAccount:'Already have an account?', authNoAccount:'Don\'t have an account?',
+    authMissingFields:'enter an email and password', authWorking:'working…',
+    authCheckEmail:'Check your email to confirm your account, then sign in.',
+    authSignOutBtn:'sign out',
     modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
@@ -996,6 +1006,16 @@ const STR = {
     leaderboardBtn:'🏆 ตารางอันดับ', lbRaceTitle:'ตารางอันดับการแข่งขัน', lbClassicTitle:'ตารางอันดับ',
     lbNotSetUp:'ยังไม่ได้ตั้งค่าตารางอันดับ', lbLoading:'กำลังโหลด…',
     lbEmpty:'ยังไม่มีคะแนน — เป็นคนแรกเลยสิ!', lbError:'โหลดตารางอันดับไม่ได้ตอนนี้',
+    lbSignedInAs:'เข้าสู่ระบบในชื่อ', lbSignInPrompt:'เข้าสู่ระบบเพื่อใส่ชื่อในตารางอันดับ',
+    lbSaveNameBtn:'บันทึกชื่อ', lbNameSaved:'บันทึกชื่อแล้ว',
+    authSignInTitle:'เข้าสู่ระบบ', authSignUpTitle:'สร้างบัญชี',
+    authSub:'บัญชีเดียวกับ CuppaThai — เข้าสู่ระบบหรือสร้างบัญชีเพื่อใส่ชื่อในตารางอันดับ',
+    authEmailPlaceholder:'อีเมล', authPasswordPlaceholder:'รหัสผ่าน',
+    authSignInBtn:'เข้าสู่ระบบ', authSignUpBtn:'สร้างบัญชี',
+    authHaveAccount:'มีบัญชีอยู่แล้ว?', authNoAccount:'ยังไม่มีบัญชี?',
+    authMissingFields:'กรอกอีเมลและรหัสผ่าน', authWorking:'กำลังดำเนินการ…',
+    authCheckEmail:'ตรวจอีเมลเพื่อยืนยันบัญชี แล้วเข้าสู่ระบบอีกครั้ง',
+    authSignOutBtn:'ออกจากระบบ',
     modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
@@ -1108,11 +1128,12 @@ function tierLabel(i){ return TIER_LABEL[GAME==='th'?'th':'en'][i]; }
    HTML). Until then every function here is a quiet no-op - nothing else in
    the game may ever assume a leaderboard exists.
 
-   There is no login yet. Each browser gets a random id the first time it
-   submits a score, and that id is what ties a player's rows together - not
-   their chosen name, which they can change any time. Swapping this for a
-   real account later is a matter of writing a different id here; nothing
-   downstream needs to change. */
+   Putting a name on the board requires a real CuppaThai account (the same
+   Supabase project the dashboard uses) - browsing the board doesn't.
+   Anyone can still play and see who's on it; only a signed-in player's
+   score actually gets written, and the database enforces that itself
+   (see leaderboard-schema.sql's auth.uid() policies) rather than trusting
+   this file not to be bypassed. */
 let SB=null;
 function sbClient(){
   if(SB!==null) return SB;
@@ -1122,6 +1143,39 @@ function sbClient(){
 }
 function leaderboardOn(){ return !!sbClient(); }
 
+let AUTH_USER=null, AUTH_READY=false;
+async function authInit(){
+  const cl=sbClient(); if(!cl) return;
+  try{
+    const { data } = await cl.auth.getSession();
+    AUTH_USER = data?.session?.user ? {id:data.session.user.id, email:data.session.user.email} : null;
+  }catch(e){}
+  AUTH_READY = true;
+  cl.auth.onAuthStateChange((event, session)=>{
+    AUTH_USER = session?.user ? {id:session.user.id, email:session.user.email} : null;
+  });
+}
+async function authSignUp(email, password){
+  const cl=sbClient(); if(!cl) return {error:'not configured'};
+  const { data, error } = await cl.auth.signUp({ email, password });
+  if(!error && data.user && data.session) AUTH_USER = {id:data.user.id, email:data.user.email};
+  return { error: error?.message, needsConfirm: !error && !data.session };
+}
+async function authSignIn(email, password){
+  const cl=sbClient(); if(!cl) return {error:'not configured'};
+  const { data, error } = await cl.auth.signInWithPassword({ email, password });
+  if(!error && data.user) AUTH_USER = {id:data.user.id, email:data.user.email};
+  return { error: error?.message };
+}
+async function authSignOut(){
+  const cl=sbClient(); if(!cl) return;
+  try{ await cl.auth.signOut(); }catch(e){}
+  AUTH_USER = null;
+}
+
+/* Only ever used for pre-account rows and, if you ever want it, a "these
+   were played before you signed in" merge - real leaderboard writes use
+   AUTH_USER.id instead, see submitRaceScore/submitClassicScore below. */
 function playerId(){
   let id=localStorage.getItem('vocap-player-id');
   if(!id){
@@ -1133,12 +1187,14 @@ function playerId(){
 }
 
 /* A network hiccup here must never interrupt the result screen it was
-   called from - it already rendered by the time this runs. */
+   called from - it already rendered by the time this runs. Signed-out
+   players simply don't get a row; nothing about play is blocked either
+   way, so this stays a quiet no-op rather than an error the player sees. */
 async function submitRaceScore(score, words){
-  const cl=sbClient(); if(!cl) return;
+  const cl=sbClient(); if(!cl || !AUTH_USER) return;
   try{
     await cl.from('vocap_race_scores').insert({
-      player_id:playerId(), name:netName(), score, words, lang:GAME
+      player_id:AUTH_USER.id, name:netName(), score, words, lang:GAME
     });
   }catch(e){}
 }
@@ -1156,11 +1212,11 @@ function longestSeenWord(){
 }
 
 async function submitClassicScore(){
-  const cl=sbClient(); if(!cl) return;
+  const cl=sbClient(); if(!cl || !AUTH_USER) return;
   const {word,len}=longestSeenWord();
   try{
     await cl.from('vocap_classic_scores').upsert({
-      player_id:playerId(), lang:GAME, name:netName(),
+      player_id:AUTH_USER.id, lang:GAME, name:netName(),
       words_found:seen.size, sparks, longest_word:word, longest_len:len,
       updated_at:new Date().toISOString()
     }, {onConflict:'player_id,lang'});
@@ -1171,13 +1227,35 @@ async function submitClassicScore(){
    toolbar has no overlay open yet, so the generic panel is free to use. The
    race version is opened from inside #race, which sits above #panel in the
    stacking order - rendering into #panel there would draw the board behind
-   the still-open race screen instead of over it. */
+   the still-open race screen instead of over it. Auth reuses the same
+   split, since it's always reached from the leaderboard. */
 function lbRender(html){
   if($('race') && $('race').className==='show') $('race').innerHTML = html;
   else openPanel(html);
 }
+let LB_RETURN_KIND='classic';
+function lbAccountBlock(){
+  if(AUTH_USER) return `<div class="lbaccount">
+      <span>${t('lbSignedInAs')} <b>${esc(AUTH_USER.email)}</b></span>
+      <button onclick="authSignOutAndRefresh()">${t('authSignOutBtn')}</button>
+    </div>
+    <div class="lbnamerow">
+      <input id="lbNameInput" value="${esc(netName())}" maxlength="14">
+      <button onclick="lbSaveName()">${t('lbSaveNameBtn')}</button>
+    </div>`;
+  return `<div class="lbaccount">
+      <span>${t('lbSignInPrompt')}</span>
+      <button class="primary" onclick="showAuthPanel('signin')">${t('authSignInBtn')}</button>
+    </div>`;
+}
+function lbSaveName(){
+  const v = ($('lbNameInput').value||'player').trim().slice(0,14) || 'player';
+  localStorage.setItem('vocap-name', v);
+  flash(t('lbNameSaved'),'good');
+}
 async function showLeaderboard(kind){
   if(kind!=='race') closePanel();
+  LB_RETURN_KIND = kind;
   const title = kind==='race' ? t('lbRaceTitle') : t('lbClassicTitle');
   const backBtn = kind==='race'
     ? `<button onclick="raceSetup()">${t('raceBack')}</button>`
@@ -1186,7 +1264,8 @@ async function showLeaderboard(kind){
   const foot = '</div>';
   const cl=sbClient();
   if(!cl){ lbRender(`${head}<div class="sub">${t('lbNotSetUp')}</div>${foot}`); return; }
-  lbRender(`${head}<div class="sub">${t('lbLoading')}</div>${foot}`);
+  const acct = lbAccountBlock();
+  lbRender(`${head}${acct}<div class="sub">${t('lbLoading')}</div>${foot}`);
   try{
     const table = kind==='race' ? 'vocap_race_scores' : 'vocap_classic_scores';
     const orderCol = kind==='race' ? 'score' : 'words_found';
@@ -1199,10 +1278,39 @@ async function showLeaderboard(kind){
           ? `<div class="lbrow"><span class="lbpos">${i+1}</span><span class="lbname">${esc(r.name)}</span><span class="lbval">${r.score} ✨ · ${r.words} ${t('wordsLabelPlain')}</span></div>`
           : `<div class="lbrow"><span class="lbpos">${i+1}</span><span class="lbname">${esc(r.name)}</span><span class="lbval">${r.words_found} ${t('wordsLabelPlain')}${r.longest_word?` · ${esc(r.longest_word)}`:''}</span></div>`
       ).join('')}</div>` : `<div class="sub">${t('lbEmpty')}</div>`;
-    lbRender(`${head}${body}${foot}`);
+    lbRender(`${head}${acct}${body}${foot}`);
   }catch(e){
-    lbRender(`${head}<div class="sub">${t('lbError')}</div>${foot}`);
+    lbRender(`${head}${acct}<div class="sub">${t('lbError')}</div>${foot}`);
   }
+}
+function authSignOutAndRefresh(){ authSignOut().then(()=>showLeaderboard(LB_RETURN_KIND)); }
+
+function showAuthPanel(mode){
+  mode = mode==='signup' ? 'signup' : 'signin';
+  const isUp = mode==='signup';
+  const toggle = isUp
+    ? `${t('authHaveAccount')} <a href="#" onclick="showAuthPanel('signin');return false;">${t('authSignInBtn')}</a>`
+    : `${t('authNoAccount')} <a href="#" onclick="showAuthPanel('signup');return false;">${t('authSignUpBtn')}</a>`;
+  lbRender(`<div class="sheet"><div class="phead"><div><h2>${isUp?t('authSignUpTitle'):t('authSignInTitle')}</h2></div>
+      <button onclick="showLeaderboard(LB_RETURN_KIND)">${t('close')}</button></div>
+      <div class="sub">${t('authSub')}</div>
+      <input id="authEmail" type="email" placeholder="${t('authEmailPlaceholder')}" autocomplete="email">
+      <input id="authPassword" type="password" placeholder="${t('authPasswordPlaceholder')}"
+             autocomplete="${isUp?'new-password':'current-password'}">
+      <div class="msg" id="authMsg"></div>
+      <div class="row"><button class="primary" onclick="authSubmit('${mode}')">${isUp?t('authSignUpBtn'):t('authSignInBtn')}</button></div>
+      <div class="sub" style="margin-top:10px">${toggle}</div>
+    </div>`);
+}
+async function authSubmit(mode){
+  const email=($('authEmail').value||'').trim(), password=$('authPassword').value||'';
+  const msgEl=$('authMsg');
+  if(!email || !password){ msgEl.textContent=t('authMissingFields'); msgEl.className='msg bad'; return; }
+  msgEl.textContent=t('authWorking'); msgEl.className='msg';
+  const result = mode==='signup' ? await authSignUp(email,password) : await authSignIn(email,password);
+  if(result.error){ msgEl.textContent=result.error; msgEl.className='msg bad'; return; }
+  if(result.needsConfirm){ msgEl.textContent=t('authCheckEmail'); msgEl.className='msg good'; return; }
+  showLeaderboard(LB_RETURN_KIND);
 }
 
 const BLANK_PROFILE = {
@@ -2956,6 +3064,7 @@ Promise.all([
     load(); startCycle();
     if(GAME==='en') starterGift();
     applyUI();
+    authInit();
     /* The language choice is the front door now, every time - not just a
        corner button you might not notice. A deep link (?open=race etc.) is
        an explicit choice already made, so it skips straight past both the

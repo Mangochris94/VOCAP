@@ -308,6 +308,15 @@
   .lbpos{flex:0 0 22px;text-align:center;color:var(--dim);font-size:12px;font-weight:700}
   .lbname{flex:1;font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lbval{color:var(--dim);font-size:12px;white-space:nowrap}
+  .lbaccount{display:flex;align-items:center;justify-content:center;gap:10px;
+             flex-wrap:wrap;margin:4px 0 14px;font-size:13px;color:var(--dim)}
+  .lbaccount b{color:var(--text)}
+  .lbnamerow{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 16px}
+  .lbnamerow input{width:150px}
+  #authEmail,#authPassword,.lbnamerow input{
+    background:var(--panel);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:10px 14px;font-size:14px;display:block;margin:8px auto}
+  #authEmail,#authPassword{width:min(280px,100%)}
   #race .unlocks{max-width:420px;margin:14px auto 6px}
   #race .unlock{display:flex;gap:11px;align-items:center;text-align:left;
                 background:var(--panel);border:1px solid var(--glow);
