@@ -1197,10 +1197,14 @@ function playerId(){
 async function submitRaceScore(score, words){
   const cl=sbClient(); if(!cl || !AUTH_USER) return;
   try{
-    await cl.from('vocap_race_scores').insert({
+    /* insert() resolves with {error} rather than throwing on a rejected
+       write (an RLS policy mismatch, for instance) - swallowing it here
+       unseen made that failure mode indistinguishable from success. */
+    const {error} = await cl.from('vocap_race_scores').insert({
       player_id:AUTH_USER.id, name:netName(), score, words, lang:GAME
     });
-  }catch(e){}
+    if(error) console.error('submitRaceScore failed:', error);
+  }catch(e){ console.error('submitRaceScore threw:', e); }
 }
 
 /* The longest curated word in the collection so far - computed on demand
@@ -1219,12 +1223,13 @@ async function submitClassicScore(){
   const cl=sbClient(); if(!cl || !AUTH_USER) return;
   const {word,len}=longestSeenWord();
   try{
-    await cl.from('vocap_classic_scores').upsert({
+    const {error} = await cl.from('vocap_classic_scores').upsert({
       player_id:AUTH_USER.id, lang:GAME, name:netName(),
       words_found:seen.size, sparks, longest_word:word, longest_len:len,
       updated_at:new Date().toISOString()
     }, {onConflict:'player_id,lang'});
-  }catch(e){}
+    if(error) console.error('submitClassicScore failed:', error);
+  }catch(e){ console.error('submitClassicScore threw:', e); }
 }
 
 /* Two different homes depending on where this was opened from: the classic
