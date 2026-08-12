@@ -2954,20 +2954,30 @@ function renderHangman(){
     return;
   }
 
-  /* Each box shows nothing until something in it has been guessed - not
-     even a hint that a tone mark is waiting there - and once it has,
-     the revealed glyphs share one span so a tone mark actually sits
-     above its letter instead of floating in a span of its own. If the
-     mark comes in before its letter does, a dotted-circle placeholder
-     (tileGlyph()'s own trick for a lone combining mark) stands in for
-     the letter so the mark still has something to render against. */
-  const blanks = hangmanBoxes(HM.units).map(box=>{
-    if(!box.base.guessable) return `<span class="hmgap"></span>`;
-    const baseTxt = box.base.revealed ? box.base.ch : '';
-    const markTxt = box.marks.filter(m=>m.revealed).map(m=>m.ch).join('');
-    if(!baseTxt && !markTxt) return `<span class="hmslot"></span>`;
-    return `<span class="hmslot filled">${baseTxt || '◌'}${markTxt}</span>`;
-  }).join('');
+  /* English keeps the classic boxed-letter look - one bordered slot per
+     letter, filled in as guessed. Thai can't use that layout: a tone mark
+     or vowel mark only stacks correctly onto a *real* Thai base character
+     sharing its span, and there's no guarantee the base has been guessed
+     yet when the mark is (they're guessed independently). Boxing them
+     separately splits a mark from its base into two spans, which breaks
+     the stacking outright; a dotted-circle placeholder for a lone mark
+     is unreliable too, since it isn't a real Thai base for the font to
+     attach to. So Thai renders as one flowing text span instead - the
+     same trick .thword already relies on - and a guessed mark simply
+     waits to appear until its own base has also been found, so nothing
+     is ever shown without a real letter under it. */
+  const blanks = GAME==='th'
+    ? `<span class="hmwordTh">${esc(hangmanBoxes(HM.units).map(box=>{
+        if(!box.base.guessable) return '';
+        if(!box.base.revealed) return '_';
+        return box.base.ch + box.marks.filter(m=>m.revealed).map(m=>m.ch).join('');
+      }).join(' '))}</span>`
+    : hangmanBoxes(HM.units).map(box=>{
+        if(!box.base.guessable) return `<span class="hmgap"></span>`;
+        const baseTxt = box.base.revealed ? box.base.ch : '';
+        if(!baseTxt) return `<span class="hmslot"></span>`;
+        return `<span class="hmslot filled">${baseTxt}</span>`;
+      }).join('');
 
   const keys = hangmanAlphabet().map(ch=>{
     const done = HM.guessed.has(ch);

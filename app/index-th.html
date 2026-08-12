@@ -519,6 +519,11 @@
   #hangman .hmstage svg{display:block;margin:0 auto}
   #hangman .hmguesses{color:var(--dim);font-size:12.5px;margin-bottom:10px}
   #hangman .hmword{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0 14px}
+  /* Thai reveal is one flowing text run, not boxed letters - see renderHangman()
+     in engine.js for why. Same font as .thword, which already stacks marks fine. */
+  #hangman .hmwordTh{display:block;text-align:center;margin:10px 0 14px;color:var(--text);
+        font-size:34px;line-height:1.7;font-weight:600;
+        font-family:'Noto Sans Thai','Leelawadee UI',system-ui,sans-serif}
   #hangman .hmslot{display:inline-flex;align-items:center;justify-content:center;
         width:30px;height:38px;border-bottom:3px solid var(--line);
         font-size:20px;font-weight:600;text-transform:uppercase}
