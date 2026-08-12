@@ -922,6 +922,9 @@ const STR = {
     authSignOutBtn:'sign out',
     gateTitle:'CuppaThai members only',
     gateSub:'Sign in with your CuppaThai account to play. Not a member? The free version is always open at the GitHub link.',
+    nameTitle:'What should we call you?',
+    nameSub:'This is the name that shows up on the leaderboard and in Play Together. You can change it any time from the leaderboard screen.',
+    continueBtn:'Continue',
     modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
@@ -1020,6 +1023,9 @@ const STR = {
     authSignOutBtn:'ออกจากระบบ',
     gateTitle:'สำหรับสมาชิก CuppaThai เท่านั้น',
     gateSub:'เข้าสู่ระบบด้วยบัญชี CuppaThai เพื่อเล่น ยังไม่ได้เป็นสมาชิก? เวอร์ชันฟรีเปิดให้เล่นได้เสมอที่ลิงก์ GitHub',
+    nameTitle:'อยากให้เราเรียกคุณว่าอะไร?',
+    nameSub:'ชื่อนี้จะแสดงในตารางอันดับและในโหมดเล่นด้วยกัน คุณเปลี่ยนได้ทุกเมื่อจากหน้าตารางอันดับ',
+    continueBtn:'ดำเนินการต่อ',
     modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
@@ -1352,6 +1358,34 @@ async function authGateSubmit(mode){
   const result = mode==='signup' ? await authSignUp(email,password) : await authSignIn(email,password);
   if(result.error){ msgEl.textContent=result.error; msgEl.className='msg bad'; return; }
   if(result.needsConfirm){ msgEl.textContent=t('authCheckEmail'); msgEl.className='msg good'; return; }
+  enterGameOrNamePrompt();
+}
+
+/* Reused by both the moment sign-in completes and the moment boot finds an
+   already-signed-in session (a Hub login carried over, same origin): either
+   way, a signed-in player who has never set a name gets asked for one before
+   the game itself opens, rather than quietly playing as "player" until they
+   happen to notice the leaderboard's name field. Reuses #authgate/#authgatePanel
+   since it's already the right shape for a blocking, un-dismissable prompt. */
+function needsNamePrompt(){ return !localStorage.getItem('vocap-name'); }
+function enterGameOrNamePrompt(){
+  if(needsNamePrompt()){ renderNamePrompt(); return; }
+  $('authgate').className = '';
+  enterGame();
+}
+function renderNamePrompt(){
+  $('authgatePanel').innerHTML = `
+      <h2>${t('nameTitle')}</h2>
+      <div class="sub">${t('nameSub')}</div>
+      <input id="gateName" type="text" maxlength="14" placeholder="${t('yourName')}" autocomplete="off">
+      <div class="msg" id="gateNameMsg"></div>
+      <div class="row"><button class="primary" onclick="gateNameSubmit()">${t('continueBtn')}</button></div>`;
+  $('authgate').className = 'show';
+}
+function gateNameSubmit(){
+  const v=($('gateName').value||'').trim().slice(0,14);
+  if(!v){ $('gateNameMsg').textContent=t('authMissingFields'); $('gateNameMsg').className='msg bad'; return; }
+  localStorage.setItem('vocap-name', v);
   $('authgate').className = '';
   enterGame();
 }
@@ -3121,6 +3155,9 @@ Promise.all([
     /* CuppaThai's copy sets requireAuth in VOCAP_CONFIG; the open GitHub
        Pages copy never does, so this is a no-op there. */
     if(CFG.requireAuth && !AUTH_USER){ renderAuthGate('signin'); return; }
+    /* Covers an inherited Hub session too: signed in already, gate never
+       shown, but still never asked for a name. */
+    if(CFG.requireAuth && AUTH_USER && needsNamePrompt()){ renderNamePrompt(); return; }
     enterGame();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
