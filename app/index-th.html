@@ -374,7 +374,7 @@
            padding:24px 12px;overflow-y:auto}
   #overlay.show{display:block}
   /* CuppaThai-only gate: separate from #overlay on purpose, so it can't be
-     dismissed the way every other panel can (see renderAuthGate in engine.js). */
+     dismissed the way every other panel can (see redirectToHubLogin in engine.js). */
   #authgate{display:none;position:fixed;inset:0;background:rgba(10,6,4,.92);z-index:90;
            align-items:center;justify-content:center;padding:20px}
   #authgate.show{display:flex}
@@ -477,6 +477,8 @@
   #pzClue{color:var(--glow);font-size:15px;line-height:1.6;margin-bottom:16px;min-height:22px}
   .primary{background:var(--good);color:#123;border-color:var(--good)}
   .primary:hover{background:#9fc07f}
+  a.primary{border:1px solid var(--good);border-radius:8px;padding:8px 16px;
+           font-size:13px;font-weight:600;cursor:pointer}
 
   #pzCard{display:none;position:relative;background:var(--panel);
           border-radius:14px;padding:16px 20px 14px;margin:16px 0 0;text-align:left;
@@ -672,8 +674,9 @@ window.VOCAP_CONFIG = {
   supabaseUrl: 'https://lkuvqlsrmcrjkijvvfwv.supabase.co',
   supabaseKey: 'sb_publishable_chxJcSRaJLaeTnXO3Yfqog_m30lXfK1',
   // This is the CuppaThai-hosted copy: only signed-in accounts get past the
-  // gate. The free GitHub Pages copy leaves this out, so it stays open.
-  requireAuth: true
+  // gate. The free GitHub Pages copy leaves both of these out, so it stays open.
+  requireAuth: true,
+  hubLoginUrl: 'https://yellow-gull-214697.hostingersite.com/customer-hub/'
 };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>

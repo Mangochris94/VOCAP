@@ -921,7 +921,8 @@ const STR = {
     authCheckEmail:'Check your email to confirm your account, then sign in.',
     authSignOutBtn:'sign out',
     gateTitle:'CuppaThai members only',
-    gateSub:'Sign in with your CuppaThai account to play. Not a member? The free version is always open at the GitHub link.',
+    gateSub:'Taking you to sign in with your CuppaThai account. Not a member? The free version is always open at the GitHub link.',
+    gateContinueBtn:'Continue to sign in',
     nameTitle:'What should we call you?',
     nameSub:'This is the name that shows up on the leaderboard and in Play Together. You can change it any time from the leaderboard screen.',
     continueBtn:'Continue',
@@ -1022,7 +1023,8 @@ const STR = {
     authCheckEmail:'ตรวจอีเมลเพื่อยืนยันบัญชี แล้วเข้าสู่ระบบอีกครั้ง',
     authSignOutBtn:'ออกจากระบบ',
     gateTitle:'สำหรับสมาชิก CuppaThai เท่านั้น',
-    gateSub:'เข้าสู่ระบบด้วยบัญชี CuppaThai เพื่อเล่น ยังไม่ได้เป็นสมาชิก? เวอร์ชันฟรีเปิดให้เล่นได้เสมอที่ลิงก์ GitHub',
+    gateSub:'กำลังพาไปเข้าสู่ระบบด้วยบัญชี CuppaThai ยังไม่ได้เป็นสมาชิก? เวอร์ชันฟรีเปิดให้เล่นได้เสมอที่ลิงก์ GitHub',
+    gateContinueBtn:'ไปเข้าสู่ระบบ',
     nameTitle:'อยากให้เราเรียกคุณว่าอะไร?',
     nameSub:'ชื่อนี้จะแสดงในตารางอันดับและในโหมดเล่นด้วยกัน คุณเปลี่ยนได้ทุกเมื่อจากหน้าตารางอันดับ',
     continueBtn:'ดำเนินการต่อ',
@@ -1328,51 +1330,27 @@ async function authSubmit(mode){
   showLeaderboard(LB_RETURN_KIND);
 }
 
-/* The CuppaThai-hosted copy only: CFG.requireAuth blocks play until a real
-   account is signed in. #authgate is a separate element from #overlay/#panel
-   on purpose - it has no close button and doesn't answer to Escape or an
-   outside click, so it can't be dismissed the way every other panel can. */
-function renderAuthGate(mode){
-  mode = mode==='signup' ? 'signup' : 'signin';
-  const isUp = mode==='signup';
-  const toggle = isUp
-    ? `${t('authHaveAccount')} <a href="#" onclick="renderAuthGate('signin');return false;">${t('authSignInBtn')}</a>`
-    : `${t('authNoAccount')} <a href="#" onclick="renderAuthGate('signup');return false;">${t('authSignUpBtn')}</a>`;
+/* The CuppaThai-hosted copy only: CFG.requireAuth sends a visitor with no
+   session straight to the Hub to sign in there, rather than showing a
+   sign-in form of its own - the game trusts whatever account is already
+   signed into the CuppaThai site, the same way Voice Lab and the Lesson
+   Player do. #authgate is a separate element from #overlay/#panel on
+   purpose - it has no close button and doesn't answer to Escape or an
+   outside click, so this transitional message can't be dismissed. */
+function redirectToHubLogin(){
   $('authgatePanel').innerHTML = `
       <h2>${t('gateTitle')}</h2>
       <div class="sub">${t('gateSub')}</div>
-      <div class="sub" style="margin-top:14px"><b>${isUp?t('authSignUpTitle'):t('authSignInTitle')}</b></div>
-      <input id="gateEmail" type="email" placeholder="${t('authEmailPlaceholder')}" autocomplete="email">
-      <input id="gatePassword" type="password" placeholder="${t('authPasswordPlaceholder')}"
-             autocomplete="${isUp?'new-password':'current-password'}">
-      <div class="msg" id="gateMsg"></div>
-      <div class="row"><button class="primary" onclick="authGateSubmit('${mode}')">${isUp?t('authSignUpBtn'):t('authSignInBtn')}</button></div>
-      <div class="sub" style="margin-top:10px">${toggle}</div>`;
+      <div class="row"><a class="primary" href="${CFG.hubLoginUrl}" style="display:inline-block;text-decoration:none">${t('gateContinueBtn')}</a></div>`;
   $('authgate').className = 'show';
-}
-async function authGateSubmit(mode){
-  const email=($('gateEmail').value||'').trim(), password=$('gatePassword').value||'';
-  const msgEl=$('gateMsg');
-  if(!email || !password){ msgEl.textContent=t('authMissingFields'); msgEl.className='msg bad'; return; }
-  msgEl.textContent=t('authWorking'); msgEl.className='msg';
-  const result = mode==='signup' ? await authSignUp(email,password) : await authSignIn(email,password);
-  if(result.error){ msgEl.textContent=result.error; msgEl.className='msg bad'; return; }
-  if(result.needsConfirm){ msgEl.textContent=t('authCheckEmail'); msgEl.className='msg good'; return; }
-  enterGameOrNamePrompt();
+  location.href = CFG.hubLoginUrl;
 }
 
-/* Reused by both the moment sign-in completes and the moment boot finds an
-   already-signed-in session (a Hub login carried over, same origin): either
-   way, a signed-in player who has never set a name gets asked for one before
-   the game itself opens, rather than quietly playing as "player" until they
+/* A signed-in player who has never set a name gets asked for one before the
+   game itself opens, rather than quietly playing as "player" until they
    happen to notice the leaderboard's name field. Reuses #authgate/#authgatePanel
    since it's already the right shape for a blocking, un-dismissable prompt. */
 function needsNamePrompt(){ return !localStorage.getItem('vocap-name'); }
-function enterGameOrNamePrompt(){
-  if(needsNamePrompt()){ renderNamePrompt(); return; }
-  $('authgate').className = '';
-  enterGame();
-}
 function renderNamePrompt(){
   $('authgatePanel').innerHTML = `
       <h2>${t('nameTitle')}</h2>
@@ -3154,9 +3132,7 @@ Promise.all([
     await authInit();
     /* CuppaThai's copy sets requireAuth in VOCAP_CONFIG; the open GitHub
        Pages copy never does, so this is a no-op there. */
-    if(CFG.requireAuth && !AUTH_USER){ renderAuthGate('signin'); return; }
-    /* Covers an inherited Hub session too: signed in already, gate never
-       shown, but still never asked for a name. */
+    if(CFG.requireAuth && !AUTH_USER){ redirectToHubLogin(); return; }
     if(CFG.requireAuth && AUTH_USER && needsNamePrompt()){ renderNamePrompt(); return; }
     enterGame();
   }catch(err){
