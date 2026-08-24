@@ -920,6 +920,12 @@ const STR = {
     authMissingFields:'enter an email and password', authWorking:'working…',
     authCheckEmail:'Check your email to confirm your account, then sign in.',
     authSignOutBtn:'sign out',
+    gateTitle:'CuppaThai members only',
+    gateSub:'Taking you to sign in with your CuppaThai account. Not a member? The free version is always open at the GitHub link.',
+    gateContinueBtn:'Continue to sign in',
+    nameTitle:'What should we call you?',
+    nameSub:'This is the name that shows up on the leaderboard and in Play Together. You can change it any time from the leaderboard screen.',
+    continueBtn:'Continue',
     modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
@@ -1016,6 +1022,12 @@ const STR = {
     authMissingFields:'กรอกอีเมลและรหัสผ่าน', authWorking:'กำลังดำเนินการ…',
     authCheckEmail:'ตรวจอีเมลเพื่อยืนยันบัญชี แล้วเข้าสู่ระบบอีกครั้ง',
     authSignOutBtn:'ออกจากระบบ',
+    gateTitle:'สำหรับสมาชิก CuppaThai เท่านั้น',
+    gateSub:'กำลังพาไปเข้าสู่ระบบด้วยบัญชี CuppaThai ยังไม่ได้เป็นสมาชิก? เวอร์ชันฟรีเปิดให้เล่นได้เสมอที่ลิงก์ GitHub',
+    gateContinueBtn:'ไปเข้าสู่ระบบ',
+    nameTitle:'อยากให้เราเรียกคุณว่าอะไร?',
+    nameSub:'ชื่อนี้จะแสดงในตารางอันดับและในโหมดเล่นด้วยกัน คุณเปลี่ยนได้ทุกเมื่อจากหน้าตารางอันดับ',
+    continueBtn:'ดำเนินการต่อ',
     modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
@@ -1193,10 +1205,14 @@ function playerId(){
 async function submitRaceScore(score, words){
   const cl=sbClient(); if(!cl || !AUTH_USER) return;
   try{
-    await cl.from('vocap_race_scores').insert({
+    /* insert() resolves with {error} rather than throwing on a rejected
+       write (an RLS policy mismatch, for instance) - swallowing it here
+       unseen made that failure mode indistinguishable from success. */
+    const {error} = await cl.from('vocap_race_scores').insert({
       player_id:AUTH_USER.id, name:netName(), score, words, lang:GAME
     });
-  }catch(e){}
+    if(error) console.error('submitRaceScore failed:', error);
+  }catch(e){ console.error('submitRaceScore threw:', e); }
 }
 
 /* The longest curated word in the collection so far - computed on demand
@@ -1215,12 +1231,13 @@ async function submitClassicScore(){
   const cl=sbClient(); if(!cl || !AUTH_USER) return;
   const {word,len}=longestSeenWord();
   try{
-    await cl.from('vocap_classic_scores').upsert({
+    const {error} = await cl.from('vocap_classic_scores').upsert({
       player_id:AUTH_USER.id, lang:GAME, name:netName(),
       words_found:seen.size, sparks, longest_word:word, longest_len:len,
       updated_at:new Date().toISOString()
     }, {onConflict:'player_id,lang'});
-  }catch(e){}
+    if(error) console.error('submitClassicScore failed:', error);
+  }catch(e){ console.error('submitClassicScore threw:', e); }
 }
 
 /* Two different homes depending on where this was opened from: the classic
@@ -1311,6 +1328,44 @@ async function authSubmit(mode){
   if(result.error){ msgEl.textContent=result.error; msgEl.className='msg bad'; return; }
   if(result.needsConfirm){ msgEl.textContent=t('authCheckEmail'); msgEl.className='msg good'; return; }
   showLeaderboard(LB_RETURN_KIND);
+}
+
+/* The CuppaThai-hosted copy only: CFG.requireAuth sends a visitor with no
+   session straight to the Hub to sign in there, rather than showing a
+   sign-in form of its own - the game trusts whatever account is already
+   signed into the CuppaThai site, the same way Voice Lab and the Lesson
+   Player do. #authgate is a separate element from #overlay/#panel on
+   purpose - it has no close button and doesn't answer to Escape or an
+   outside click, so this transitional message can't be dismissed. */
+function redirectToHubLogin(){
+  $('authgatePanel').innerHTML = `
+      <h2>${t('gateTitle')}</h2>
+      <div class="sub">${t('gateSub')}</div>
+      <div class="row"><a class="primary" href="${CFG.hubLoginUrl}" style="display:inline-block;text-decoration:none">${t('gateContinueBtn')}</a></div>`;
+  $('authgate').className = 'show';
+  location.href = CFG.hubLoginUrl;
+}
+
+/* A signed-in player who has never set a name gets asked for one before the
+   game itself opens, rather than quietly playing as "player" until they
+   happen to notice the leaderboard's name field. Reuses #authgate/#authgatePanel
+   since it's already the right shape for a blocking, un-dismissable prompt. */
+function needsNamePrompt(){ return !localStorage.getItem('vocap-name'); }
+function renderNamePrompt(){
+  $('authgatePanel').innerHTML = `
+      <h2>${t('nameTitle')}</h2>
+      <div class="sub">${t('nameSub')}</div>
+      <input id="gateName" type="text" maxlength="14" placeholder="${t('yourName')}" autocomplete="off">
+      <div class="msg" id="gateNameMsg"></div>
+      <div class="row"><button class="primary" onclick="gateNameSubmit()">${t('continueBtn')}</button></div>`;
+  $('authgate').className = 'show';
+}
+function gateNameSubmit(){
+  const v=($('gateName').value||'').trim().slice(0,14);
+  if(!v){ $('gateNameMsg').textContent=t('authMissingFields'); $('gateNameMsg').className='msg bad'; return; }
+  localStorage.setItem('vocap-name', v);
+  $('authgate').className = '';
+  enterGame();
 }
 
 const BLANK_PROFILE = {
@@ -2916,20 +2971,30 @@ function renderHangman(){
     return;
   }
 
-  /* Each box shows nothing until something in it has been guessed - not
-     even a hint that a tone mark is waiting there - and once it has,
-     the revealed glyphs share one span so a tone mark actually sits
-     above its letter instead of floating in a span of its own. If the
-     mark comes in before its letter does, a dotted-circle placeholder
-     (tileGlyph()'s own trick for a lone combining mark) stands in for
-     the letter so the mark still has something to render against. */
-  const blanks = hangmanBoxes(HM.units).map(box=>{
-    if(!box.base.guessable) return `<span class="hmgap"></span>`;
-    const baseTxt = box.base.revealed ? box.base.ch : '';
-    const markTxt = box.marks.filter(m=>m.revealed).map(m=>m.ch).join('');
-    if(!baseTxt && !markTxt) return `<span class="hmslot"></span>`;
-    return `<span class="hmslot filled">${baseTxt || '◌'}${markTxt}</span>`;
-  }).join('');
+  /* English keeps the classic boxed-letter look - one bordered slot per
+     letter, filled in as guessed. Thai can't use that layout: a tone mark
+     or vowel mark only stacks correctly onto a *real* Thai base character
+     sharing its span, and there's no guarantee the base has been guessed
+     yet when the mark is (they're guessed independently). Boxing them
+     separately splits a mark from its base into two spans, which breaks
+     the stacking outright; a dotted-circle placeholder for a lone mark
+     is unreliable too, since it isn't a real Thai base for the font to
+     attach to. So Thai renders as one flowing text span instead - the
+     same trick .thword already relies on - and a guessed mark simply
+     waits to appear until its own base has also been found, so nothing
+     is ever shown without a real letter under it. */
+  const blanks = GAME==='th'
+    ? `<span class="hmwordTh">${esc(hangmanBoxes(HM.units).map(box=>{
+        if(!box.base.guessable) return '';
+        if(!box.base.revealed) return '_';
+        return box.base.ch + box.marks.filter(m=>m.revealed).map(m=>m.ch).join('');
+      }).join(' '))}</span>`
+    : hangmanBoxes(HM.units).map(box=>{
+        if(!box.base.guessable) return `<span class="hmgap"></span>`;
+        const baseTxt = box.base.revealed ? box.base.ch : '';
+        if(!baseTxt) return `<span class="hmslot"></span>`;
+        return `<span class="hmslot filled">${baseTxt}</span>`;
+      }).join('');
 
   const keys = hangmanAlphabet().map(ch=>{
     const done = HM.guessed.has(ch);
@@ -3047,7 +3112,7 @@ Promise.all([
   $('msg').textContent = 'Could not load ' + CFG.data + ' — it must sit beside this page';
   $('msg').className = 'bad';
   throw err;
-}).then(([d, dict])=>{
+}).then(async ([d, dict])=>{
   try{
     BANK_ALL = d.words;
     BANK = d.words.filter(w=>!w.starter);
@@ -3064,19 +3129,12 @@ Promise.all([
     load(); startCycle();
     if(GAME==='en') starterGift();
     applyUI();
-    authInit();
-    /* The language choice is the front door now, every time - not just a
-       corner button you might not notice. A deep link (?open=race etc.) is
-       an explicit choice already made, so it skips straight past both the
-       language screen and the modes menu. ?open=modes is the one link that
-       skips only the language screen: it is how chooseLanguage() lands on
-       the other page already past the question it just answered. */
-    const openParam = new URLSearchParams(location.search).get('open');
-    if(openParam==='race') openRace();
-    else if(openParam==='anagram' || openParam==='listening' || openParam==='puzzle') openPuzzle(openParam);
-    else if(openParam==='hangman') openHangman();
-    else if(openParam==='modes') showModeMenu();
-    else showLanguageSplash();
+    await authInit();
+    /* CuppaThai's copy sets requireAuth in VOCAP_CONFIG; the open GitHub
+       Pages copy never does, so this is a no-op there. */
+    if(CFG.requireAuth && !AUTH_USER){ redirectToHubLogin(); return; }
+    if(CFG.requireAuth && AUTH_USER && needsNamePrompt()){ renderNamePrompt(); return; }
+    enterGame();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
        be reported as one. */
@@ -3085,3 +3143,18 @@ Promise.all([
     console.error(err);
   }
 }).catch(()=>{});
+
+/* The language choice is the front door now, every time - not just a
+   corner button you might not notice. A deep link (?open=race etc.) is
+   an explicit choice already made, so it skips straight past both the
+   language screen and the modes menu. ?open=modes is the one link that
+   skips only the language screen: it is how chooseLanguage() lands on
+   the other page already past the question it just answered. */
+function enterGame(){
+  const openParam = new URLSearchParams(location.search).get('open');
+  if(openParam==='race') openRace();
+  else if(openParam==='anagram' || openParam==='listening' || openParam==='puzzle') openPuzzle(openParam);
+  else if(openParam==='hangman') openHangman();
+  else if(openParam==='modes') showModeMenu();
+  else showLanguageSplash();
+}

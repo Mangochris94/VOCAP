@@ -373,6 +373,14 @@
   #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;
            padding:24px 12px;overflow-y:auto}
   #overlay.show{display:block}
+  /* CuppaThai-only gate: separate from #overlay on purpose, so it can't be
+     dismissed the way every other panel can (see redirectToHubLogin in engine.js). */
+  #authgate{display:none;position:fixed;inset:0;background:rgba(10,6,4,.92);z-index:90;
+           align-items:center;justify-content:center;padding:20px}
+  #authgate.show{display:flex}
+  #authgatePanel{background:var(--bg);border:1px solid var(--line);border-radius:14px;
+           max-width:380px;width:100%;padding:22px 24px 26px}
+  #authgatePanel h2{margin:0 0 4px;font-size:21px;font-family:var(--serif);font-weight:600}
   /* A word opened from a list shows here, over the list, so you keep your
      place instead of being thrown back to the tray. */
   #popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
@@ -469,6 +477,8 @@
   #pzClue{color:var(--glow);font-size:15px;line-height:1.6;margin-bottom:16px;min-height:22px}
   .primary{background:var(--good);color:#123;border-color:var(--good)}
   .primary:hover{background:#9fc07f}
+  a.primary{border:1px solid var(--good);border-radius:8px;padding:8px 16px;
+           font-size:13px;font-weight:600;cursor:pointer}
 
   #pzCard{display:none;position:relative;background:var(--panel);
           border-radius:14px;padding:16px 20px 14px;margin:16px 0 0;text-align:left;
@@ -640,6 +650,8 @@
   <div id="popup"><div id="popcard"></div></div>
 </div>
 
+<div id="authgate"><div id="authgatePanel"></div></div>
+
 <script>
 /* This page is the English game / Thai game. It sets the configuration and
    then hands over to the shared engine, which contains all of the actual
@@ -655,7 +667,11 @@ window.VOCAP_CONFIG = {
   // leaderboard on. Leave blank and the game runs exactly as before -
   // no leaderboard buttons appear, nothing is sent anywhere.
   supabaseUrl: 'https://lkuvqlsrmcrjkijvvfwv.supabase.co',
-  supabaseKey: 'sb_publishable_chxJcSRaJLaeTnXO3Yfqog_m30lXfK1'
+  supabaseKey: 'sb_publishable_chxJcSRaJLaeTnXO3Yfqog_m30lXfK1',
+  // This is the CuppaThai-hosted copy: only signed-in accounts get past the
+  // gate. The free GitHub Pages copy leaves both of these out, so it stays open.
+  requireAuth: true,
+  hubLoginUrl: 'https://yellow-gull-214697.hostingersite.com/customer-hub/'
 };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>

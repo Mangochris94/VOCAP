@@ -373,6 +373,16 @@
   #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;
            padding:24px 12px;overflow-y:auto}
   #overlay.show{display:block}
+  /* CuppaThai-only gate: separate from #overlay on purpose, so it can't be
+     dismissed the way every other panel can (see redirectToHubLogin in engine.js).
+     Unused here - this open copy never sets CFG.requireAuth - kept structurally
+     identical to the CuppaThai copy so engine.js stays a single shared file. */
+  #authgate{display:none;position:fixed;inset:0;background:rgba(10,6,4,.92);z-index:90;
+           align-items:center;justify-content:center;padding:20px}
+  #authgate.show{display:flex}
+  #authgatePanel{background:var(--bg);border:1px solid var(--line);border-radius:14px;
+           max-width:380px;width:100%;padding:22px 24px 26px}
+  #authgatePanel h2{margin:0 0 4px;font-size:21px;font-family:var(--serif);font-weight:600}
   /* A word opened from a list shows here, over the list, so you keep your
      place instead of being thrown back to the tray. */
   #popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
@@ -469,6 +479,8 @@
   #pzClue{color:var(--glow);font-size:15px;line-height:1.6;margin-bottom:16px;min-height:22px}
   .primary{background:var(--good);color:#123;border-color:var(--good)}
   .primary:hover{background:#9fc07f}
+  a.primary{border:1px solid var(--good);border-radius:8px;padding:8px 16px;
+           font-size:13px;font-weight:600;cursor:pointer}
 
   #pzCard{display:none;position:relative;background:var(--panel);
           border-radius:14px;padding:16px 20px 14px;margin:16px 0 0;text-align:left;
@@ -511,6 +523,11 @@
   #hangman .hmstage svg{display:block;margin:0 auto}
   #hangman .hmguesses{color:var(--dim);font-size:12.5px;margin-bottom:10px}
   #hangman .hmword{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0 14px}
+  /* Thai reveal is one flowing text run, not boxed letters - see renderHangman()
+     in engine.js for why. Same font as .thword, which already stacks marks fine. */
+  #hangman .hmwordTh{display:block;text-align:center;margin:10px 0 14px;color:var(--text);
+        font-size:34px;line-height:1.7;font-weight:600;
+        font-family:'Noto Sans Thai','Leelawadee UI',system-ui,sans-serif}
   #hangman .hmslot{display:inline-flex;align-items:center;justify-content:center;
         width:30px;height:38px;border-bottom:3px solid var(--line);
         font-size:20px;font-weight:600;text-transform:uppercase}
@@ -639,6 +656,8 @@
 <div id="overlay"><div id="panel"></div>
   <div id="popup"><div id="popcard"></div></div>
 </div>
+
+<div id="authgate"><div id="authgatePanel"></div></div>
 
 <script>
 /* This page is the English game / Thai game. It sets the configuration and
