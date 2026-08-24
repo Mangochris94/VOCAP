@@ -3131,9 +3131,15 @@ Promise.all([
     applyUI();
     await authInit();
     /* CuppaThai's copy sets requireAuth in VOCAP_CONFIG; the open GitHub
-       Pages copy never does, so this is a no-op there. */
-    if(CFG.requireAuth && !AUTH_USER){ redirectToHubLogin(); return; }
-    if(CFG.requireAuth && AUTH_USER && needsNamePrompt()){ renderNamePrompt(); return; }
+       Pages copy never does, so this is a no-op there. The desktop build
+       shares this same app/index.html, but it's a separate distribution
+       channel, not the website - and redirecting a native Tauri window out
+       to an external login page doesn't work reliably anyway (the webview
+       is sandboxed differently than a real browser tab), so the desktop
+       app stays open like GitHub Pages regardless of this flag. */
+    const inDesktopApp = !!window.__TAURI__;
+    if(CFG.requireAuth && !inDesktopApp && !AUTH_USER){ redirectToHubLogin(); return; }
+    if(CFG.requireAuth && !inDesktopApp && AUTH_USER && needsNamePrompt()){ renderNamePrompt(); return; }
     enterGame();
   }catch(err){
     /* A fault from here is a bug in the game, not a missing file, and must not
