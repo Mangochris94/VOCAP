@@ -3137,7 +3137,12 @@ Promise.all([
        to an external login page doesn't work reliably anyway (the webview
        is sandboxed differently than a real browser tab), so the desktop
        app stays open like GitHub Pages regardless of this flag. */
-    const inDesktopApp = !!window.__TAURI__;
+    /* window.__TAURI__ only exists when tauri.conf.json sets
+       withGlobalTauri:true; __TAURI_INTERNALS__ is Tauri's own lower-level
+       object, injected regardless of that setting since the framework's
+       IPC depends on it - checking both means this doesn't silently break
+       again if that config option ever changes or gets left off. */
+    const inDesktopApp = !!(window.__TAURI__ || window.__TAURI_INTERNALS__);
     if(CFG.requireAuth && !inDesktopApp && !AUTH_USER){ redirectToHubLogin(); return; }
     if(CFG.requireAuth && !inDesktopApp && AUTH_USER && needsNamePrompt()){ renderNamePrompt(); return; }
     enterGame();
