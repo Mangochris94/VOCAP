@@ -2729,19 +2729,30 @@ function renderPuzzle(){
    problem twice for no real benefit here. */
 function renderAnagramChecklist(){
   const el=$('pzChecklist'); if(!el || !PZ.checklist) return;
-  const rows = PZ.checklist.map(e=>{
-    if(e.found){
-      return `<div class="pzc-row found"><span class="pzc-tile filled">${esc(e.spell)}</span></div>`;
-    }
-    const boxes = Array.from({length:e.len}).map(()=>`<span class="pzc-box"></span>`).join('');
-    return `<div class="pzc-row"><span class="pzc-tile">${boxes}</span></div>`;
+  /* Grouped by length, one length per row, rather than every word wrapping
+     together in one undifferentiated block - a 3-letter box and a
+     9-letter box read as two different things at a glance this way,
+     instead of the grid just looking cluttered. */
+  const byLen = {};
+  for(const e of PZ.checklist) (byLen[e.len]=byLen[e.len]||[]).push(e);
+  const lens = Object.keys(byLen).map(Number).sort((a,b)=>a-b);
+  const groups = lens.map(len=>{
+    const items = byLen[len].map(e=>{
+      if(e.found) return `<span class="pzc-tile filled">${esc(e.spell)}</span>`;
+      const boxes = Array.from({length:e.len}).map(()=>`<span class="pzc-box"></span>`).join('');
+      return `<span class="pzc-tile">${boxes}</span>`;
+    }).join('');
+    return `<div class="pzc-lenrow">
+        <span class="pzc-lenlabel">${len}</span>
+        <div class="pzc-lenitems">${items}</div>
+      </div>`;
   }).join('');
   el.innerHTML = `
     <div class="pzc-head">
       <span class="pzc-level">${t('anagramLevelLabel')} ${ANAGRAM_LEVEL}</span>
       <span class="pzc-goal">${t('anagramGoalLabel')} ${PZ.foundCount}/${PZ.checklist.length}</span>
     </div>
-    <div class="pzc-grid">${rows}</div>`;
+    <div class="pzc-groups">${groups}</div>`;
 }
 
 function puzzlePlayAgain(){

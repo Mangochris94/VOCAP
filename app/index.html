@@ -478,12 +478,20 @@
   /* Anagram's find-all-words checklist: one row per hidden word, blank
      boxes until found, then one solid filled tile showing the word. */
   #pzChecklist{margin:14px 0}
-  .pzc-head{display:flex;justify-content:center;gap:16px;margin-bottom:10px;
+  .pzc-head{display:flex;justify-content:center;gap:16px;margin-bottom:12px;
             font-size:11px;letter-spacing:1.2px;color:var(--dim);font-weight:700}
   .pzc-goal{color:var(--glow)}
-  .pzc-grid{display:flex;flex-wrap:wrap;gap:8px 10px;justify-content:center;max-width:560px;margin:0 auto}
+  .pzc-groups{display:flex;flex-direction:column;gap:9px;max-width:560px;margin:0 auto}
+  .pzc-lenrow{display:flex;align-items:center;gap:10px}
+  .pzc-lenlabel{flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+                font-size:11px;font-weight:700;color:var(--dim);border:1px solid var(--line);border-radius:5px}
+  .pzc-lenitems{display:flex;flex-wrap:wrap;gap:6px 8px}
   .pzc-tile{display:flex;gap:3px}
-  .pzc-box{width:15px;height:19px;border-radius:3px;background:var(--box);border:1px solid var(--line)}
+  /* Distinctly lighter than the panel it sits on - the earlier version used
+     --box, which is close enough in tone to the puzzle sheet's own
+     background that blank boxes were nearly invisible against it. */
+  .pzc-box{width:16px;height:20px;border-radius:4px;background:rgba(241,233,219,.10);
+           border:1px solid var(--dim)}
   .pzc-tile.filled{background:var(--tile);color:var(--tile-ink);border-radius:6px;
                     padding:4px 11px;font-weight:700;font-size:14px;letter-spacing:.5px;
                     text-transform:uppercase;border:1px solid #e9ddc9;
