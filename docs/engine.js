@@ -843,6 +843,8 @@ const STR = {
     tapAbove:'tap letters above to build a word',
     lettersN:'letters', waitingYou:'WAITING FOR YOU', lastCall:'LAST CALL',
     anagramTitle:'ANAGRAM', anagramSub:'The tray is full and scrambled — rearrange, don\'t mine.',
+    anagramLevelLabel:'LEVEL', anagramGoalLabel:'GOAL',
+    anagramRoundComplete:'🎉 Every word found! Tap \'new word\' for a fresh set.',
     listeningTitle:'LISTENING', listeningSub:'Hear the word, then spell it. No clue until you\'ve guessed.',
     modes:'Modes', modesSub:'choose a language and a way to play', close:'close', youAreHere:'you are here · ',
     modeClassic:'Classic', modeClassicDesc:'Letters drop in on their own while you work.',
@@ -945,6 +947,8 @@ const STR = {
     tapAbove:'แตะตัวอักษรด้านบนเพื่อสร้างคำ',
     lettersN:'ตัวอักษร', waitingYou:'รอคุณอยู่', lastCall:'เรียกครั้งสุดท้าย',
     anagramTitle:'สลับคำ', anagramSub:'ถาดเต็มและสลับแล้ว — จัดเรียงใหม่ ไม่ต้องขุดหา',
+    anagramLevelLabel:'ระดับ', anagramGoalLabel:'เป้าหมาย',
+    anagramRoundComplete:'🎉 พบคำครบทุกคำแล้ว! แตะ "คำใหม่" เพื่อเริ่มชุดใหม่',
     listeningTitle:'ฟังคำ', listeningSub:'ฟังคำก่อน แล้วสะกด — ไม่มีคำใบ้จนกว่าจะเดาถูก',
     modes:'โหมด', modesSub:'เลือกภาษาและวิธีเล่น', close:'ปิด', youAreHere:'คุณอยู่ตรงนี้ · ',
     modeClassic:'คลาสสิก', modeClassicDesc:'ตัวอักษรจะทยอยปรากฏเองระหว่างที่คุณทำงาน',
@@ -2549,12 +2553,85 @@ function startPuzzleStage(key){
   puzzleNext();
 }
 
+/* Anagram's tile pool is built to hold more than one findable word, not
+   just an exact anagram of a single target: a seed curated word guarantees
+   at least one real discovery, then a few frequency-weighted extra letters
+   (the same noiseLetters() the drip and Puzzle-stage noise already use)
+   give the rest of the collection - and the dictionary - room to hide in
+   it. The checklist is computed once per round from that finished pool,
+   not regenerated per guess, so "how many words are left" stays stable
+   while the round is in progress. */
+const ANAGRAM_CHECKLIST_CAP = 24, ANAGRAM_MIN_WORDS = 5, ANAGRAM_MAX_TRIES = 5;
+/* Same ceiling Race already uses for a Thai tray (18 tile characters vs 26
+   English letters need more room for the same word count), so a maxed-out
+   Anagram pool matches what the rest of the game already treats as "full". */
+const ANAGRAM_MAX_TILES = GAME==='th' ? 18 : 15;
+
+/* One persistent difficulty level per language, saved across sessions the
+   same way Puzzle-stage progress is - not just this round. Each full
+   clear pushes it up by one, and the pool grows to match, so level 1
+   plays like the very first Anagram round always has, but a player who
+   keeps clearing sets is handed a steadily bigger haystack instead of the
+   same size forever. */
+function anagramLevelKey(){ return 'vocap-anagram-level-'+GAME; }
+function loadAnagramLevel(){
+  const n = parseInt(localStorage.getItem(anagramLevelKey())||'1', 10);
+  return (Number.isFinite(n) && n>=1) ? n : 1;
+}
+let ANAGRAM_LEVEL = loadAnagramLevel();
+function saveAnagramLevel(){ localStorage.setItem(anagramLevelKey(), String(ANAGRAM_LEVEL)); }
+
+function buildAnagramRound(){
+  let best = null;
+  for(let attempt=0; attempt<ANAGRAM_MAX_TRIES; attempt++){
+    const seed = pickPuzzleWord();
+    const seedCount = count(seed.spell);
+    const room = Math.max(2, ANAGRAM_MAX_TILES - seed.letters);
+    const extra = Math.min(room, 2 + (ANAGRAM_LEVEL-1) + Math.floor(Math.random()*2));
+    const noise = noiseLetters(seedCount, extra);
+    const tiles = [...clusterSpell(seed.spell), ...noise];
+    const poolCount = count(tiles.join(''));
+
+    const curatedMatches=[];
+    for(const w of BANK){
+      if(w.letters<3) continue;
+      if(canSpell(count(w.spell), poolCount)) curatedMatches.push({spell:w.spell, len:w.letters, curated:true, wordObj:w});
+    }
+    const curatedSpells = new Set(curatedMatches.map(m=>m.spell));
+    const dictMatches=[];
+    for(const d of DICT){
+      if(d.length<3 || curatedSpells.has(d)) continue;
+      if(canSpell(count(d), poolCount)) dictMatches.push({spell:d, len:d.length, curated:false});
+    }
+    const all = [...curatedMatches, ...dictMatches];
+    best = {tiles, seed, curatedMatches, dictMatches, all};
+    if(all.length>=ANAGRAM_MIN_WORDS) break;
+  }
+
+  let all = best.all;
+  if(all.length>ANAGRAM_CHECKLIST_CAP){
+    const curated = best.curatedMatches.slice(0,ANAGRAM_CHECKLIST_CAP);
+    const slotsLeft = ANAGRAM_CHECKLIST_CAP - curated.length;
+    const shuffledDict = best.dictMatches.slice().sort(()=>Math.random()-.5);
+    all = [...curated, ...(slotsLeft>0 ? shuffledDict.slice(0,slotsLeft) : [])];
+  }
+  all = all.map(e=>({...e, found:false}));
+  all.sort((a,b)=> a.len-b.len || a.spell.localeCompare(b.spell));
+
+  PZ.w = best.seed;
+  PZ.order = [...best.tiles].sort(()=>Math.random()-.5);
+  PZ.checklist = all;
+  PZ.foundCount = 0;
+}
+
 function puzzleNext(){
   if(PZ.kind==='puzzle'){
     const stage = PUZZLE_STAGES.find(s=>s.key===PZ.stage);
     PZ.w = pickStageWord(stage);
     const noise = noiseLetters(count(PZ.w.spell), stage.noise);
     PZ.order = [...clusterSpell(PZ.w.spell), ...noise].sort(()=>Math.random()-.5);
+  } else if(PZ.kind==='anagram'){
+    buildAnagramRound();
   } else {
     PZ.w = pickPuzzleWord();
     PZ.order = clusterSpell(PZ.w.spell).sort(()=>Math.random()-.5);
@@ -2597,8 +2674,12 @@ function puzzleClear(){
   renderPuzzle();
 }
 function puzzleShuffle(){
+  /* Reshuffles whatever tiles are actually in the tray, not a fresh copy of
+     PZ.w.spell - that used to silently drop any noise/extra letters a
+     Puzzle-stage or Anagram round had added, leaving them unreachable for
+     the rest of the round. */
   if(!PZ) return;
-  PZ.order = [...PZ.w.spell].sort(()=>Math.random()-.5);
+  PZ.order = [...PZ.order].sort(()=>Math.random()-.5);
   PZ.used = PZ.order.map(()=>false);
   PZ.building = [];
   renderPuzzle();
@@ -2631,6 +2712,36 @@ function renderPuzzle(){
   } else clueEl.style.display='none';
 
   $('pzListenRow').style.display = PZ.kind==='listening' ? 'flex' : 'none';
+
+  const cl=$('pzChecklist');
+  if(cl){
+    if(PZ.kind==='anagram'){ cl.style.display='block'; renderAnagramChecklist(); }
+    else cl.style.display='none';
+  }
+}
+
+/* One row per findable word, hidden until found - the whole point being
+   that you can see how many words (and how long each is) are still out
+   there without knowing what they actually are. A found word fills its
+   row as one solid tile rather than one box per letter: Thai vowels and
+   tone marks only stack correctly in a single text run (the same reason
+   .thword exists), and a per-letter reveal would have to solve that same
+   problem twice for no real benefit here. */
+function renderAnagramChecklist(){
+  const el=$('pzChecklist'); if(!el || !PZ.checklist) return;
+  const rows = PZ.checklist.map(e=>{
+    if(e.found){
+      return `<div class="pzc-row found"><span class="pzc-tile filled">${esc(e.spell)}</span></div>`;
+    }
+    const boxes = Array.from({length:e.len}).map(()=>`<span class="pzc-box"></span>`).join('');
+    return `<div class="pzc-row"><span class="pzc-tile">${boxes}</span></div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="pzc-head">
+      <span class="pzc-level">${t('anagramLevelLabel')} ${ANAGRAM_LEVEL}</span>
+      <span class="pzc-goal">${t('anagramGoalLabel')} ${PZ.foundCount}/${PZ.checklist.length}</span>
+    </div>
+    <div class="pzc-grid">${rows}</div>`;
 }
 
 function puzzlePlayAgain(){
@@ -2641,6 +2752,7 @@ function puzzlePlayAgain(){
 
 function submitPuzzle(){
   if(!PZ) return;
+  if(PZ.kind==='anagram') return submitAnagram();
   const answer = PZ.building.map(b=>b.ch).join('');
   PZ.building=[]; PZ.used=PZ.order.map(()=>false);
   renderPuzzle();
@@ -2654,18 +2766,57 @@ function submitPuzzle(){
      word actually asked for is still unsolved. */
   const alt = BANK.find(x=>x.spell===answer);
   if(alt){ puzzleAward(alt, false); return; }
-  if(DICT.has(answer)){
-    inkTally[answer]=(inkTally[answer]||0)+1;
-    if(inked.has(answer)){
-      sparks++; save();
-      $('pzMsg').textContent=t('alreadyInked');
-    } else {
-      inked.add(answer); sparks+=2; save(); speakWord(answer); showDictCard(answer);
-      $('pzMsg').textContent=t('inkedInDictionary');
+  if(DICT.has(answer)){ creditDictWord(answer); return; }
+  $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad';
+}
+
+/* Shared by both submitPuzzle's free-dictionary branch and Anagram's
+   checklist: a real English word that isn't one of the curated ones ranks
+   as a Dictionary find, same reward either way. */
+function creditDictWord(answer){
+  inkTally[answer]=(inkTally[answer]||0)+1;
+  if(inked.has(answer)){
+    sparks++; save();
+    $('pzMsg').textContent=t('alreadyInked');
+  } else {
+    inked.add(answer); sparks+=2; save(); speakWord(answer); showDictCard(answer);
+    $('pzMsg').textContent=t('inkedInDictionary');
+  }
+  $('pzMsg').className='msg good';
+}
+
+/* Anagram's own submit path: matches against the round's checklist rather
+   than one single target, so any of the round's findable words counts,
+   each filling its own row once found. A word this pool can spell but that
+   didn't make the (capped) checklist still counts - same as Classic
+   crediting any valid tray word - it just won't visibly fill a row. */
+function submitAnagram(){
+  const answer = PZ.building.map(b=>b.ch).join('');
+  PZ.building=[]; PZ.used=PZ.order.map(()=>false);
+  renderPuzzle();
+
+  if(answer.length<3){ $('pzMsg').textContent=t('tooShort'); $('pzMsg').className='msg bad'; return; }
+
+  const entry = PZ.checklist.find(e=>e.spell===answer);
+  if(entry && entry.found){ $('pzMsg').textContent=t('flashAlreadyFound'); $('pzMsg').className='msg'; return; }
+
+  if(entry){
+    entry.found = true; PZ.foundCount++;
+    if(entry.curated) puzzleAward(entry.wordObj, false);
+    else creditDictWord(answer);
+    renderAnagramChecklist();
+    if(PZ.foundCount >= PZ.checklist.length){
+      ANAGRAM_LEVEL++; saveAnagramLevel();
+      $('pzMsg').textContent = t('anagramRoundComplete');
+      $('pzMsg').className = 'msg good';
+      $('pzNext').textContent = t('newWord'); $('pzNext').classList.add('primary');
     }
-    $('pzMsg').className='msg good';
     return;
   }
+
+  const alt = BANK.find(x=>x.spell===answer);
+  if(alt){ puzzleAward(alt, false); return; }
+  if(DICT.has(answer)){ creditDictWord(answer); return; }
   $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad';
 }
 /* The main card (cardHTML/#card) is id-based and lives behind this
