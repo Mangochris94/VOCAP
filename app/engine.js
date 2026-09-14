@@ -928,8 +928,11 @@ const STR = {
     nameTitle:'What should we call you?',
     nameSub:'This is the name that shows up on the leaderboard and in Play Together. You can change it any time from the leaderboard screen.',
     continueBtn:'Continue',
-    tileSkin:'Tile skin', tileSkinSub:'Change how the letter tiles look. Purely cosmetic.',
-    skinTileDefault:'Classic', skinTileStone:'Carved Stone',
+    tileSkin:'Tile skin', tileSkinSub:'Change how the letter tiles look. New skins unlock as you find more words.',
+    skinTileDefault:'Classic', skinTileStone:'Carved Stone', skinTileTeak:'Teak Wood',
+    skinTileClay:'Terracotta Clay', skinTileBronze:'Brushed Bronze', skinTileCeladon:'Celadon Crackle',
+    skinTileBatik:'Indigo Batik', skinTileLacquer:'Thai Lacquer', skinTileJade:'Jade',
+    skinTileGold:'Gold Leaf', skinUnlockAt:'Unlocks at', wordsFound:'words found',
     modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
@@ -1034,8 +1037,11 @@ const STR = {
     nameTitle:'อยากให้เราเรียกคุณว่าอะไร?',
     nameSub:'ชื่อนี้จะแสดงในตารางอันดับและในโหมดเล่นด้วยกัน คุณเปลี่ยนได้ทุกเมื่อจากหน้าตารางอันดับ',
     continueBtn:'ดำเนินการต่อ',
-    tileSkin:'สกินตัวอักษร', tileSkinSub:'เปลี่ยนรูปลักษณ์ของบล็อกตัวอักษร เป็นเพียงความสวยงามเท่านั้น',
-    skinTileDefault:'คลาสสิก', skinTileStone:'หินแกะสลัก',
+    tileSkin:'สกินตัวอักษร', tileSkinSub:'เปลี่ยนรูปลักษณ์ของบล็อกตัวอักษร สกินใหม่จะปลดล็อกเมื่อคุณพบคำมากขึ้น',
+    skinTileDefault:'คลาสสิก', skinTileStone:'หินแกะสลัก', skinTileTeak:'ไม้สัก',
+    skinTileClay:'ดินเผาเทอร์ราคอตตา', skinTileBronze:'บรอนซ์ขัดเงา', skinTileCeladon:'เซลาดอนลายแตก',
+    skinTileBatik:'บาติกคราม', skinTileLacquer:'เครื่องเขินไทย', skinTileJade:'หยก',
+    skinTileGold:'ทองคำเปลว', skinUnlockAt:'ปลดล็อกที่', wordsFound:'คำที่พบ',
     modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
@@ -2394,31 +2400,63 @@ const LANGS = [
 
 /* Tile skins: purely cosmetic re-skins of the letter tiles shared by every
    mode's tray (`.slot`). Each skin is just a body class the CSS keys off
-   of, so adding one never touches the tray logic itself. */
+   of, so adding one never touches the tray logic itself. Unlocks ride the
+   same words-found counter (progressCount(), see GROWTH above) that
+   already drives Classic's own tray growth - one achievement ladder for
+   the whole game rather than a second, unrelated currency. Materials get
+   more elaborate the higher the threshold, so the ladder itself tells a
+   story: plain tiles, then carved and cast ones, then the rarest finishes. */
 const TILE_SKINS = [
-  {id:'default', icon:'🟨', nameKey:'skinTileDefault'},
-  {id:'stone',   icon:'🪨', nameKey:'skinTileStone'},
+  {id:'default', icon:'🟨', nameKey:'skinTileDefault', need:0},
+  {id:'stone',   icon:'🪨', nameKey:'skinTileStone',   need:10},
+  {id:'teak',    icon:'🪵', nameKey:'skinTileTeak',    need:30},
+  {id:'clay',    icon:'🏺', nameKey:'skinTileClay',    need:60},
+  {id:'bronze',  icon:'🔔', nameKey:'skinTileBronze',  need:100},
+  {id:'celadon', icon:'🍵', nameKey:'skinTileCeladon', need:150},
+  {id:'batik',   icon:'🧵', nameKey:'skinTileBatik',   need:220},
+  {id:'lacquer', icon:'🖤', nameKey:'skinTileLacquer', need:320},
+  {id:'jade',    icon:'💚', nameKey:'skinTileJade',    need:450},
+  {id:'gold',    icon:'👑', nameKey:'skinTileGold',    need:600},
 ];
+function tileSkinUnlocked(s){ return progressCount()>=s.need; }
 function loadTileSkin(){
   const id = localStorage.getItem('vocap-tile-skin');
-  return (TILE_SKINS.find(s=>s.id===id)||TILE_SKINS[0]).id;
+  const s = TILE_SKINS.find(x=>x.id===id);
+  return (s && tileSkinUnlocked(s)) ? s.id : 'default';
 }
 let TILE_SKIN = loadTileSkin();
 function applyTileSkin(){
-  document.body.classList.toggle('skin-stone', TILE_SKIN==='stone');
+  document.body.className = document.body.className.replace(/\bskin-\S+/g,'').trim();
+  if(TILE_SKIN!=='default') document.body.classList.add('skin-'+TILE_SKIN);
 }
 applyTileSkin();
 function setTileSkin(id){
-  TILE_SKIN = (TILE_SKINS.find(s=>s.id===id)||TILE_SKINS[0]).id;
+  const s = TILE_SKINS.find(x=>x.id===id);
+  if(!s || !tileSkinUnlocked(s)) return;
+  TILE_SKIN = s.id;
   localStorage.setItem('vocap-tile-skin', TILE_SKIN);
   applyTileSkin();
   showTileSkinPicker();
 }
 function showTileSkinPicker(){
-  const cards = TILE_SKINS.map(s=>`
-    <div class="modecard${s.id===TILE_SKIN?' here':''}" onclick="setTileSkin('${s.id}')">
+  const cards = TILE_SKINS.map(s=>{
+    const unlocked = tileSkinUnlocked(s);
+    if(!unlocked){
+      const pct = Math.max(4, Math.min(100, Math.round(progressCount()/s.need*100)));
+      return `<div class="modecard locked">
+        <span class="lockbadge">🔒</span>
+        <span class="ic">${s.icon}</span><b>${t(s.nameKey)}</b>
+        <span>${t('skinUnlockAt')} ${s.need} ${t('wordsFound')}</span>
+        <div class="needbar"><i style="width:${pct}%"></i></div>
+        <span class="needtext">${progressCount()}/${s.need}</span>
+      </div>`;
+    }
+    const here = s.id===TILE_SKIN;
+    return `<div class="modecard${here?' here':''}" onclick="setTileSkin('${s.id}')">
       <span class="ic">${s.icon}</span><b>${t(s.nameKey)}</b>
-    </div>`).join('');
+      <span>${here?t('youAreHere'):''}</span>
+    </div>`;
+  }).join('');
   openPanel(`<div class="phead"><div><h2>${t('tileSkin')}</h2>
       <div class="sub">${t('tileSkinSub')}</div></div>
       <button onclick="showModeMenu()">${t('close')}</button></div>
@@ -3325,6 +3363,11 @@ Promise.all([
     }
     $('total').textContent = BANK.length;
     load(); startCycle();
+    /* Skin unlocks key off progressCount() (seen.size), which load() has
+       just populated from the real save - the top-level call made at
+       script parse time ran against an empty seen and so can't be trusted
+       for anything beyond the visible-immediately default look. */
+    TILE_SKIN = loadTileSkin(); applyTileSkin();
     if(GAME==='en') starterGift();
     applyUI();
     await authInit();
