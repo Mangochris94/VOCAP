@@ -80,6 +80,7 @@ let inkTally={};                 // word -> times formed; drives promotion (desi
 const HINT_MULT=[0.5,1.0,1.5,3.0];
 let hintsBought={};              // word id -> how many hints taken this cycle
 let starterDay=0, lastGift=null; // Starter Pack: one 2-letter gift word per day
+let loginStreak=0, loginStreakBest=0, lastLoginDay=null; // consecutive-day login bonus
 let lastTray=POOL_START;         // for announcing upgrades
 let pool=[], order=[], dropped=0, seeds=[], repeatPaid=new Set(), timerId=null, nextDrop=0;
 let fast=false;
@@ -122,14 +123,15 @@ const SAVEKEY = ()=> GAME==='th' ? 'vocap-th' : 'vocap';
    this just decides when it's worth asking. */
 let lastLbSubmit=0;
 const save=()=>{
-  localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo}));
+  localStorage.setItem(SAVEKEY(),JSON.stringify({seen:[...seen],sparks,inked:[...inked],inkTally,starterDay,lastGift,snoozed,cycleNo,loginStreak,loginStreakBest,lastLoginDay}));
   const now=Date.now();
   if(now-lastLbSubmit>15000){ lastLbSubmit=now; submitClassicScore(); }
 };
 const load=()=>{try{const d=JSON.parse(localStorage.getItem(SAVEKEY()));
   if(d){seen=new Set(d.seen);sparks=d.sparks;
         inked=new Set(d.inked||[]);inkTally=d.inkTally||{};starterDay=d.starterDay||0;lastGift=d.lastGift||null;
-        snoozed=d.snoozed||{};cycleNo=d.cycleNo||0;}
+        snoozed=d.snoozed||{};cycleNo=d.cycleNo||0;
+        loginStreak=d.loginStreak||0;loginStreakBest=d.loginStreakBest||0;lastLoginDay=d.lastLoginDay||null;}
   }catch(e){}};
 
 /* ---- speech: browser-native, no audio files needed ----
@@ -184,6 +186,42 @@ function speakWord(w){
    page, the word itself on the English page) before handing it to speak(). */
 function englishOf(w){ return GAME==='th' ? (w.translations?.en?.word||'') : w.word; }
 function speakEntry(w){ const e=englishOf(w); if(e) speakWord(e); }
+
+/* ---- sound effects: synthesised, no audio files needed ----
+   A few short oscillator tones stand in for a real SFX pack - tap, good,
+   bad, and a small ascending fanfare for round-complete/level-up/tray-
+   growth moments. Independent of the sayWords/sayLetters speech toggles,
+   which are about pronunciation, not game-feel. */
+let sfxOn = localStorage.getItem('vocap-sfx') !== 'off';
+let _actx = null;
+function actx(){
+  if(_actx) return _actx;
+  try{ _actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ _actx=null; }
+  return _actx;
+}
+function beep(freq, dur, type, peak){
+  if(!sfxOn) return;
+  const ctx = actx(); if(!ctx) return;
+  if(ctx.state==='suspended') ctx.resume();
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = type||'sine'; osc.frequency.value = freq;
+  const t0 = ctx.currentTime;
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.linearRampToValueAtTime(peak||0.1, t0+0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function sfxTap(){ beep(520, 0.06, 'sine', 0.07); }
+function sfxGood(){ beep(660, 0.09, 'sine', 0.09); setTimeout(()=>beep(880,0.12,'sine',0.09), 70); }
+function sfxBad(){ beep(180, 0.16, 'sawtooth', 0.07); }
+function sfxLevelUp(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.14,'sine',0.1), i*90)); }
+function toggleSfx(){
+  sfxOn = !sfxOn;
+  localStorage.setItem('vocap-sfx', sfxOn?'on':'off');
+  applyUI();
+  if(sfxOn) sfxTap();
+}
 /* Listening mode's whole mechanic is "hear the target word, then spell
    it" - playing the English translation there would defeat the point, so
    this is the one place that actually speaks Thai text. Normally that
@@ -233,6 +271,7 @@ function checkGrowth(){
   if(size>lastTray){
     lastTray=size;
     flash(`🌱 tray grew to ${size} slots!`,'good');
+    sfxLevelUp();
   }
   const nxt=nextGrowthAt();
   $('traysize').textContent = nxt ? `${size} (next at ${nxt})` : `${size} MAX`;
@@ -383,7 +422,7 @@ function renderTray(){
     if(i<pool.length){
       d.textContent=tileGlyph(pool[i]);
       if(used.has(i))d.classList.add('used');
-      d.onclick=()=>{ dropFocus(); noteActivity(); if(!used.has(i)){speakLetter(pool[i]);building.push({ch:pool[i],from:i});renderTray();renderWordTray()} };
+      d.onclick=()=>{ dropFocus(); noteActivity(); if(!used.has(i)){sfxTap();speakLetter(pool[i]);building.push({ch:pool[i],from:i});renderTray();renderWordTray()} };
     }
     box.appendChild(d);
   }
@@ -645,7 +684,8 @@ function bindCard(w,plainWord){
 }
 
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
-function flash(t,c){$('msg').textContent=t;$('msg').className=c||''}
+function flash(t,c){$('msg').textContent=t;$('msg').className=c||'';
+  if(c==='good') sfxGood(); else if(c==='bad') sfxBad();}
 
 /* ═══════════════ Collection & Dictionary browsers ═══════════════
    The tray is where you play; these are where the collection lives. Topic
@@ -837,7 +877,7 @@ const STR = {
     sparks:'sparks', tray:'tray', nextAt:'next at', found:'found', next:'next',
     fillTray:'⚡ fill tray', nextRun:'⏭ next', collection:'📚 collection',
     dictionary:'📖 dictionary', topWords:'📈 top words', reset:'reset',
-    words:'🔊 words', letters:'🔤 letters', on:'ON', off:'OFF',
+    words:'🔊 words', letters:'🔤 letters', sfxLabel:'🔔 sfx', on:'ON', off:'OFF',
     clue:'clue', playTogether:'PLAY TOGETHER', submit:'Submit', clear:'Clear',
     tapBuild:'tap or type letters · Space is free',
     tapAbove:'tap letters above to build a word',
@@ -846,7 +886,7 @@ const STR = {
     anagramLevelLabel:'LEVEL', anagramGoalLabel:'GOAL',
     anagramRoundComplete:'🎉 Every word found! Tap \'new word\' for a fresh set.',
     listeningTitle:'LISTENING', listeningSub:'Hear the word, then spell it. No clue until you\'ve guessed.',
-    modes:'Modes', modesSub:'choose a language and a way to play', close:'close', youAreHere:'you are here · ',
+    modes:'Modes', modesSub:'choose a way to play', menuBtn:'Menu', close:'close', youAreHere:'you are here · ',
     modeClassic:'Classic', modeClassicDesc:'Letters drop in on their own while you work.',
     modeAnagram:'Anagram', modeAnagramDesc:'The tray starts full and scrambled — rearrange, don\'t mine.',
     modeListening:'Listening', modeListeningDesc:'Hear the word first — no clue until you\'ve guessed.',
@@ -933,6 +973,12 @@ const STR = {
     skinTileClay:'Terracotta Clay', skinTileBronze:'Brushed Bronze', skinTileCeladon:'Celadon Crackle',
     skinTileBatik:'Indigo Batik', skinTileLacquer:'Thai Lacquer', skinTileJade:'Jade',
     skinTileGold:'Gold Leaf', skinUnlockAt:'Unlocks at', wordsFound:'words found',
+    streakMsg:'🔥 Day {n} streak! +{b} sparks',
+    modeDaily:'Daily Challenge', modeDailyDesc:'One shared word, the same for everyone today.',
+    dailyTitle:'DAILY CHALLENGE', dailySub:'Today\'s word ·',
+    dailyTriesLabel:'tries:', dailySolvedMsg:'🎉 Solved! Come back tomorrow for a new word.',
+    dailyComeBack:'come back tomorrow for a new word', dailyCopyBtn:'copy result',
+    dailyCopied:'copied to clipboard', dailyShareLabel:'VOCAP Daily', dailyTriesSuffix:'tries',
     modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
@@ -946,7 +992,7 @@ const STR = {
     sparks:'ประกาย', tray:'ถาด', nextAt:'ขยายที่', found:'พบแล้ว', next:'ถัดไป',
     fillTray:'⚡ เติมถาด', nextRun:'⏭ รอบถัดไป', collection:'📚 คลังคำ',
     dictionary:'📖 พจนานุกรม', topWords:'📈 คำยอดนิยม', reset:'ล้างข้อมูล',
-    words:'🔊 อ่านคำ', letters:'🔤 อ่านตัวอักษร', on:'เปิด', off:'ปิด',
+    words:'🔊 อ่านคำ', letters:'🔤 อ่านตัวอักษร', sfxLabel:'🔔 เสียง', on:'เปิด', off:'ปิด',
     clue:'คำใบ้', playTogether:'เล่นด้วยกัน', submit:'ส่งคำ', clear:'ล้าง',
     tapBuild:'แตะหรือพิมพ์ตัวอักษร · เว้นวรรคฟรี',
     tapAbove:'แตะตัวอักษรด้านบนเพื่อสร้างคำ',
@@ -955,7 +1001,7 @@ const STR = {
     anagramLevelLabel:'ระดับ', anagramGoalLabel:'เป้าหมาย',
     anagramRoundComplete:'🎉 พบคำครบทุกคำแล้ว! แตะ "คำใหม่" เพื่อเริ่มชุดใหม่',
     listeningTitle:'ฟังคำ', listeningSub:'ฟังคำก่อน แล้วสะกด — ไม่มีคำใบ้จนกว่าจะเดาถูก',
-    modes:'โหมด', modesSub:'เลือกภาษาและวิธีเล่น', close:'ปิด', youAreHere:'คุณอยู่ตรงนี้ · ',
+    modes:'โหมด', modesSub:'เลือกวิธีเล่น', menuBtn:'เมนู', close:'ปิด', youAreHere:'คุณอยู่ตรงนี้ · ',
     modeClassic:'คลาสสิก', modeClassicDesc:'ตัวอักษรจะทยอยปรากฏเองระหว่างที่คุณทำงาน',
     modeAnagram:'สลับคำ', modeAnagramDesc:'ถาดเต็มและสลับแล้วตั้งแต่ต้น — จัดเรียงใหม่ ไม่ต้องขุดหา',
     modeListening:'ฟังคำ', modeListeningDesc:'ฟังคำก่อน — ไม่มีคำใบ้จนกว่าจะเดาถูก',
@@ -1042,6 +1088,12 @@ const STR = {
     skinTileClay:'ดินเผาเทอร์ราคอตตา', skinTileBronze:'บรอนซ์ขัดเงา', skinTileCeladon:'เซลาดอนลายแตก',
     skinTileBatik:'บาติกคราม', skinTileLacquer:'เครื่องเขินไทย', skinTileJade:'หยก',
     skinTileGold:'ทองคำเปลว', skinUnlockAt:'ปลดล็อกที่', wordsFound:'คำที่พบ',
+    streakMsg:'🔥 ต่อเนื่องวันที่ {n}! +{b} ประกาย',
+    modeDaily:'ภารกิจประจำวัน', modeDailyDesc:'คำเดียวกันสำหรับทุกคนในวันนี้',
+    dailyTitle:'ภารกิจประจำวัน', dailySub:'คำของวันนี้ ·',
+    dailyTriesLabel:'จำนวนครั้ง:', dailySolvedMsg:'🎉 ไขได้แล้ว! กลับมาใหม่พรุ่งนี้เพื่อคำใหม่',
+    dailyComeBack:'กลับมาใหม่พรุ่งนี้เพื่อคำใหม่', dailyCopyBtn:'คัดลอกผลลัพธ์',
+    dailyCopied:'คัดลอกแล้ว', dailyShareLabel:'VOCAP ประจำวัน', dailyTriesSuffix:'ครั้ง',
     modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
@@ -1075,9 +1127,11 @@ function applyUI(){
     lbb.textContent = t('leaderboardBtn');
     lbb.onclick = ()=>showLeaderboard('classic');
   }
-  const say=$('say'), sayl=$('sayl');
+  const say=$('say'), sayl=$('sayl'), sfx=$('sfx');
   if(say)  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));
   if(sayl) sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off'));
+  if(sfx)  sfx.textContent  = t('sfxLabel')+': '+(sfxOn?t('on'):t('off'));
+  updateStreakUI();
   const sb=$('submit'); if(sb) sb.textContent=t('submit');
   const cb=$('clear');  if(cb) cb.textContent=t('clear');
   const h=document.querySelector('#hint'); if(h) h.textContent=t('tapBuild');
@@ -2158,17 +2212,18 @@ function raceSubmit(){
                            : R.building.map(b=>b.ch).join('').toLowerCase();
   R.building=[];
   if(word.length<3) return raceTray();
-  if(R.used.has(word)) { raceFlash(t('flashAlreadyFound')); return raceTray(); }
+  if(R.used.has(word)) { raceFlash(t('flashAlreadyFound')); sfxBad(); return raceTray(); }
   const known = BANK_ALL.some(w=>w.spell===word) || (DEFS && word in DEFS);
-  if(!known) { raceFlash(t('flashNotAWord')); return raceTray(); }
+  if(!known) { raceFlash(t('flashNotAWord')); sfxBad(); return raceTray(); }
   R.used.add(word);
   const isClue = R.clues.some(c=>c.spell===word);
   if(word.length>=8) R.nLong++;
   if(isClue){
     R.nClues++; R.roundClues++;
-    if(R.roundClues===R.clues.length){ R.nSweeps++; raceFlash(t('flashSweep')); }
+    if(R.roundClues===R.clues.length){ R.nSweeps++; raceFlash(t('flashSweep')); sfxLevelUp(); }
   }
   const pts = sparksFor(word.length) * (isClue?2:1);
+  sfxGood();
   R.score+=pts; R.found.push({word,pts});
   $('rscore').textContent=R.score;
   $('rfound').innerHTML=R.found.slice().reverse()
@@ -2338,7 +2393,7 @@ document.addEventListener('keydown',e=>{
     const ch = GAME==='th' ? e.key : e.key.toLowerCase();
     const slot=claimSlot(ch);
     if(slot===null){flash(`no free "${tileGlyph(ch)}" in the tray`,'bad');return}
-    speakLetter(ch);
+    sfxTap(); speakLetter(ch);
     building.push({ch,from:slot});
   }
   else return;
@@ -2346,7 +2401,7 @@ document.addEventListener('keydown',e=>{
   flash('');
   renderTray(); renderWordTray();
 });
-for(const id of ['speed','ivl','skip','lang','say','sayl','book','dictbtn','promote','reset','clear','submit',
+for(const id of ['speed','ivl','skip','lang','say','sayl','sfx','book','dictbtn','promote','reset','clear','submit',
                   'pzSubmit','pzClear','pzShuffle','pzNext','pzPlay','pzBack','pzStageBack']){
   const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(dropFocus,0));
 }
@@ -2354,6 +2409,7 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastTick
 $('c-close').onclick=()=>{$('card').className='';};
 $('say').onclick=()=>{ sayWords=!sayWords; applyUI(); };
 $('sayl').onclick=()=>{ sayLetters=!sayLetters; applyUI(); };
+$('sfx').onclick=()=>{ toggleSfx(); };
 $('submit').onclick=()=>submit();
 $('clear').onclick=()=>{building=[];renderTray();renderWordTray()};
 /* 5 / 10 / 20 minutes: some players want a slow ambient trickle, others a
@@ -2387,6 +2443,7 @@ function syncUILang(){
    gets is a new card here, not a new button somewhere in the tray. */
 const MODES = [
   {key:'classic',   icon:'🌱', nmKey:'modeClassic',   descKey:'modeClassicDesc'},
+  {key:'daily',     icon:'📅', nmKey:'modeDaily',     descKey:'modeDailyDesc'},
   {key:'anagram',   icon:'🔀', nmKey:'modeAnagram',   descKey:'modeAnagramDesc'},
   {key:'listening', icon:'🎧', nmKey:'modeListening', descKey:'modeListeningDesc'},
   {key:'puzzle',    icon:'🧩', nmKey:'modePuzzle',    descKey:'modePuzzleDesc'},
@@ -2463,17 +2520,19 @@ function showTileSkinPicker(){
       <div class="modegrid">${cards}</div>`);
 }
 
+/* The corner pill is the one way back to the main menu from inside any
+   mode, so it has to open the menu itself directly - routing it through
+   the language splash first (the previous behaviour) buried "get back to
+   the menu" behind "change language", which reads as no menu button at
+   all if you don't want to switch languages. Switching language is still
+   one tap away, just from inside the menu (see showModeMenu's language
+   row) rather than gating the menu behind it. */
 function renderModesTrigger(){
   const el=$('gamepill'); if(!el) return;
-  const here = LANGS.find(l=>l.key===GAME) || LANGS[0];
-  el.innerHTML = `<button onclick="showLanguageSplash()">☰ ${here.nm}</button>`;
+  el.innerHTML = `<button onclick="showModeMenu()">☰ ${t('menuBtn')}</button>`;
 }
 renderModesTrigger();
 
-/* The language choice happens once, up front, on its own screen - not as a
-   pill living inside the modes menu. Each language then gets its own modes
-   menu with nothing in it to switch mid-browse; the corner button is the
-   one way back to the language choice if a player wants the other game. */
 function showLanguageSplash(){
   const cards = LANGS.map(l=>
     `<div class="modecard langcard" onclick="chooseLanguage('${l.key}')"><b>${l.nm}</b></div>`
@@ -2497,16 +2556,20 @@ function showModeMenu(){
     </div>`;
   }).join('');
   const skin = TILE_SKINS.find(s=>s.id===TILE_SKIN) || TILE_SKINS[0];
+  const other = LANGS.find(l=>l.key!==GAME) || LANGS[0];
   openPanel(`<div class="phead"><div><h2>${t('modes')}</h2>
       <div class="sub">${t('modesSub')}</div></div>
       <button onclick="closePanel()">${t('close')}</button></div>
       <div class="modegrid">${cards}</div>
-      <div class="row"><button onclick="showTileSkinPicker()">${skin.icon} ${t('tileSkin')}</button></div>`);
+      <div class="row">
+        <button onclick="showTileSkinPicker()">${skin.icon} ${t('tileSkin')}</button>
+        <button onclick="showLanguageSplash()">🌐 ${other.nm}</button>
+      </div>`);
 }
 function goToMode(mode){
   closePanel();
   if(mode==='race') openRace();
-  else if(mode==='anagram' || mode==='listening' || mode==='puzzle') openPuzzle(mode);
+  else if(mode==='anagram' || mode==='listening' || mode==='puzzle' || mode==='daily') openPuzzle(mode);
   else if(mode==='hangman') openHangman();
 }
 
@@ -2577,6 +2640,13 @@ function openPuzzle(kind){
     $('pzTitle').textContent = t('listeningTitle');
     $('pzSub').textContent   = t('listeningSub');
     showListeningUnavailable();
+  } else if(kind==='daily'){
+    DAILYPROG = loadDailyProgress();
+    $('pzTitle').textContent = t('dailyTitle');
+    $('pzSub').textContent   = t('dailySub')+' #'+dailyDayNumber();
+    $('pzArea').style.display='flex'; $('pzStages').style.display='none';
+    $('pzStageBack').style.display='none';
+    puzzleNext();
   } else {
     $('pzTitle').textContent = kind==='anagram' ? t('anagramTitle') : t('listeningTitle');
     $('pzSub').textContent   = kind==='anagram' ? t('anagramSub')   : t('listeningSub');
@@ -2704,6 +2774,9 @@ function puzzleNext(){
     PZ.order = [...clusterSpell(PZ.w.spell), ...noise].sort(()=>Math.random()-.5);
   } else if(PZ.kind==='anagram'){
     buildAnagramRound();
+  } else if(PZ.kind==='daily'){
+    PZ.w = pickDailyWord();
+    PZ.order = clusterSpell(PZ.w.spell).sort(()=>Math.random()-.5);
   } else {
     PZ.w = pickPuzzleWord();
     PZ.order = clusterSpell(PZ.w.spell).sort(()=>Math.random()-.5);
@@ -2732,7 +2805,7 @@ function puzzlePick(i){
   if(!PZ || PZ.used[i]) return;
   PZ.used[i]=true;
   PZ.building.push({ch:PZ.order[i], from:i});
-  speakLetter(PZ.order[i]);
+  sfxTap(); speakLetter(PZ.order[i]);
   renderPuzzle();
 }
 function puzzleClaimSlot(ch){
@@ -2760,13 +2833,20 @@ function puzzleShuffle(){
 function renderPuzzle(){
   if(!PZ) return;
   const w = PZ.w;
+  const dailySolved = PZ.kind==='daily' && DAILYPROG.solved;
 
-  $('pzTray').innerHTML = PZ.order.map((ch,i)=>
+  $('pzNext').style.display = PZ.kind==='daily' ? 'none' : '';
+  const actions=$('pzActions'); if(actions) actions.style.display = dailySolved ? 'none' : '';
+
+  $('pzTray').innerHTML = dailySolved ? '' : PZ.order.map((ch,i)=>
     `<div class="slot filled${PZ.used[i]?' used':''}" onclick="puzzlePick(${i})">${tileGlyph(ch)}</div>`).join('');
 
   const s = PZ.building.map(b=>b.ch).join('');
   const barEl = $('pzWordbar');
-  if(GAME==='th'){
+  if(dailySolved){
+    barEl.className='wordtray';
+    barEl.innerHTML = `<span class="hintline">${t('dailyComeBack')}</span>`;
+  } else if(GAME==='th'){
     barEl.className='wordtray thai';
     barEl.innerHTML = s ? `<span class="thword">${s}</span>` : `<span class="hintline">${t('tapAbove')}</span>`;
   } else {
@@ -2788,6 +2868,7 @@ function renderPuzzle(){
   const cl=$('pzChecklist');
   if(cl){
     if(PZ.kind==='anagram'){ cl.style.display='block'; renderAnagramChecklist(); }
+    else if(PZ.kind==='daily'){ cl.style.display='block'; renderDailyStatus(); }
     else cl.style.display='none';
   }
 }
@@ -2840,8 +2921,26 @@ function submitPuzzle(){
   PZ.building=[]; PZ.used=PZ.order.map(()=>false);
   renderPuzzle();
 
-  if(answer.length<2){ $('pzMsg').textContent=t('tooShort'); $('pzMsg').className='msg bad'; return; }
-  if(answer===PZ.w.spell){ puzzleAward(PZ.w, true); return; }
+  if(answer.length<2){ $('pzMsg').textContent=t('tooShort'); $('pzMsg').className='msg bad'; sfxBad(); return; }
+  if(answer===PZ.w.spell){
+    /* Daily has exactly one target and no noise tiles, so a match here can
+       only be that target - the tries count is settled and the tray hides
+       (see renderPuzzle's dailySolved branch) before the reward card shows
+       on top of it. */
+    if(PZ.kind==='daily'){ DAILYPROG.tries++; DAILYPROG.solved=true; saveDailyProgress(); renderPuzzle(); }
+    puzzleAward(PZ.w, true);
+    return;
+  }
+  if(PZ.kind==='daily'){
+    /* No alt/dictionary credit for Daily: the shared word is the whole
+       point, and letting another valid word quietly count would make the
+       tries count (and the shared result) mean something different for
+       different players. */
+    DAILYPROG.tries++; saveDailyProgress();
+    $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad'; sfxBad();
+    renderDailyStatus();
+    return;
+  }
 
   /* A different real word made from the very same tiles still counts, the
      same way Classic credits any valid word it finds in the tray - curated
@@ -2850,7 +2949,7 @@ function submitPuzzle(){
   const alt = BANK.find(x=>x.spell===answer);
   if(alt){ puzzleAward(alt, false); return; }
   if(DICT.has(answer)){ creditDictWord(answer); return; }
-  $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad';
+  $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad'; sfxBad();
 }
 
 /* Shared by both submitPuzzle's free-dictionary branch and Anagram's
@@ -2866,6 +2965,7 @@ function creditDictWord(answer){
     $('pzMsg').textContent=t('inkedInDictionary');
   }
   $('pzMsg').className='msg good';
+  sfxGood();
 }
 
 /* Anagram's own submit path: matches against the round's checklist rather
@@ -2878,7 +2978,7 @@ function submitAnagram(){
   PZ.building=[]; PZ.used=PZ.order.map(()=>false);
   renderPuzzle();
 
-  if(answer.length<3){ $('pzMsg').textContent=t('tooShort'); $('pzMsg').className='msg bad'; return; }
+  if(answer.length<3){ $('pzMsg').textContent=t('tooShort'); $('pzMsg').className='msg bad'; sfxBad(); return; }
 
   const entry = PZ.checklist.find(e=>e.spell===answer);
   if(entry && entry.found){ $('pzMsg').textContent=t('flashAlreadyFound'); $('pzMsg').className='msg'; return; }
@@ -2892,6 +2992,7 @@ function submitAnagram(){
       $('pzMsg').textContent = t('anagramRoundComplete');
       $('pzMsg').className = 'msg good';
       $('pzNext').textContent = t('newWord'); $('pzNext').classList.add('primary');
+      sfxLevelUp();
     }
     return;
   }
@@ -2902,7 +3003,7 @@ function submitAnagram(){
      word that happens to also fit does not. */
   const alt = BANK.find(x=>x.spell===answer);
   if(alt){ puzzleAward(alt, false); return; }
-  $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad';
+  $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad'; sfxBad();
 }
 /* The main card (cardHTML/#card) is id-based and lives behind this
    overlay, so it stays queued for later rather than shown here - this is
@@ -2943,6 +3044,7 @@ function puzzleAward(w, isTarget){
     $('pzMsg').textContent=`+${gain} ✨`;
   }
   $('pzMsg').className='msg good';
+  sfxGood();
   $('pzCard').innerHTML = puzzleCardHTML(w, gain);
   $('pzCard').className = 'show';
   /* The word is solved and the card is up - moving on is now the obvious
@@ -2967,8 +3069,10 @@ function puzzleAward(w, isTarget){
       $('pzMsg').textContent = next
         ? `🎉 ${t(stage.nmKey)} ${t('stageClearedWord')} — ${t(next.nmKey)} ${t('unlockedWord')}!`
         : `🎉 ${t(stage.nmKey)} ${t('stageClearedWord')} — ${t('allStagesCleared')}`;
+      sfxLevelUp();
     }
   }
+  if(isTarget && PZ.kind==='daily') sfxLevelUp();
 }
 
 /* ═══════════════════ HANGMAN ═══════════════════
@@ -3160,11 +3264,14 @@ function hangmanGuess(ch){
   const hit = HM.units.some(u=>u.guessable && u.ch===ch);
   if(hit){
     for(const u of HM.units) if(u.guessable && u.ch===ch) u.revealed=true;
+    sfxGood();
   } else {
     HM.wrong++;
+    sfxBad();
   }
   checkHangmanEnd();
   renderHangman();
+  if(HM.done==='won') sfxLevelUp();
 }
 /* Groups each letter with any combining marks immediately following it
    into one visual box - purely structural, based on the word's own
@@ -3324,6 +3431,76 @@ function starterGift(){
     flash(`🎁 Starter Pack gift ${starterDay}/10 — "${w.word}"`,'good'); }, 600);
 }
 
+/* ---- Daily login streak: a small, escalating spark bonus for coming
+   back on consecutive days, independent of anything played that day.
+   The bonus repeats on a 7-day cycle with a bigger payout on day 7, so
+   a long streak keeps paying more without needing unbounded numbers. */
+const LOGIN_STREAK_BONUS=[5,6,8,10,12,15,25];
+function claimLoginStreak(){
+  const today=new Date().toISOString().slice(0,10);
+  if(lastLoginDay===today) return;                    // already claimed today
+  const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  loginStreak = (lastLoginDay===yesterday) ? loginStreak+1 : 1;
+  loginStreakBest = Math.max(loginStreakBest, loginStreak);
+  lastLoginDay = today;
+  const cycleDay = ((loginStreak-1)%7);
+  const bonus = LOGIN_STREAK_BONUS[cycleDay];
+  sparks += bonus; save();
+  setTimeout(()=>{
+    flash(t('streakMsg').replace('{n}',loginStreak).replace('{b}',bonus),'good');
+    updateStreakUI();
+  }, 1200);
+}
+function updateStreakUI(){ const el=$('streak'); if(el) el.textContent=loginStreak; }
+
+/* ---- Daily Challenge: one curated word, the same for every player of
+   this language on a given calendar day (a simple string hash of the
+   date, so no server round-trip is needed to agree on it). Reuses the
+   Puzzle overlay and its submit/award path (see submitPuzzle, PZ.kind)
+   rather than a parallel mode - it behaves like Puzzle/Listening's
+   default single-target branch, just with a deterministic word, no
+   noise tiles, and progress that survives a reload instead of resetting
+   every round. */
+function dailyDateKey(){ return new Date().toISOString().slice(0,10); }
+function dailyDayNumber(){
+  const epoch=Date.UTC(2026,0,1);
+  return Math.max(1, Math.floor((Date.now()-epoch)/86400000)+1);
+}
+function loadDailyProgress(){
+  try{
+    const d=JSON.parse(localStorage.getItem('vocap-daily-'+GAME));
+    if(d && d.date===dailyDateKey()) return d;
+  }catch(e){}
+  return {date:dailyDateKey(), tries:0, solved:false};
+}
+let DAILYPROG = loadDailyProgress();
+function saveDailyProgress(){ localStorage.setItem('vocap-daily-'+GAME, JSON.stringify(DAILYPROG)); }
+function pickDailyWord(){
+  const key=dailyDateKey();
+  let h=0; for(let i=0;i<key.length;i++) h=(h*31+key.charCodeAt(i))>>>0;
+  const pool=BANK.filter(w=>w.letters>=4 && w.letters<=8);
+  const list=pool.length?pool:BANK;
+  return list[h%list.length];
+}
+function renderDailyStatus(){
+  const el=$('pzChecklist'); if(!el) return;
+  if(DAILYPROG.solved){
+    el.innerHTML = `
+      <div class="pzc-head"><span class="pzc-goal">${t('dailySolvedMsg')}</span></div>
+      <div class="row" style="justify-content:center;margin-top:10px">
+        <button class="primary" onclick="dailyCopyResult()">📋 ${t('dailyCopyBtn')}</button>
+      </div>`;
+  } else {
+    el.innerHTML = `<div class="pzc-head"><span class="pzc-goal">${t('dailyTriesLabel')} ${DAILYPROG.tries}</span></div>`;
+  }
+}
+function dailyCopyResult(){
+  const text = `${t('dailyShareLabel')} #${dailyDayNumber()} — ${DAILYPROG.tries} ${t('dailyTriesSuffix')} ✨`;
+  const done = ()=>{ $('pzMsg').textContent=t('dailyCopied'); $('pzMsg').className='msg good'; };
+  if(navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(()=>{});
+  else done();
+}
+
 /* ---------------- boot ---------------- */
 let BANK_ALL=[];
 async function loadJSON(...paths){
@@ -3369,6 +3546,7 @@ Promise.all([
        for anything beyond the visible-immediately default look. */
     TILE_SKIN = loadTileSkin(); applyTileSkin();
     if(GAME==='en') starterGift();
+    claimLoginStreak();
     applyUI();
     await authInit();
     /* CuppaThai's copy sets requireAuth in VOCAP_CONFIG; the open GitHub
