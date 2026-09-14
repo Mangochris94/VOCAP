@@ -928,6 +928,8 @@ const STR = {
     nameTitle:'What should we call you?',
     nameSub:'This is the name that shows up on the leaderboard and in Play Together. You can change it any time from the leaderboard screen.',
     continueBtn:'Continue',
+    tileSkin:'Tile skin', tileSkinSub:'Change how the letter tiles look. Purely cosmetic.',
+    skinTileDefault:'Classic', skinTileStone:'Carved Stone',
     modeHangman:'Hangman', modeHangmanDesc:'Guess the word one letter at a time before you run out of guesses.',
     hangmanTitle:'HANGMAN', hangmanSub:'Guess the word one letter at a time.',
     guessesLeft:'guesses left', chooseSkin:'choose a skin',
@@ -1032,6 +1034,8 @@ const STR = {
     nameTitle:'อยากให้เราเรียกคุณว่าอะไร?',
     nameSub:'ชื่อนี้จะแสดงในตารางอันดับและในโหมดเล่นด้วยกัน คุณเปลี่ยนได้ทุกเมื่อจากหน้าตารางอันดับ',
     continueBtn:'ดำเนินการต่อ',
+    tileSkin:'สกินตัวอักษร', tileSkinSub:'เปลี่ยนรูปลักษณ์ของบล็อกตัวอักษร เป็นเพียงความสวยงามเท่านั้น',
+    skinTileDefault:'คลาสสิก', skinTileStone:'หินแกะสลัก',
     modeHangman:'ทายคำ', modeHangmanDesc:'ทายทีละตัวอักษรก่อนที่โอกาสจะหมด',
     hangmanTitle:'ทายคำ', hangmanSub:'ทายคำทีละตัวอักษร',
     guessesLeft:'โอกาสที่เหลือ', chooseSkin:'เลือกลวดลาย',
@@ -2387,6 +2391,40 @@ const LANGS = [
   {key:'en', nm:'English',  file:'index.html'},
   {key:'th', nm:'ภาษาไทย',  file:'index-th.html'},
 ];
+
+/* Tile skins: purely cosmetic re-skins of the letter tiles shared by every
+   mode's tray (`.slot`). Each skin is just a body class the CSS keys off
+   of, so adding one never touches the tray logic itself. */
+const TILE_SKINS = [
+  {id:'default', icon:'🟨', nameKey:'skinTileDefault'},
+  {id:'stone',   icon:'🪨', nameKey:'skinTileStone'},
+];
+function loadTileSkin(){
+  const id = localStorage.getItem('vocap-tile-skin');
+  return (TILE_SKINS.find(s=>s.id===id)||TILE_SKINS[0]).id;
+}
+let TILE_SKIN = loadTileSkin();
+function applyTileSkin(){
+  document.body.classList.toggle('skin-stone', TILE_SKIN==='stone');
+}
+applyTileSkin();
+function setTileSkin(id){
+  TILE_SKIN = (TILE_SKINS.find(s=>s.id===id)||TILE_SKINS[0]).id;
+  localStorage.setItem('vocap-tile-skin', TILE_SKIN);
+  applyTileSkin();
+  showTileSkinPicker();
+}
+function showTileSkinPicker(){
+  const cards = TILE_SKINS.map(s=>`
+    <div class="modecard${s.id===TILE_SKIN?' here':''}" onclick="setTileSkin('${s.id}')">
+      <span class="ic">${s.icon}</span><b>${t(s.nameKey)}</b>
+    </div>`).join('');
+  openPanel(`<div class="phead"><div><h2>${t('tileSkin')}</h2>
+      <div class="sub">${t('tileSkinSub')}</div></div>
+      <button onclick="showModeMenu()">${t('close')}</button></div>
+      <div class="modegrid">${cards}</div>`);
+}
+
 function renderModesTrigger(){
   const el=$('gamepill'); if(!el) return;
   const here = LANGS.find(l=>l.key===GAME) || LANGS[0];
@@ -2420,10 +2458,12 @@ function showModeMenu(){
       <span>${here?t('youAreHere'):''}${t(m.descKey)}</span>
     </div>`;
   }).join('');
+  const skin = TILE_SKINS.find(s=>s.id===TILE_SKIN) || TILE_SKINS[0];
   openPanel(`<div class="phead"><div><h2>${t('modes')}</h2>
       <div class="sub">${t('modesSub')}</div></div>
       <button onclick="closePanel()">${t('close')}</button></div>
-      <div class="modegrid">${cards}</div>`);
+      <div class="modegrid">${cards}</div>
+      <div class="row"><button onclick="showTileSkinPicker()">${skin.icon} ${t('tileSkin')}</button></div>`);
 }
 function goToMode(mode){
   closePanel();
