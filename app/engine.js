@@ -71,6 +71,7 @@ let snoozed={};                  // word id -> earliest cycle it may return
 const SNOOZE_MIN=3, SNOOZE_MAX=6;
 let DICT=new Set();              // bundled common-English list (validity + Dictionary reveals)
 let DEFS={};                     // WordNet glosses for dictionary words
+let DICT_EN={};                  // Thai dictionary words -> a known English equivalent
 let inked=new Set();             // dictionary words the player has revealed
 let inkTally={};                 // word -> times formed; drives promotion (design 5.4)
 /* Hints cost a share of what the word pays, so one is worth buying and three
@@ -663,6 +664,17 @@ function dictCardHTML(word){
      Thai; on the Thai page the word already IS Thai, so the link is just
      a general dictionary search rather than a mislabeled translation. */
   const lookupLabel = GAME==='th' ? 'ค้นหาในพจนานุกรม ↗' : 'ดูคำแปลไทย · look up in Thai ↗';
+  /* The game always wants to help with English, even on the Thai side -
+     a dictionary word with a known English equivalent (see
+     content/build_dictionary_th.py's join against thaidix) gets its own
+     speak button for it, the same spirit as a curated word's English
+     translation and default English speech. Only a slice of the Thai
+     dictionary has a match, so this simply doesn't show when there isn't
+     one - same as "(no definition available)" above. */
+  const en = GAME==='th' ? DICT_EN[word] : null;
+  const enRow = en
+    ? `<div class="th">${en} <button id="c-speak-en" class="speakbtn" title="listen in English">🔊</button></div>`
+    : '';
   return `
     <div id="c-art">📖</div>
     <div id="c-body">
@@ -671,6 +683,7 @@ function dictCardHTML(word){
         <button id="c-speak" class="speakbtn" title="listen">🔊</button>
         <span id="c-pos">${n} letters</span>
       </div>
+      ${enRow}
       ${list}
       <div id="c-tags"><span>📖 Dictionary word</span></div>
       <div id="lookup"><a href="#" onclick="openExternal('https://dict.longdo.com/search/${encodeURIComponent(word)}');return false">${lookupLabel}</a></div>
@@ -708,6 +721,11 @@ function bindCard(w,plainWord){
     if(!w && GAME==='th') speakThaiWord(plainWord, true);
     else speak(w?englishOf(w):plainWord,{rate:0.8});
   };
+  const se=$('c-speak-en');
+  if(se && !w && GAME==='th'){
+    const en=DICT_EN[plainWord];
+    if(en) se.onclick=()=>{ speechSynthesis.cancel(); speak(en,{rate:0.8}); };
+  }
 }
 
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
@@ -816,6 +834,11 @@ function peekDict(word){
   const s=document.querySelector('#popcard #c-speak');
   if(s) s.onclick=()=>{speechSynthesis.cancel();
     if(GAME==='th') speak(word,{rate:0.78,lang:'th'}); else speak(word,{rate:0.8});};
+  const se=document.querySelector('#popcard #c-speak-en');
+  if(se && GAME==='th'){
+    const en=DICT_EN[word];
+    if(en) se.onclick=()=>{speechSynthesis.cancel(); speak(en,{rate:0.8});};
+  }
 }
 
 /* The shelf grid needs one bucket per first-character actually in play -
@@ -3602,6 +3625,7 @@ Promise.all([
     if(dict){
       for(const k in dict.shelves) for(const w of dict.shelves[k]) DICT.add(w);
       DEFS = dict.defs || {};
+      DICT_EN = dict.en || {};
     }
     $('total').textContent = BANK.length;
     load(); startCycle();
