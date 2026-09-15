@@ -1199,9 +1199,12 @@ function applyUI(){
     lbb.onclick = ()=>showLeaderboard('classic');
   }
   const say=$('say'), sayl=$('sayl'), sfx=$('sfx');
-  if(say)  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));
-  if(sayl) sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off'));
-  if(sfx)  sfx.textContent  = t('sfxLabel')+': '+(sfxOn?t('on'):t('off'));
+  /* .on is a real CSS rule (#controls button.on) that nothing was ever
+     toggling - the three "X: ON/OFF" buttons read their state from text
+     alone, with no visual difference between on and off at a glance. */
+  if(say){  say.textContent  = t('words')+': '+(sayWords?t('on'):t('off'));    say.classList.toggle('on', sayWords); }
+  if(sayl){ sayl.textContent = t('letters')+': '+(sayLetters?t('on'):t('off')); sayl.classList.toggle('on', sayLetters); }
+  if(sfx){  sfx.textContent  = t('sfxLabel')+': '+(sfxOn?t('on'):t('off'));    sfx.classList.toggle('on', sfxOn); }
   updateStreakUI();
   const sb=$('submit'); if(sb) sb.textContent=t('submit');
   const cb=$('clear');  if(cb) cb.textContent=t('clear');
