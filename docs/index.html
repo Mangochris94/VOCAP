@@ -264,11 +264,32 @@
     #wordtray .wslot{width:min(40px,9.5vw);height:min(48px,12vw);font-size:min(20px,5vw)}
     #wordtray{gap:4px;padding:8px 10px}
     #actions button{padding:14px 32px;font-size:16px}
-    /* A single segmented strip rather than separate buttons, so the controls
-     read as one object instead of six competing ones. */
-  /* Everything on show. Hiding half the controls behind a gear saved a row and
-     cost the player the ability to see, at a glance, what language the clues
-     are in - which is the setting they most need to know. */
+
+    #bar{letter-spacing:.2px;
+    gap:12px;font-size:12px}
+      #bar button{padding:8px 12px}
+      h1{font-size:22px;letter-spacing:3px;text-indent:3px}
+      #clue{font-size:14px}
+      #card{padding:14px 16px}
+      #card h2{font-size:22px}
+  }
+
+  /* --- typing area (kept for the letter count) --- */
+  #typed{font-size:13px;letter-spacing:2px;min-height:18px;color:var(--dim)}
+  #msg{min-height:22px;color:var(--dim);font-size:14px}
+  #msg.good{color:var(--good)} #msg.bad{color:#e07a7a}
+
+  /* --- status bar ---
+     A single segmented strip rather than separate buttons, so the controls
+     read as one object instead of six competing ones. Everything on show:
+     hiding half the controls behind a gear saved a row and cost the player
+     the ability to see, at a glance, what language the clues are in - which
+     is the setting they most need to know. Not mobile-only, so it lives
+     here rather than inside the responsive media query above - it used to
+     sit there by mistake, so this whole "one strip" look only ever applied
+     below 700px wide, and every ordinary desktop-browser and GitHub Pages
+     viewer (the majority of current traffic) saw plain separate buttons
+     instead. */
   #controls{display:inline-flex;gap:1px;flex-wrap:wrap;justify-content:center;
             margin:8px auto 0;border:1px solid var(--line);border-radius:10px;
             overflow:hidden;background:var(--line);max-width:560px}
@@ -277,29 +298,6 @@
                    white-space:nowrap}
   #controls button:hover{background:#fffaf0}
   #controls button.on{background:var(--glow);color:#fff}
-
-
-  #bar{letter-spacing:.2px;
-  gap:12px;font-size:12px}
-    #bar button{padding:8px 12px}
-    h1{font-size:22px;letter-spacing:3px;text-indent:3px}
-    #clue{font-size:14px}
-    #card{padding:14px 16px}
-    #card h2{font-size:22px}
-  }
-
-  /* --- typing area (kept for the letter count) --- */
-  #typed{font-size:13px;letter-spacing:2px;min-height:18px;color:var(--dim)}
-  #msg{min-height:22px;color:var(--dim);font-size:14px}
-  #msg.good{color:var(--good)} #msg.bad{color:#e07a7a}
-
-  /* --- status bar --- */
-  /* A single segmented strip rather than separate buttons, so the controls
-     read as one object instead of six competing ones. */
-
-  #controls button:hover{background:#fffaf0}
-  #controls button.on{background:var(--glow);color:#fff}
-
 
   #bar{display:flex;gap:22px;color:var(--dim);font-size:13px;align-items:center;flex-wrap:wrap;justify-content:center}
   #bar b{color:var(--text)}
@@ -722,7 +720,7 @@
   #hangman .hmguesses{color:var(--dim);font-size:12.5px;margin-bottom:10px}
   #hangman .hmword{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0 14px}
   #hangman .hmslot{display:inline-flex;align-items:center;justify-content:center;
-        width:30px;height:38px;border-bottom:3px solid var(--line);
+        width:30px;height:38px;border-bottom:3px solid var(--dim);
         font-size:20px;font-weight:600;text-transform:uppercase}
   #hangman .hmslot.filled{border-color:var(--glow);color:var(--text)}
   #hangman .hmfree{display:inline-flex;align-items:center;justify-content:center;
