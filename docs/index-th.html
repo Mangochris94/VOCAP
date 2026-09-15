@@ -88,154 +88,154 @@
      of <body>) stands in for a rock-grain texture image; the engraved
      letter is faked with a two-direction text-shadow rather than an
      image, so this skin costs nothing to ship or swap. */
-  body.skin-stone{
+  .skin-stone{
     --stone-lit:#9c9482; --stone-mid:#78715f;
     --stone-shadow:#4a4438; --stone-groove:#2e2a21; --lichen:#7c8a63;
   }
-  body.skin-stone .slot.filled,
-  body.skin-stone .slot.typed{
+  .skin-stone .slot.filled,
+  .skin-stone .slot.typed{
     position:relative;isolation:isolate;
     background:radial-gradient(120% 140% at 28% 20%, var(--stone-lit) 0%, var(--stone-mid) 55%, var(--stone-shadow) 100%);
     color:var(--stone-groove);border-color:#5c5546;
     text-shadow:-1px -1px 1px rgba(0,0,0,.6), 1px 1px 0 rgba(255,255,255,.22);
     box-shadow:inset 0 2px 3px rgba(255,255,255,.22), inset 0 -3px 5px rgba(0,0,0,.45), 0 1px 0 rgba(0,0,0,.35);
   }
-  body.skin-stone .slot.filled::before,
-  body.skin-stone .slot.typed::before{
+  .skin-stone .slot.filled::before,
+  .skin-stone .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.5;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-stone .slot.used{
+  .skin-stone .slot.used{
     background:radial-gradient(120% 140% at 28% 20%, var(--stone-mid) 0%, var(--stone-shadow) 60%, #3c372c 100%);
     color:var(--lichen);border-color:var(--stone-shadow);box-shadow:none;opacity:.85;
   }
-  body.skin-stone .slot.empty{
+  .skin-stone .slot.empty{
     background:var(--stone-shadow);border-color:var(--stone-mid);opacity:.5;
   }
 
   /* --- tile skin: Teak Wood --- */
-  body.skin-teak .slot.filled, body.skin-teak .slot.typed{
+  .skin-teak .slot.filled, .skin-teak .slot.typed{
     position:relative;isolation:isolate;
     background:repeating-linear-gradient(93deg, #6b4a2c 0px, #7a5633 5px, #5f3f22 10px, #71502f 15px);
     color:#241407;border-color:#4a3018;
     text-shadow:-1px -1px 1px rgba(0,0,0,.55), 1px 1px 0 rgba(255,220,180,.18);
     box-shadow:inset 0 2px 2px rgba(255,220,180,.15), inset 0 -3px 4px rgba(0,0,0,.4), 0 1px 0 rgba(0,0,0,.35);
   }
-  body.skin-teak .slot.filled::before, body.skin-teak .slot.typed::before{
+  .skin-teak .slot.filled::before, .skin-teak .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.3;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-teak .slot.used{background:#4a3320;color:#8a7359;border-color:#3a2818;opacity:.8}
-  body.skin-teak .slot.empty{background:#3a2818;border-color:#5f3f22;opacity:.5}
+  .skin-teak .slot.used{background:#4a3320;color:#8a7359;border-color:#3a2818;opacity:.8}
+  .skin-teak .slot.empty{background:#3a2818;border-color:#5f3f22;opacity:.5}
 
   /* --- tile skin: Terracotta Clay --- */
-  body.skin-clay .slot.filled, body.skin-clay .slot.typed{
+  .skin-clay .slot.filled, .skin-clay .slot.typed{
     position:relative;isolation:isolate;
     background:radial-gradient(120% 140% at 30% 22%, #d68a5c 0%, #b86a3d 55%, #8f4d29 100%);
     color:#3a1c0c;border-color:#7a4322;
     text-shadow:-1px -1px 1px rgba(0,0,0,.4), 1px 1px 0 rgba(255,220,190,.2);
     box-shadow:inset 0 2px 2px rgba(255,220,190,.18), inset 0 -3px 4px rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-clay .slot.filled::before, body.skin-clay .slot.typed::before{
+  .skin-clay .slot.filled::before, .skin-clay .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.4;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-clay .slot.used{background:#5c3018;color:#b98561;border-color:#4a2612;opacity:.8}
-  body.skin-clay .slot.empty{background:#4a2612;border-color:#7a4322;opacity:.5}
+  .skin-clay .slot.used{background:#5c3018;color:#b98561;border-color:#4a2612;opacity:.8}
+  .skin-clay .slot.empty{background:#4a2612;border-color:#7a4322;opacity:.5}
 
   /* --- tile skin: Brushed Bronze --- */
-  body.skin-bronze .slot.filled, body.skin-bronze .slot.typed{
+  .skin-bronze .slot.filled, .skin-bronze .slot.typed{
     position:relative;isolation:isolate;
     background:linear-gradient(125deg, #a9793a 0%, #c99a52 28%, #8a6428 55%, #d4ac66 78%, #8a6428 100%);
     color:#2a1b06;border-color:#6b4a1c;
     text-shadow:1px 1px 0 rgba(255,232,180,.35), -1px -1px 1px rgba(0,0,0,.4);
     box-shadow:inset 0 1px 1px rgba(255,232,180,.4), inset 0 -2px 3px rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-bronze .slot.filled::before, body.skin-bronze .slot.typed::before{
+  .skin-bronze .slot.filled::before, .skin-bronze .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.22;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-bronze .slot.used{background:#5a4018;color:#b3925a;border-color:#4a3212;opacity:.8}
-  body.skin-bronze .slot.empty{background:#4a3212;border-color:#6b4a1c;opacity:.5}
+  .skin-bronze .slot.used{background:#5a4018;color:#b3925a;border-color:#4a3212;opacity:.8}
+  .skin-bronze .slot.empty{background:#4a3212;border-color:#6b4a1c;opacity:.5}
 
   /* --- tile skin: Celadon Crackle --- */
-  body.skin-celadon .slot.filled, body.skin-celadon .slot.typed{
+  .skin-celadon .slot.filled, .skin-celadon .slot.typed{
     position:relative;isolation:isolate;
     background:radial-gradient(120% 140% at 30% 20%, #bcd4bc 0%, #93b697 55%, #6c8f74 100%);
     color:#1d3322;border-color:#5c7a63;
     text-shadow:-1px -1px 1px rgba(0,0,0,.3), 1px 1px 0 rgba(255,255,255,.35);
     box-shadow:inset 0 2px 3px rgba(255,255,255,.35), inset 0 -3px 4px rgba(0,0,0,.25), 0 1px 0 rgba(0,0,0,.25);
   }
-  body.skin-celadon .slot.filled::before, body.skin-celadon .slot.typed::before{
+  .skin-celadon .slot.filled::before, .skin-celadon .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.35;mix-blend-mode:soft-light;pointer-events:none;
   }
-  body.skin-celadon .slot.used{background:#4c6353;color:#a9c2ad;border-color:#3c4f42;opacity:.8}
-  body.skin-celadon .slot.empty{background:#3c4f42;border-color:#5c7a63;opacity:.5}
+  .skin-celadon .slot.used{background:#4c6353;color:#a9c2ad;border-color:#3c4f42;opacity:.8}
+  .skin-celadon .slot.empty{background:#3c4f42;border-color:#5c7a63;opacity:.5}
 
   /* --- tile skin: Indigo Batik --- */
-  body.skin-batik .slot.filled, body.skin-batik .slot.typed{
+  .skin-batik .slot.filled, .skin-batik .slot.typed{
     position:relative;isolation:isolate;
     background:repeating-linear-gradient(48deg, #22284a 0px, #2c335c 8px, #1a1f3c 16px, #2c335c 24px);
     color:#e8e6f2;border-color:#141830;
     text-shadow:-1px -1px 1px rgba(0,0,0,.5), 1px 1px 0 rgba(255,255,255,.12);
     box-shadow:inset 0 2px 2px rgba(255,255,255,.08), inset 0 -3px 4px rgba(0,0,0,.4), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-batik .slot.filled::before, body.skin-batik .slot.typed::before{
+  .skin-batik .slot.filled::before, .skin-batik .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.25;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-batik .slot.used{background:#232748;color:#8489ad;border-color:#181c38;opacity:.8}
-  body.skin-batik .slot.empty{background:#181c38;border-color:#2c335c;opacity:.5}
+  .skin-batik .slot.used{background:#232748;color:#8489ad;border-color:#181c38;opacity:.8}
+  .skin-batik .slot.empty{background:#181c38;border-color:#2c335c;opacity:.5}
 
   /* --- tile skin: Thai Lacquer --- */
-  body.skin-lacquer .slot.filled, body.skin-lacquer .slot.typed{
+  .skin-lacquer .slot.filled, .skin-lacquer .slot.typed{
     position:relative;isolation:isolate;
     background:linear-gradient(155deg,#2a241d 0%,#100d0a 55%,#1c1712 100%);
     color:#f0e6f7;border-color:#1c1712;
     text-shadow:0 0 5px rgba(143,227,209,.55), 0 0 9px rgba(201,168,232,.4), 1px 1px 0 rgba(0,0,0,.5);
     box-shadow:inset 0 1px 1px rgba(255,255,255,.12), inset 0 -2px 3px rgba(0,0,0,.5), 0 1px 0 rgba(0,0,0,.4);
   }
-  body.skin-lacquer .slot.filled::before, body.skin-lacquer .slot.typed::before{
+  .skin-lacquer .slot.filled::before, .skin-lacquer .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.18) 45%, transparent 60%);
     pointer-events:none;
   }
-  body.skin-lacquer .slot.used{background:#1c1712;color:#6b6055;border-color:#100d0a;opacity:.85}
-  body.skin-lacquer .slot.empty{background:#100d0a;border-color:#241f1a;opacity:.55}
+  .skin-lacquer .slot.used{background:#1c1712;color:#6b6055;border-color:#100d0a;opacity:.85}
+  .skin-lacquer .slot.empty{background:#100d0a;border-color:#241f1a;opacity:.55}
 
   /* --- tile skin: Jade --- */
-  body.skin-jade .slot.filled, body.skin-jade .slot.typed{
+  .skin-jade .slot.filled, .skin-jade .slot.typed{
     position:relative;isolation:isolate;
     background:radial-gradient(120% 140% at 32% 22%, #5fae82 0%, #2f7350 55%, #164a30 100%);
     color:#eafff0;border-color:#123b26;
     text-shadow:-1px -1px 1px rgba(0,0,0,.4), 1px 1px 0 rgba(220,255,230,.3);
     box-shadow:inset 0 3px 6px rgba(180,255,210,.3), inset 0 -3px 5px rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-jade .slot.filled::before, body.skin-jade .slot.typed::before{
+  .skin-jade .slot.filled::before, .skin-jade .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.18;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-jade .slot.used{background:#1c4a30;color:#7fbf9c;border-color:#123b26;opacity:.85}
-  body.skin-jade .slot.empty{background:#123b26;border-color:#2f7350;opacity:.5}
+  .skin-jade .slot.used{background:#1c4a30;color:#7fbf9c;border-color:#123b26;opacity:.85}
+  .skin-jade .slot.empty{background:#123b26;border-color:#2f7350;opacity:.5}
 
   /* --- tile skin: Gold Leaf --- */
-  body.skin-gold .slot.filled, body.skin-gold .slot.typed{
+  .skin-gold .slot.filled, .skin-gold .slot.typed{
     position:relative;isolation:isolate;
     background:linear-gradient(135deg, #f7dfa0 0%, #d4a94d 32%, #a9772a 62%, #f0cf7e 100%);
     color:#3a2408;border-color:#8a6423;
     text-shadow:1px 1px 0 rgba(255,255,255,.4), -1px -1px 1px rgba(0,0,0,.3);
     box-shadow:inset 0 1px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(0,0,0,.3), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-gold .slot.filled::before, body.skin-gold .slot.typed::before{
+  .skin-gold .slot.filled::before, .skin-gold .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.22;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-gold .slot.used{background:#6b4f1e;color:#c7a655;border-color:#4a3712;opacity:.85}
-  body.skin-gold .slot.empty{background:#4a3712;border-color:#8a6423;opacity:.5}
+  .skin-gold .slot.used{background:#6b4f1e;color:#c7a655;border-color:#4a3712;opacity:.85}
+  .skin-gold .slot.empty{background:#4a3712;border-color:#8a6423;opacity:.5}
 
   /* --- tile skin: Patinated Copper --- */
-  body.skin-copper .slot.filled, body.skin-copper .slot.typed{
+  .skin-copper .slot.filled, .skin-copper .slot.typed{
     position:relative;isolation:isolate;
     background:
       radial-gradient(18px 14px at 20% 30%, rgba(90,168,150,.55), transparent 70%),
@@ -245,15 +245,15 @@
     text-shadow:1px 1px 0 rgba(255,220,180,.3), -1px -1px 1px rgba(0,0,0,.35);
     box-shadow:inset 0 1px 1px rgba(255,220,180,.35), inset 0 -2px 3px rgba(0,0,0,.3), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-copper .slot.filled::before, body.skin-copper .slot.typed::before{
+  .skin-copper .slot.filled::before, .skin-copper .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.2;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-copper .slot.used{background:#5c3a1e;color:#a8825e;border-color:#4a2e18;opacity:.8}
-  body.skin-copper .slot.empty{background:#4a2e18;border-color:#6b4423;opacity:.5}
+  .skin-copper .slot.used{background:#5c3a1e;color:#a8825e;border-color:#4a2e18;opacity:.8}
+  .skin-copper .slot.empty{background:#4a2e18;border-color:#6b4423;opacity:.5}
 
   /* --- tile skin: Blue & White Porcelain --- */
-  body.skin-porcelain .slot.filled, body.skin-porcelain .slot.typed{
+  .skin-porcelain .slot.filled, .skin-porcelain .slot.typed{
     position:relative;isolation:isolate;
     background:
       radial-gradient(circle at 22% 28%, #2b5a8a 0 3px, transparent 4px),
@@ -264,49 +264,49 @@
     text-shadow:1px 1px 0 rgba(255,255,255,.5), -1px -1px 1px rgba(0,0,0,.12);
     box-shadow:inset 0 2px 3px rgba(255,255,255,.5), inset 0 -2px 3px rgba(0,0,0,.15), 0 1px 0 rgba(0,0,0,.2);
   }
-  body.skin-porcelain .slot.filled::before, body.skin-porcelain .slot.typed::before{
+  .skin-porcelain .slot.filled::before, .skin-porcelain .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.12;mix-blend-mode:multiply;pointer-events:none;
   }
-  body.skin-porcelain .slot.used{background:#c8bda0;color:#5a6b7d;border-color:#a89878;opacity:.8}
-  body.skin-porcelain .slot.empty{background:#b8ab8c;border-color:#d8cfb8;opacity:.5}
+  .skin-porcelain .slot.used{background:#c8bda0;color:#5a6b7d;border-color:#a89878;opacity:.8}
+  .skin-porcelain .slot.empty{background:#b8ab8c;border-color:#d8cfb8;opacity:.5}
 
   /* --- tile skin: Woven Silk --- */
-  body.skin-silk .slot.filled, body.skin-silk .slot.typed{
+  .skin-silk .slot.filled, .skin-silk .slot.typed{
     position:relative;isolation:isolate;
     background:linear-gradient(125deg, #8a3a5c 0%, #b8577a 25%, #d4935a 50%, #8a3a5c 75%, #b0526f 100%);
     color:#fff3e8;border-color:#5c2740;
     text-shadow:-1px -1px 1px rgba(0,0,0,.35), 1px 1px 0 rgba(255,255,255,.25);
     box-shadow:inset 0 2px 3px rgba(255,255,255,.25), inset 0 -2px 4px rgba(0,0,0,.3), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-silk .slot.filled::before, body.skin-silk .slot.typed::before{
+  .skin-silk .slot.filled::before, .skin-silk .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0px, rgba(255,255,255,.08) 1px, transparent 1px, transparent 4px),
       repeating-linear-gradient(-45deg, rgba(0,0,0,.08) 0px, rgba(0,0,0,.08) 1px, transparent 1px, transparent 4px);
     pointer-events:none;
   }
-  body.skin-silk .slot.used{background:#5c2740;color:#c98aa8;border-color:#4a1e33;opacity:.85}
-  body.skin-silk .slot.empty{background:#4a1e33;border-color:#5c2740;opacity:.5}
+  .skin-silk .slot.used{background:#5c2740;color:#c98aa8;border-color:#4a1e33;opacity:.85}
+  .skin-silk .slot.empty{background:#4a1e33;border-color:#5c2740;opacity:.5}
 
   /* --- tile skin: Ruby --- */
-  body.skin-ruby .slot.filled, body.skin-ruby .slot.typed{
+  .skin-ruby .slot.filled, .skin-ruby .slot.typed{
     position:relative;isolation:isolate;
     background:radial-gradient(120% 140% at 30% 20%, #e8536b 0%, #a01830 55%, #5c0818 100%);
     color:#fff0f2;border-color:#3a0510;
     text-shadow:-1px -1px 1px rgba(0,0,0,.4), 1px 1px 0 rgba(255,200,210,.3);
     box-shadow:inset 0 3px 6px rgba(255,180,190,.4), inset 0 -3px 5px rgba(0,0,0,.4), 0 1px 0 rgba(0,0,0,.3);
   }
-  body.skin-ruby .slot.filled::before, body.skin-ruby .slot.typed::before{
+  .skin-ruby .slot.filled::before, .skin-ruby .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     background:linear-gradient(115deg, transparent 25%, rgba(255,255,255,.22) 40%, transparent 55%);
     pointer-events:none;
   }
-  body.skin-ruby .slot.used{background:#5c0818;color:#c97080;border-color:#3a0510;opacity:.85}
-  body.skin-ruby .slot.empty{background:#3a0510;border-color:#5c0818;opacity:.5}
+  .skin-ruby .slot.used{background:#5c0818;color:#c97080;border-color:#3a0510;opacity:.85}
+  .skin-ruby .slot.empty{background:#3a0510;border-color:#5c0818;opacity:.5}
 
   /* --- tile skin: Moonstone (top-tier - the only skin with an outer glow) --- */
-  body.skin-moonstone .slot.filled, body.skin-moonstone .slot.typed{
+  .skin-moonstone .slot.filled, .skin-moonstone .slot.typed{
     position:relative;isolation:isolate;
     background:radial-gradient(120% 140% at 35% 25%, #eef1f8 0%, #c3cbdd 45%, #8d9ab3 100%);
     color:#252a38;border-color:#5c657a;
@@ -314,12 +314,12 @@
     box-shadow:inset 0 3px 7px rgba(255,255,255,.65), inset 0 -3px 5px rgba(60,70,95,.3),
                0 0 14px rgba(200,212,235,.4), 0 1px 0 rgba(0,0,0,.25);
   }
-  body.skin-moonstone .slot.filled::before, body.skin-moonstone .slot.typed::before{
+  .skin-moonstone .slot.filled::before, .skin-moonstone .slot.typed::before{
     content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
     filter:url(#stoneNoise);opacity:.12;mix-blend-mode:overlay;pointer-events:none;
   }
-  body.skin-moonstone .slot.used{background:#5c657a;color:#c3cbdd;border-color:#3a4152;opacity:.85}
-  body.skin-moonstone .slot.empty{background:#3a4152;border-color:#5c657a;opacity:.5}
+  .skin-moonstone .slot.used{background:#5c657a;color:#c3cbdd;border-color:#3a4152;opacity:.85}
+  .skin-moonstone .slot.empty{background:#3a4152;border-color:#5c657a;opacity:.5}
 
   /* --- the word tray: where letters go to become a word --- */
   .wordtray.thai{min-height:74px;align-items:center;justify-content:center}
@@ -704,6 +704,11 @@
             width:36px;height:36px;border-radius:10px;margin-bottom:10px;
             background:radial-gradient(120% 120% at 30% 20%, rgba(221,143,101,.22), rgba(221,143,101,.05));
             border:1px solid var(--line)}
+  /* a real rendered tile swatch, standing in for .ic on the tile-skin
+     picker - a locked skin's actual look, not a placeholder emoji */
+  .skinswatch{width:36px;height:36px;border-radius:10px;margin-bottom:10px;
+            display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .skinswatch .slot{width:32px;height:32px;font-size:15px;border-radius:7px;cursor:default}
   .modecard b{display:block;font-size:15px;font-family:var(--serif);font-weight:600;margin-bottom:3px}
   .modecard span{display:block;color:var(--dim);font-size:12.5px;line-height:1.5}
   .modecard .lockbadge{position:absolute;top:12px;right:14px;font-size:13px;opacity:.8}

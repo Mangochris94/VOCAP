@@ -2583,6 +2583,16 @@ function setTileSkin(id){
   applyTileSkin();
   showTileSkinPicker();
 }
+/* A real rendered tile - not just the emoji - so a locked skin's card
+   shows exactly what it looks like before ever unlocking it. Reuses the
+   same .slot.filled + skin-<id> rules the live tray uses (see the CSS:
+   every skin rule is scoped to .skin-<id>, not body.skin-<id>, precisely
+   so it also works on a small wrapper like this one, not just the whole
+   page). Default has no skin class at all, same as the live tray. */
+function skinSwatch(id){
+  const cls = id==='default' ? '' : ' skin-'+id;
+  return `<div class="skinswatch${cls}"><span class="slot filled">A</span></div>`;
+}
 function showTileSkinPicker(){
   const cards = TILE_SKINS.map(s=>{
     const unlocked = tileSkinUnlocked(s);
@@ -2590,7 +2600,7 @@ function showTileSkinPicker(){
       const pct = Math.max(4, Math.min(100, Math.round(progressCount()/s.need*100)));
       return `<div class="modecard locked">
         <span class="lockbadge">🔒</span>
-        <span class="ic">${s.icon}</span><b>${t(s.nameKey)}</b>
+        ${skinSwatch(s.id)}<b>${t(s.nameKey)}</b>
         <span>${t('skinUnlockAt')} ${s.need} ${t('wordsFound')}</span>
         <div class="needbar"><i style="width:${pct}%"></i></div>
         <span class="needtext">${progressCount()}/${s.need}</span>
@@ -2598,7 +2608,7 @@ function showTileSkinPicker(){
     }
     const here = s.id===TILE_SKIN;
     return `<div class="modecard${here?' here':''}" onclick="setTileSkin('${s.id}')">
-      <span class="ic">${s.icon}</span><b>${t(s.nameKey)}</b>
+      ${skinSwatch(s.id)}<b>${t(s.nameKey)}</b>
       <span>${here?t('youAreHere'):''}</span>
     </div>`;
   }).join('');
@@ -2648,11 +2658,11 @@ function showModeMenu(){
   openPanel(`<div class="phead"><div><h2>${t('modes')}</h2>
       <div class="sub">${t('modesSub')}</div></div>
       <button onclick="closePanel()">${t('close')}</button></div>
-      <div class="modegrid">${cards}</div>
-      <div class="row">
+      <div class="row" style="margin-bottom:14px">
         <button onclick="showTileSkinPicker()">${skin.icon} ${t('tileSkin')}</button>
         <button onclick="showLanguageSplash()">🌐 ${other.nm}</button>
-      </div>`);
+      </div>
+      <div class="modegrid">${cards}</div>`);
 }
 function goToMode(mode){
   closePanel();
