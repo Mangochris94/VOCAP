@@ -234,6 +234,93 @@
   body.skin-gold .slot.used{background:#6b4f1e;color:#c7a655;border-color:#4a3712;opacity:.85}
   body.skin-gold .slot.empty{background:#4a3712;border-color:#8a6423;opacity:.5}
 
+  /* --- tile skin: Patinated Copper --- */
+  body.skin-copper .slot.filled, body.skin-copper .slot.typed{
+    position:relative;isolation:isolate;
+    background:
+      radial-gradient(18px 14px at 20% 30%, rgba(90,168,150,.55), transparent 70%),
+      radial-gradient(14px 20px at 75% 70%, rgba(90,168,150,.45), transparent 70%),
+      radial-gradient(120% 140% at 30% 20%, #d38a52 0%, #b56a35 45%, #6b4423 100%);
+    color:#2a1608;border-color:#5c3a1e;
+    text-shadow:1px 1px 0 rgba(255,220,180,.3), -1px -1px 1px rgba(0,0,0,.35);
+    box-shadow:inset 0 1px 1px rgba(255,220,180,.35), inset 0 -2px 3px rgba(0,0,0,.3), 0 1px 0 rgba(0,0,0,.3);
+  }
+  body.skin-copper .slot.filled::before, body.skin-copper .slot.typed::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
+    filter:url(#stoneNoise);opacity:.2;mix-blend-mode:overlay;pointer-events:none;
+  }
+  body.skin-copper .slot.used{background:#5c3a1e;color:#a8825e;border-color:#4a2e18;opacity:.8}
+  body.skin-copper .slot.empty{background:#4a2e18;border-color:#6b4423;opacity:.5}
+
+  /* --- tile skin: Blue & White Porcelain --- */
+  body.skin-porcelain .slot.filled, body.skin-porcelain .slot.typed{
+    position:relative;isolation:isolate;
+    background:
+      radial-gradient(circle at 22% 28%, #2b5a8a 0 3px, transparent 4px),
+      radial-gradient(circle at 72% 65%, #2b5a8a 0 2px, transparent 3px),
+      radial-gradient(circle at 55% 18%, #2b5a8a 0 1.5px, transparent 2.5px),
+      radial-gradient(120% 140% at 30% 20%, #f5f1e8 0%, #e8e0d0 60%, #d8cfb8 100%);
+    color:#1e3a5f;border-color:#b8ab8c;
+    text-shadow:1px 1px 0 rgba(255,255,255,.5), -1px -1px 1px rgba(0,0,0,.12);
+    box-shadow:inset 0 2px 3px rgba(255,255,255,.5), inset 0 -2px 3px rgba(0,0,0,.15), 0 1px 0 rgba(0,0,0,.2);
+  }
+  body.skin-porcelain .slot.filled::before, body.skin-porcelain .slot.typed::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
+    filter:url(#stoneNoise);opacity:.12;mix-blend-mode:multiply;pointer-events:none;
+  }
+  body.skin-porcelain .slot.used{background:#c8bda0;color:#5a6b7d;border-color:#a89878;opacity:.8}
+  body.skin-porcelain .slot.empty{background:#b8ab8c;border-color:#d8cfb8;opacity:.5}
+
+  /* --- tile skin: Woven Silk --- */
+  body.skin-silk .slot.filled, body.skin-silk .slot.typed{
+    position:relative;isolation:isolate;
+    background:linear-gradient(125deg, #8a3a5c 0%, #b8577a 25%, #d4935a 50%, #8a3a5c 75%, #b0526f 100%);
+    color:#fff3e8;border-color:#5c2740;
+    text-shadow:-1px -1px 1px rgba(0,0,0,.35), 1px 1px 0 rgba(255,255,255,.25);
+    box-shadow:inset 0 2px 3px rgba(255,255,255,.25), inset 0 -2px 4px rgba(0,0,0,.3), 0 1px 0 rgba(0,0,0,.3);
+  }
+  body.skin-silk .slot.filled::before, body.skin-silk .slot.typed::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0px, rgba(255,255,255,.08) 1px, transparent 1px, transparent 4px),
+      repeating-linear-gradient(-45deg, rgba(0,0,0,.08) 0px, rgba(0,0,0,.08) 1px, transparent 1px, transparent 4px);
+    pointer-events:none;
+  }
+  body.skin-silk .slot.used{background:#5c2740;color:#c98aa8;border-color:#4a1e33;opacity:.85}
+  body.skin-silk .slot.empty{background:#4a1e33;border-color:#5c2740;opacity:.5}
+
+  /* --- tile skin: Ruby --- */
+  body.skin-ruby .slot.filled, body.skin-ruby .slot.typed{
+    position:relative;isolation:isolate;
+    background:radial-gradient(120% 140% at 30% 20%, #e8536b 0%, #a01830 55%, #5c0818 100%);
+    color:#fff0f2;border-color:#3a0510;
+    text-shadow:-1px -1px 1px rgba(0,0,0,.4), 1px 1px 0 rgba(255,200,210,.3);
+    box-shadow:inset 0 3px 6px rgba(255,180,190,.4), inset 0 -3px 5px rgba(0,0,0,.4), 0 1px 0 rgba(0,0,0,.3);
+  }
+  body.skin-ruby .slot.filled::before, body.skin-ruby .slot.typed::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
+    background:linear-gradient(115deg, transparent 25%, rgba(255,255,255,.22) 40%, transparent 55%);
+    pointer-events:none;
+  }
+  body.skin-ruby .slot.used{background:#5c0818;color:#c97080;border-color:#3a0510;opacity:.85}
+  body.skin-ruby .slot.empty{background:#3a0510;border-color:#5c0818;opacity:.5}
+
+  /* --- tile skin: Moonstone (top-tier - the only skin with an outer glow) --- */
+  body.skin-moonstone .slot.filled, body.skin-moonstone .slot.typed{
+    position:relative;isolation:isolate;
+    background:radial-gradient(120% 140% at 35% 25%, #eef1f8 0%, #c3cbdd 45%, #8d9ab3 100%);
+    color:#252a38;border-color:#5c657a;
+    text-shadow:1px 1px 0 rgba(255,255,255,.5), -1px -1px 1px rgba(60,70,95,.25);
+    box-shadow:inset 0 3px 7px rgba(255,255,255,.65), inset 0 -3px 5px rgba(60,70,95,.3),
+               0 0 14px rgba(200,212,235,.4), 0 1px 0 rgba(0,0,0,.25);
+  }
+  body.skin-moonstone .slot.filled::before, body.skin-moonstone .slot.typed::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;
+    filter:url(#stoneNoise);opacity:.12;mix-blend-mode:overlay;pointer-events:none;
+  }
+  body.skin-moonstone .slot.used{background:#5c657a;color:#c3cbdd;border-color:#3a4152;opacity:.85}
+  body.skin-moonstone .slot.empty{background:#3a4152;border-color:#5c657a;opacity:.5}
+
   /* --- the word tray: where letters go to become a word --- */
   .wordtray.thai{min-height:74px;align-items:center;justify-content:center}
   .thword{font-size:40px;line-height:1.5;letter-spacing:1px;
