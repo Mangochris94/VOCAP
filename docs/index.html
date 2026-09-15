@@ -389,7 +389,8 @@
               letter-spacing:1px;text-transform:uppercase}
   #race input{background:var(--panel);border:1px solid var(--line);color:var(--text);
               border-radius:8px;padding:10px 14px;font-size:19px;text-align:center;
-              letter-spacing:4px;font-family:monospace;width:210px;text-transform:uppercase}
+              letter-spacing:4px;font-family:monospace;width:210px;text-transform:uppercase;
+              box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
   #race .opts{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
   #race .opts button{border:none;border-radius:0;background:var(--panel);
                      border-right:1px solid var(--line);font-size:12px;padding:8px 13px}
@@ -438,7 +439,9 @@
   #race .tsel{font-size:11px;padding:5px 11px}
   #race .tsel.on{background:var(--glow);color:#fff;border-color:var(--glow)}
   #race .trophies{max-width:480px;margin:8px auto;text-align:left}
-  #race .trow{background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  #race .trow{background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 55%), var(--panel);
+              border:1px solid var(--line);border-radius:9px;
+              box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 2px 6px rgba(0,0,0,.2);
               padding:9px 12px;margin-bottom:6px}
   #race .thead{display:flex;justify-content:space-between;align-items:center;gap:8px}
   #race .thead small{color:var(--dim);font-size:11px}
@@ -452,8 +455,10 @@
   #race .bar i{display:block;height:100%;background:var(--glow)}
   #race .tfoot{color:var(--dim);font-size:11px}
   .lbboard{max-width:480px;margin:8px auto;text-align:left}
-  .lbrow{display:flex;align-items:center;gap:10px;background:var(--panel);
-         border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-bottom:6px}
+  .lbrow{display:flex;align-items:center;gap:10px;
+         background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 55%), var(--panel);
+         border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-bottom:6px;
+         box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 2px 6px rgba(0,0,0,.2)}
   .lbpos{flex:0 0 22px;text-align:center;color:var(--dim);font-size:12px;font-weight:700}
   .lbname{flex:1;font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lbval{color:var(--dim);font-size:12px;white-space:nowrap}
@@ -567,14 +572,28 @@
                padding:0;margin-bottom:12px}
 
   /* topic rows */
-  .trow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;
-        cursor:pointer;border:1px solid transparent}
-  .trow:hover{background:var(--panel);border-color:var(--line)}
-  .trow .nm{flex:1;font-size:15px}
-  .trow .ct{color:var(--dim);font-size:13px;white-space:nowrap}
-  .bar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden;width:120px}
+  .topiclist{display:flex;flex-direction:column;gap:8px}
+  .topicrow{display:flex;align-items:center;gap:14px;padding:12px 16px;cursor:pointer;
+        background:linear-gradient(180deg, rgba(255,255,255,.035), transparent 55%), var(--panel);
+        border:1px solid var(--line);border-radius:12px;
+        box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 3px 10px rgba(0,0,0,.22);
+        transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease}
+  .topicrow:hover{border-color:var(--glow);transform:translateY(-2px);
+        box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 10px 22px rgba(0,0,0,.32)}
+  .topicrow.done{border-color:var(--good)}
+  .topicrow .ic{flex-shrink:0;width:34px;height:34px;border-radius:9px;font-size:15px;
+        display:flex;align-items:center;justify-content:center;
+        background:radial-gradient(120% 120% at 30% 20%, rgba(221,143,101,.22), rgba(221,143,101,.05));
+        border:1px solid var(--line)}
+  .topicrow .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+  .topicrow .nm{font-size:14.5px;font-weight:600;font-family:var(--serif);
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topicrow .ct{color:var(--dim);font-size:12px;white-space:nowrap;flex-shrink:0;
+        font-variant-numeric:tabular-nums}
+  .bar{height:6px;background:rgba(0,0,0,.3);border-radius:3px;overflow:hidden;
+       width:100%;border:1px solid var(--line)}
   .bar i{display:block;height:100%;background:var(--glow);border-radius:3px}
-  .trow.done .nm:after{content:' ✓';color:var(--good)}
+  .topicrow.done .nm:after{content:' ✓';color:var(--good)}
 
   /* mode-menu rows: a language paired with a way to play, one list */
   .langcard{text-align:center;padding:34px 20px}
@@ -619,13 +638,18 @@
   .wchip.hidden:hover{border-color:var(--line)}
 
   /* dictionary shelves */
-  .shelf{display:flex;flex-wrap:wrap;gap:6px}
-  .letter{width:52px;height:52px;border-radius:8px;background:var(--panel);border:1px solid var(--line);
-          display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+  .shelf{display:flex;flex-wrap:wrap;gap:8px}
+  .letter{width:52px;height:52px;border-radius:9px;
+          background:linear-gradient(180deg, rgba(255,255,255,.035), transparent 55%), var(--panel);
+          border:1px solid var(--line);
+          box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 2px 6px rgba(0,0,0,.2);
+          display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;
+          transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease}
   .letter b{font-size:18px;text-transform:uppercase}
   .letter span{font-size:10px;color:var(--dim)}
-  .letter.empty{opacity:.3;cursor:default}
-  .letter:hover:not(.empty){border-color:var(--glow)}
+  .letter.empty{opacity:.3;cursor:default;box-shadow:none}
+  .letter:hover:not(.empty){border-color:var(--glow);transform:translateY(-2px);
+          box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 6px 14px rgba(0,0,0,.3)}
 
   /* --- found-this-cycle log --- */
   #log{font-size:13px;color:var(--dim);max-width:640px;text-align:center;line-height:1.8}
