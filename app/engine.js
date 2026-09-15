@@ -766,15 +766,20 @@ function showCollection(){
   const rows=names.map(t=>{
     const s=m[t], pct=Math.round(s.found/s.total*100);
     const started=s.found>0;
-    return `<div class="trow ${s.found===s.total?'done':''}" onclick="showTopic('${t.replace(/'/g,"\\'")}')">
-      <span class="nm">${started?t:'? ? ?'}</span>
-      <span class="bar"><i style="width:${pct}%"></i></span>
+    const done=s.found===s.total;
+    return `<div class="topicrow ${done?'done':''}" onclick="showTopic('${t.replace(/'/g,"\\'")}')">
+      <span class="ic">${TOPIC_ICON[t]||'✦'}</span>
+      <span class="body">
+        <span class="nm">${started?esc(t):'? ? ?'}</span>
+        <span class="bar"><i style="width:${pct}%"></i></span>
+      </span>
       <span class="ct">${s.found}/${s.total}</span></div>`;
   }).join('');
   const tot=seen.size, all=BANK_ALL.length;
   openPanel(`<div class="phead"><div><h2>Collection</h2>
       <div class="sub">${tot} of ${all} words found · ${Math.round(tot/all*100)}%</div></div>
-      <button onclick="closePanel()">close</button></div>${rows}`);
+      <button onclick="closePanel()">close</button></div>
+      <div class="topiclist">${rows}</div>`);
 }
 
 function showTopic(t){
