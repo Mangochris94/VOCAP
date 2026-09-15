@@ -23,6 +23,15 @@ percent), so this is "as many as we actually have", not full coverage.
 Words without a match simply get no English button, same as words
 without a definition get "(no definition available)".
 
+content/dictionary-th-manual-en.json is a small, hand-maintained {thai:
+english} map layered on top of the thaidix join, overriding it where both
+give an answer. This is where a translated word actually lands: the
+in-game "top words" button (Thai page) lists the most-formed dictionary
+words that still have no English equivalent, ranked by how often a real
+player actually forms them - translate a few of those, add them here,
+rerun this script, and they gain their play button without waiting on a
+bigger dataset that doesn't exist for free.
+
 Download once:
   https://github.com/PyThaiNLP/pythainlp-corpus/releases/download/thai_dict-v1.0/thai_dictionary.csv
   save as content/thai_dictionary.csv
@@ -38,6 +47,7 @@ import xml.etree.ElementTree as ET
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC  = os.path.join(ROOT, "content", "thai_dictionary.csv")
 DIX  = os.path.join(ROOT, "content", "tha-eng.dix")
+MANUAL_EN = os.path.join(ROOT, "content", "dictionary-th-manual-en.json")
 WORDS = os.path.join(ROOT, "app", "words-th.json")
 OUT  = os.path.join(ROOT, "content", "dictionary-th.json")
 
@@ -174,9 +184,21 @@ def main():
         if cands:
             en[w] = min(cands, key=lambda s: (s.count(" "), len(s)))
 
+    # Hand-translated words (see the module docstring) win over the
+    # thaidix join - a person actually chose that translation.
+    manual = {}
+    if os.path.exists(MANUAL_EN):
+        manual = json.load(open(MANUAL_EN, encoding="utf-8"))
+    manual_kept = 0
+    for w, e in manual.items():
+        if w in seen:                    # only apply to words actually in this build
+            en[w] = e
+            manual_kept += 1
+
     out = {"schema": 4,
            "source": "Thai Wiktionary via PyThaiNLP thai_dictionary.csv (CC BY-SA 4.0); "
-                      "English equivalents via veer66/thaidix (CC BY-SA 3.0)",
+                      "English equivalents via veer66/thaidix (CC BY-SA 3.0) "
+                      "plus hand-translated entries in dictionary-th-manual-en.json",
            "count": len(words), "shelves": shelves, "defs": glosses, "en": en}
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
@@ -189,7 +211,7 @@ def main():
     print(f"    definitions: {len(glosses):,} of {len(words):,} words "
           f"({len(glosses)/max(len(words),1)*100:.0f}%)")
     print(f"    English equivalents: {len(en):,} of {len(words):,} words "
-          f"({len(en)/max(len(words),1)*100:.0f}%)"
+          f"({len(en)/max(len(words),1)*100:.0f}%)  [{manual_kept:,} hand-translated]"
           + ("" if os.path.exists(DIX) else "  [content/tha-eng.dix not found - skipped]"))
 
 
