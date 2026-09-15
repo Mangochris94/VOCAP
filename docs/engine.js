@@ -2709,9 +2709,6 @@ function startPuzzleStage(key){
    it. The checklist is computed once per round from that finished pool,
    not regenerated per guess, so "how many words are left" stays stable
    while the round is in progress. */
-/* Curated-only pools are naturally sparser than when the free dictionary
-   counted too - 3 real finds is a perfectly normal round now, not a thin
-   one, so the retry loop shouldn't keep reaching for more than that. */
 const ANAGRAM_CHECKLIST_CAP = 24, ANAGRAM_MIN_WORDS = 3, ANAGRAM_MAX_TRIES = 5;
 /* Same ceiling Race already uses for a Thai tray (18 tile characters vs 26
    English letters need more room for the same word count), so a maxed-out
@@ -2733,9 +2730,15 @@ let ANAGRAM_LEVEL = loadAnagramLevel();
 function saveAnagramLevel(){ localStorage.setItem(anagramLevelKey(), String(ANAGRAM_LEVEL)); }
 
 function buildAnagramRound(){
-  /* Curated collection only - Anagram is its own thing, not a doorway into
-     the free-form Dictionary. A word only makes the checklist if it's one
-     of the game's own curated words. */
+  /* Every findable word counts, curated or dictionary - the checklist is
+     built from both, with curated words given the seats in the (capped)
+     visible checklist whenever there are more finds than room, since
+     those are the words this game is actually trying to teach; overflow
+     dictionary words are shuffled for whichever slots are left rather
+     than always showing the same alphabetically-first ones. A word that
+     can be spelled but didn't make the visible cut still counts on
+     submit (see submitAnagram's alt/DICT fallback), the same way any
+     other mode credits a valid word it didn't explicitly prompt for. */
   let best = null;
   for(let attempt=0; attempt<ANAGRAM_MAX_TRIES; attempt++){
     const seed = pickPuzzleWord();
@@ -2746,17 +2749,29 @@ function buildAnagramRound(){
     const tiles = [...clusterSpell(seed.spell), ...noise];
     const poolCount = count(tiles.join(''));
 
-    const matches=[];
+    const curatedMatches=[];
     for(const w of BANK){
       if(w.letters<3) continue;
-      if(canSpell(count(w.spell), poolCount)) matches.push({spell:w.spell, len:w.letters, wordObj:w});
+      if(canSpell(count(w.spell), poolCount)) curatedMatches.push({spell:w.spell, len:w.letters, curated:true, wordObj:w});
     }
-    best = {tiles, seed, matches};
-    if(matches.length>=ANAGRAM_MIN_WORDS) break;
+    const curatedSpells = new Set(curatedMatches.map(m=>m.spell));
+    const dictMatches=[];
+    for(const d of DICT){
+      if(d.length<3 || curatedSpells.has(d)) continue;
+      if(canSpell(count(d), poolCount)) dictMatches.push({spell:d, len:d.length, curated:false});
+    }
+    const all = [...curatedMatches, ...dictMatches];
+    best = {tiles, seed, curatedMatches, dictMatches, all};
+    if(all.length>=ANAGRAM_MIN_WORDS) break;
   }
 
-  let all = best.matches;
-  if(all.length>ANAGRAM_CHECKLIST_CAP) all = all.slice(0,ANAGRAM_CHECKLIST_CAP);
+  let all = best.all;
+  if(all.length>ANAGRAM_CHECKLIST_CAP){
+    const curated = best.curatedMatches.slice(0,ANAGRAM_CHECKLIST_CAP);
+    const slotsLeft = ANAGRAM_CHECKLIST_CAP - curated.length;
+    const shuffledDict = best.dictMatches.slice().sort(()=>Math.random()-.5);
+    all = [...curated, ...(slotsLeft>0 ? shuffledDict.slice(0,slotsLeft) : [])];
+  }
   all = all.map(e=>({...e, found:false}));
   all.sort((a,b)=> a.len-b.len || a.spell.localeCompare(b.spell));
 
@@ -2985,7 +3000,8 @@ function submitAnagram(){
 
   if(entry){
     entry.found = true; PZ.foundCount++;
-    puzzleAward(entry.wordObj, false);
+    if(entry.curated) puzzleAward(entry.wordObj, false);
+    else creditDictWord(answer);
     renderAnagramChecklist();
     if(PZ.foundCount >= PZ.checklist.length){
       ANAGRAM_LEVEL++; saveAnagramLevel();
@@ -2997,12 +3013,13 @@ function submitAnagram(){
     return;
   }
 
-  /* Still curated-only, not a doorway to the free dictionary: a curated
-     word this pool can spell but that didn't make the (capped) checklist
-     still counts and still opens its card - typing a random real English
-     word that happens to also fit does not. */
+  /* A curated word this pool can spell but that didn't make the (capped)
+     checklist still counts and still opens its card - same as any other
+     real word this pool can spell but that also didn't make the cut. The
+     checklist is a visible subset, not the full boundary of what counts. */
   const alt = BANK.find(x=>x.spell===answer);
   if(alt){ puzzleAward(alt, false); return; }
+  if(DICT.has(answer)){ creditDictWord(answer); return; }
   $('pzMsg').textContent=t('notQuite'); $('pzMsg').className='msg bad'; sfxBad();
 }
 /* The main card (cardHTML/#card) is id-based and lives behind this
