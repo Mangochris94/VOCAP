@@ -3490,18 +3490,44 @@ $('lang').onclick=()=>{
 };
 /* The promotion list: dictionary words this player forms most often are the
    best candidates to become curated entries (hand-written definition, fun
-   fact, Thai). This is how the 966 grows - driven by real play. */
+   fact, Thai). This is how the 966 grows - driven by real play.
+   On the Thai page the same tally instead drives which dictionary words
+   are worth hand-translating into English next (see DICT_EN and
+   content/dictionary-th-manual-en.json) - already-translated words are
+   filtered out, so this always shows real, current gaps rather than
+   words that stopped needing attention as translations were added. */
 $('promote').onclick=()=>{
-  const rows=Object.entries(inkTally).sort((a,b)=>b[1]-a[1]).slice(0,25);
-  if(!rows.length){flash('no dictionary words formed yet','');return}
+  const rows = GAME==='th'
+    ? Object.entries(inkTally).filter(([w])=>!DICT_EN[w]).sort((a,b)=>b[1]-a[1]).slice(0,25)
+    : Object.entries(inkTally).sort((a,b)=>b[1]-a[1]).slice(0,25);
+  if(!rows.length){flash(GAME==='th' ? 'no untranslated words formed yet' : 'no dictionary words formed yet','');return}
   const list=rows.map(([w,n])=>`${w} (${n})`).join(', ');
-  $('c-word').textContent='Promotion candidates';
-  $('c-thword').textContent='';
-  $('c-def').textContent='Dictionary words you form most often. These are the best candidates to hand-write into the curated collection.';
-  $('c-thdef').textContent=''; $('c-hist').textContent=list;
-  $('c-thhist').textContent=''; $('c-sent').textContent='';
-  $('c-meta').textContent=`${Object.keys(inkTally).length} distinct dictionary words formed · copy this list into Notion`;
+  const title = GAME==='th' ? 'Words needing an English translation' : 'Promotion candidates';
+  const desc = GAME==='th'
+    ? 'Thai dictionary words you form most often that don\'t have an English equivalent yet - the best ones to translate next.'
+    : 'Dictionary words you form most often. These are the best candidates to hand-write into the curated collection.';
+  const meta = GAME==='th'
+    ? `${rows.length} untranslated words formed · add them to content/dictionary-th-manual-en.json`
+    : `${Object.keys(inkTally).length} distinct dictionary words formed · copy this list into Notion`;
+  /* Built as a self-contained template rather than writing into the
+     static page's original #c-word/#c-hist/etc elements: those ids only
+     exist in the pristine pre-discovery markup, and every real card shown
+     since (cardHTML/dictCardHTML, i.e. any word found at all) has already
+     replaced #card's innerHTML with a template that doesn't carry several
+     of them - which silently broke this button after the very first find
+     of a real play session, not just as some rare edge case. */
+  shownCard = null; shownPop = null;
+  $('card').innerHTML = `
+    <div id="c-art">⭐</div>
+    <div id="c-body">
+      <div id="c-head"><h2>${esc(title)}</h2></div>
+      <p>${esc(desc)}</p>
+      <p>${esc(list)}</p>
+      <p style="color:var(--dim);font-size:13px">${esc(meta)}</p>
+    </div>
+    <button id="c-close" title="close">×</button>`;
   $('card').className='show';
+  $('c-close').onclick=()=>{ $('card').className=''; };
 };
 $('reset').onclick=()=>{if(confirm('Wipe save?')){localStorage.removeItem('vocap');location.reload()}};
 
