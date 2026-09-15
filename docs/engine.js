@@ -186,6 +186,18 @@ function speakWord(w){
    page, the word itself on the English page) before handing it to speak(). */
 function englishOf(w){ return GAME==='th' ? (w.translations?.en?.word||'') : w.word; }
 function speakEntry(w){ const e=englishOf(w); if(e) speakWord(e); }
+/* A "plain" word - typed or credited outside the curated collection, i.e.
+   a dictionary find - is English text on the English page but, now that a
+   Thai dictionary exists too, can genuinely be Thai script on the Thai
+   page. speakWord() always assumes English (speakEntry above depends on
+   that), so this is the plain-word equivalent that picks the right voice
+   instead of reading Thai through the English one. */
+function speakPlainWord(w){
+  if(!sayWords) return;
+  speechSynthesis.cancel();
+  if(GAME==='th') speak(w,{rate:0.78,lang:'th'});
+  else speak(w,{rate:0.8});
+}
 
 /* ---- sound effects: synthesised, no audio files needed ----
    A few short oscillator tones stand in for a real SFX pack - tap, good,
@@ -580,7 +592,7 @@ function submit(){
       renderTray(); renderClue(); return;
     }
     inked.add(plain); sparks+=2; save();
-    speakWord(plain); showDictCard(plain);
+    speakPlainWord(plain); showDictCard(plain);
     const before=Math.floor((inked.size-1)/100), after=Math.floor(inked.size/100);
     if(after>before){sparks+=100;flash(`📖 ${inked.size} words inked · +100 ✨ milestone!`,'good')}
     else flash('📖 inked in the Dictionary · +2 ✨','good');
@@ -643,17 +655,25 @@ function dictCardHTML(word){
   const list=senses.length
     ? senses.map((s,i)=>`<p>${i+1}. ${s}</p>`).join('')
     : '<p>(no definition available)</p>';
+  /* Thai tone marks aren't their own tray tile (see FREE_MARKS elsewhere),
+     so a raw .length would count "letters" the tray itself doesn't agree
+     with - the same tiles()-style count build_thai.py already uses. */
+  const n = GAME==='th' ? [...word].filter(c=>!FREE_MARKS.has(c)).length : word.length;
+  /* On the English page this word is English and the link looks it up in
+     Thai; on the Thai page the word already IS Thai, so the link is just
+     a general dictionary search rather than a mislabeled translation. */
+  const lookupLabel = GAME==='th' ? 'ค้นหาในพจนานุกรม ↗' : 'ดูคำแปลไทย · look up in Thai ↗';
   return `
     <div id="c-art">📖</div>
     <div id="c-body">
       <div id="c-head">
         <h2 id="c-word">${word}</h2>
         <button id="c-speak" class="speakbtn" title="listen">🔊</button>
-        <span id="c-pos">${word.length} letters</span>
+        <span id="c-pos">${n} letters</span>
       </div>
       ${list}
       <div id="c-tags"><span>📖 Dictionary word</span></div>
-      <div id="lookup"><a href="#" onclick="openExternal('https://dict.longdo.com/search/${encodeURIComponent(word)}');return false">ดูคำแปลไทย · look up in Thai ↗</a></div>
+      <div id="lookup"><a href="#" onclick="openExternal('https://dict.longdo.com/search/${encodeURIComponent(word)}');return false">${lookupLabel}</a></div>
     </div>`;
 }
 
@@ -674,13 +694,20 @@ function showDictCard(word){
   bindCard(null,word);
 }
 
-/* wire the close button and the speaker button. A dictionary word (plainWord)
-   is always plain English already; a curated word goes through englishOf()
-   since w.word is Thai text on the Thai page and speak() only knows English. */
+/* wire the close button and the speaker button. A curated word goes through
+   englishOf() since w.word is Thai text on the Thai page and speak() only
+   knows English. A dictionary word (plainWord) is plain English on the
+   English page - but on the Thai page it's a real Thai dictionary word, so
+   it needs the Thai voice (speakThaiWord), not English TTS mangling Thai
+   script into noise. */
 function bindCard(w,plainWord){
   const c=$('c-close'); if(c) c.onclick=()=>{ $('card').className=''; shownCard=null; };
   const s=$('c-speak');
-  if(s) s.onclick=()=>{ speechSynthesis.cancel(); speak(w?englishOf(w):plainWord,{rate:0.8}); };
+  if(s) s.onclick=()=>{
+    speechSynthesis.cancel();
+    if(!w && GAME==='th') speakThaiWord(plainWord, true);
+    else speak(w?englishOf(w):plainWord,{rate:0.8});
+  };
 }
 
 function logWord(w){$('log').innerHTML+=`<span>${w.word}</span>`}
@@ -787,11 +814,28 @@ function peekDict(word){
   shownPop={word};
   openPop(dictCardHTML(word),'dict');
   const s=document.querySelector('#popcard #c-speak');
-  if(s) s.onclick=()=>{speechSynthesis.cancel();speak(word,{rate:0.8})};
+  if(s) s.onclick=()=>{speechSynthesis.cancel();
+    if(GAME==='th') speak(word,{rate:0.78,lang:'th'}); else speak(word,{rate:0.8});};
+}
+
+/* The shelf grid needs one bucket per first-character actually in play -
+   fixed at a-z for English, but Thai has no equivalent fixed 26-letter
+   assumption to reuse (see hangmanAlphabet's same derive-from-the-word-
+   list approach). Built from both curated and dictionary words so an
+   inked word - either kind - always has a shelf to land on. */
+let DICT_SHELF_CACHE = null;
+function dictShelfLetters(){
+  if(DICT_SHELF_CACHE) return DICT_SHELF_CACHE;
+  if(GAME!=='th'){ DICT_SHELF_CACHE = 'abcdefghijklmnopqrstuvwxyz'.split(''); return DICT_SHELF_CACHE; }
+  const set = new Set();
+  for(const w of BANK) if(w.spell) set.add(w.spell[0]);
+  for(const w of DICT) if(w) set.add(w[0]);
+  DICT_SHELF_CACHE = [...set].sort((a,b)=>a.localeCompare(b,'th'));
+  return DICT_SHELF_CACHE;
 }
 
 function showDictionary(){
-  const letters='abcdefghijklmnopqrstuvwxyz'.split('');
+  const letters=dictShelfLetters();
   const byL={};
   for(const w of inked) (byL[w[0]]=byL[w[0]]||[]).push(w);
   const shelf=letters.map(L=>{
@@ -800,24 +844,22 @@ function showDictionary(){
       <b>${L}</b><span>${n||''}</span></div>`;
   }).join('');
   const next=100-(inked.size%100);
-  openPanel(`<div class="phead"><div><h2>Dictionary</h2>
-    <div class="sub">${inked.size} words inked · ${next} more to the next milestone</div></div>
-    <button onclick="closePanel()">close</button></div>
+  openPanel(`<div class="phead"><div><h2>${t('dictionaryTitle')}</h2>
+    <div class="sub">${inked.size} ${t('wordsInked')} · ${next} ${t('toNextMilestone')}</div></div>
+    <button onclick="closePanel()">${t('close')}</button></div>
     <div class="shelf">${shelf}</div>
-    <div class="sub-h">how it works</div>
+    <div class="sub-h">${t('howItWorks')}</div>
     <div style="color:var(--dim);font-size:13px;line-height:1.6">
-      Any real English word you spell from the tray is inked here permanently, even if it
-      isn't one of the ${BANK_ALL.length} collection words. There is no completion target —
-      the Dictionary is a log of everything you've found, not a checklist.</div>`);
+      ${t('dictionaryHow').replace('{n}', BANK_ALL.length)}</div>`);
 }
 
 function showShelf(L){
   const ws=[...inked].filter(w=>w[0]===L).sort();
   const chips=ws.map(w=>`<span class="wchip" onclick="peekDict('${w}')">${w}</span>`).join('');
-  openPanel(`<button class="back" onclick="showDictionary()">← shelves</button>
+  openPanel(`<button class="back" onclick="showDictionary()">${t('backToShelves')}</button>
     <div class="phead"><div><h2>${L.toUpperCase()}</h2>
-    <div class="sub">${ws.length} words inked</div></div>
-    <button onclick="closePanel()">close</button></div>
+    <div class="sub">${ws.length} ${t('wordsInked')}</div></div>
+    <button onclick="closePanel()">${t('close')}</button></div>
     <div class="wgrid">${chips}</div>`);
 }
 
@@ -877,6 +919,9 @@ const STR = {
     sparks:'sparks', tray:'tray', nextAt:'next at', found:'found', next:'next',
     fillTray:'⚡ fill tray', nextRun:'⏭ next', collection:'📚 collection',
     dictionary:'📖 dictionary', topWords:'📈 top words', reset:'reset',
+    dictionaryTitle:'Dictionary', wordsInked:'words inked', toNextMilestone:'more to the next milestone',
+    howItWorks:'how it works', backToShelves:'← shelves',
+    dictionaryHow:'Any real word you spell from the tray is inked here permanently, even if it isn\'t one of the {n} collection words. There is no completion target — the Dictionary is a log of everything you\'ve found, not a checklist.',
     words:'🔊 words', letters:'🔤 letters', sfxLabel:'🔔 sfx', on:'ON', off:'OFF',
     clue:'clue', playTogether:'PLAY TOGETHER', submit:'Submit', clear:'Clear',
     tapBuild:'tap or type letters · Space is free',
@@ -992,6 +1037,9 @@ const STR = {
     sparks:'ประกาย', tray:'ถาด', nextAt:'ขยายที่', found:'พบแล้ว', next:'ถัดไป',
     fillTray:'⚡ เติมถาด', nextRun:'⏭ รอบถัดไป', collection:'📚 คลังคำ',
     dictionary:'📖 พจนานุกรม', topWords:'📈 คำยอดนิยม', reset:'ล้างข้อมูล',
+    dictionaryTitle:'พจนานุกรม', wordsInked:'คำที่บันทึกไว้', toNextMilestone:'คำ ถึงเป้าหมายถัดไป',
+    howItWorks:'วิธีการทำงาน', backToShelves:'← กลับไปที่ชั้นหนังสือ',
+    dictionaryHow:'คำจริงทุกคำที่คุณสะกดได้จากถาดจะถูกบันทึกไว้ที่นี่ถาวร แม้จะไม่ใช่หนึ่งใน {n} คำในคลังคำก็ตาม ไม่มีเป้าหมายที่ต้องทำให้ครบ — พจนานุกรมเป็นบันทึกของทุกคำที่คุณเคยพบ ไม่ใช่รายการที่ต้องไล่ทำ',
     words:'🔊 อ่านคำ', letters:'🔤 อ่านตัวอักษร', sfxLabel:'🔔 เสียง', on:'เปิด', off:'ปิด',
     clue:'คำใบ้', playTogether:'เล่นด้วยกัน', submit:'ส่งคำ', clear:'ล้าง',
     tapBuild:'แตะหรือพิมพ์ตัวอักษร · เว้นวรรคฟรี',
@@ -2976,7 +3024,7 @@ function creditDictWord(answer){
     sparks++; save();
     $('pzMsg').textContent=t('alreadyInked');
   } else {
-    inked.add(answer); sparks+=2; save(); speakWord(answer); showDictCard(answer);
+    inked.add(answer); sparks+=2; save(); speakPlainWord(answer); showDictCard(answer);
     $('pzMsg').textContent=t('inkedInDictionary');
   }
   $('pzMsg').className='msg good';
